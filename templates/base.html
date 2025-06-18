@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Listas de Reproducción - VideoSystem</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #495057;
+            --secondary-color: #6c757d;
+            --accent-color: #007bff;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        .sidebar {
+            min-height: 100vh;
+            background-color: #343a40;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar.hidden {
+            transform: translateX(-100%);
+        }
+
+        .sidebar .nav-link {
+            color: #adb5bd;
+            padding: 1rem 1.5rem;
+            border-radius: 0;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar .nav-link:hover {
+            color: #fff;
+            background-color: #495057;
+        }
+
+        .sidebar .nav-link.active {
+            color: #fff;
+            background-color: var(--accent-color);
+        }
+
+        .main-content {
+            margin-left: 250px;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+            transition: margin-left 0.3s ease;
+        }
+
+        .main-content.expanded {
+            margin-left: 0;
+        }
+
+        .sidebar-toggle {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1001;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0.75rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-toggle:hover {
+            background: var(--accent-color);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .sidebar-toggle.sidebar-hidden {
+            left: 15px;
+        }
+
+        .playlist-editor {
+            height: calc(100vh - 120px);
+            overflow: hidden;
+        }
+
+        .video-search-panel {
+            height: 100%;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .playlist-builder-panel {
+            height: 100%;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 1rem;
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+        }
+
+        .search-container {
+            padding: 1rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .video-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .video-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 0.8rem;
+            margin-bottom: 0.5rem;
+            cursor: grab;
+            transition: all 0.2s ease;
+            user-select: none;
+            position: relative;
+        }
+
+        .video-item:hover {
+            border-color: var(--accent-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,123,255,0.15);
+        }
+
+        .video-item:active {
+            cursor: grabbing;
+        }
+
+        .video-item.dragging {
+            opacity: 0.5;
+            transform: rotate(3deg) scale(0.95);
+        }
+
+        .video-item .video-title {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.3rem;
+        }
+
+        .video-item .video-meta {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+        }
+
+        .playlist-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            min-height: 400px;
+        }
+
+        .drop-zone {
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            color: var(--secondary-color);
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.active {
+            border-color: var(--accent-color);
+            background-color: rgba(0,123,255,0.05);
+            color: var(--accent-color);
+        }
+
+        .drop-zone.has-items {
+            display: none;
+        }
+
+        .playlist-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .playlist-item:hover {
+            border-color: var(--warning-color);
+            box-shadow: 0 2px 8px rgba(255,193,7,0.15);
+        }
+
+        .playlist-item .drag-handle {
+            color: var(--secondary-color);
+            cursor: grab;
+            margin-right: 0.8rem;
+            font-size: 1.2rem;
+        }
+
+        .playlist-item .remove-btn {
+            color: var(--danger-color);
+            cursor: pointer;
+            padding: 0.3rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .playlist-item .remove-btn:hover {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .playlist-controls {
+            padding: 1rem;
+            border-top: 1px solid #dee2e6;
+            background-color: #f8f9fa;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .btn-save-playlist {
+            background: linear-gradient(135deg, var(--success-color), #20c997);
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 0.8rem 2rem;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-save-playlist:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40,167,69,0.3);
+            color: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--secondary-color);
+            padding: 2rem;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .position-indicator {
+            position: absolute;
+            left: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--accent-color);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .video-duration {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        /* Responsive - Mantener layout lado a lado en todas las resoluciones */
+        @media (max-width: 1200px) {
+            .playlist-editor {
+                height: calc(100vh - 140px);
+            }
+            
+            .video-item, .playlist-item {
+                padding: 0.6rem;
+                margin-bottom: 0.4rem;
+            }
+            
+            .video-item .video-title {
+                font-size: 0.9rem;
+            }
+            
+            .playlist-item .video-title {
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 992px) {
+            /* Mantener layout de 2 columnas lado a lado */
+            .playlist-editor {
+                height: calc(100vh - 140px);
+            }
+            
+            .playlist-editor .col-lg-4 {
+                flex: 0 0 35%;
+                max-width: 35%;
+                padding-right: 0.5rem;
+            }
+            
+            .playlist-editor .col-lg-8 {
+                flex: 0 0 65%;
+                max-width: 65%;
+                padding-left: 0.5rem;
+            }
+            
+            .video-search-panel,
+            .playlist-builder-panel {
+                height: 100%;
+            }
+            
+            .panel-header {
+                padding: 0.75rem;
+                font-size: 0.9rem;
+            }
+            
+            .search-container {
+                padding: 0.75rem;
+            }
+            
+            .video-list-container,
+            .playlist-content {
+                padding: 0.75rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 200px;
+            }
+            
+            .main-content {
+                margin-left: 200px;
+            }
+            
+            .main-content.expanded {
+                margin-left: 0;
+            }
+            
+            .container-fluid {
+                padding: 0.5rem;
+            }
+            
+            /* Mantener lado a lado con proporción ajustada */
+            .playlist-editor .col-lg-4 {
+                flex: 0 0 40%;
+                max-width: 40%;
+                padding-right: 0.25rem;
+            }
+            
+            .playlist-editor .col-lg-8 {
+                flex: 0 0 60%;
+                max-width: 60%;
+                padding-left: 0.25rem;
+            }
+            
+            .panel-header {
+                padding: 0.5rem;
+                font-size: 0.85rem;
+            }
+            
+            .search-container {
+                padding: 0.5rem;
+            }
+            
+            .video-list-container,
+            .playlist-content {
+                padding: 0.5rem;
+            }
+            
+            .playlist-controls {
+                padding: 0.5rem;
+            }
+            
+            .btn-save-playlist {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .sidebar {
+                width: 180px;
+            }
+            
+            .main-content {
+                margin-left: 180px;
+            }
+            
+            .sidebar-toggle {
+                top: 10px;
+                left: 10px;
+                padding: 0.6rem;
+            }
+            
+            .container-fluid {
+                padding: 0.25rem;
+            }
+            
+            /* En móviles, mantener lado a lado pero más compacto */
+            .playlist-editor {
+                height: calc(100vh - 120px);
+            }
+            
+            .playlist-editor .col-lg-4 {
+                flex: 0 0 38%;
+                max-width: 38%;
+                padding-right: 0.125rem;
+            }
+            
+            .playlist-editor .col-lg-8 {
+                flex: 0 0 62%;
+                max-width: 62%;
+                padding-left: 0.125rem;
+            }
+            
+            .panel-header {
+                padding: 0.4rem;
+                font-size: 0.8rem;
+            }
+            
+            .panel-header .badge {
+                font-size: 0.7rem;
+                padding: 0.2rem 0.4rem;
+            }
+            
+            .search-container {
+                padding: 0.4rem;
+            }
+            
+            .video-list-container,
+            .playlist-content {
+                padding: 0.4rem;
+            }
+            
+            .playlist-controls {
+                padding: 0.4rem;
+            }
+            
+            .video-item, .playlist-item {
+                padding: 0.4rem;
+                margin-bottom: 0.25rem;
+            }
+            
+            .video-item .video-title,
+            .playlist-item .video-title {
+                font-size: 0.8rem;
+            }
+            
+            .video-item .video-meta,
+            .playlist-item .video-meta {
+                font-size: 0.7rem;
+            }
+            
+            .btn-save-playlist {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.8rem;
+            }
+            
+            .drop-zone {
+                padding: 0.8rem;
+                min-height: 120px;
+            }
+            
+            .drop-zone i {
+                font-size: 1.5rem;
+            }
+            
+            .drop-zone h5 {
+                font-size: 0.9rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            .drop-zone p {
+                font-size: 0.75rem;
+                margin-bottom: 0;
+            }
+            
+            /* Hacer los controles más pequeños en móvil */
+            .input-group .form-control {
+                font-size: 0.85rem;
+            }
+            
+            .btn-outline-secondary {
+                padding: 0.4rem 0.6rem;
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Forzar layout de filas horizontales */
+        .playlist-editor {
+            display: flex !important;
+            flex-direction: row !important;
+        }
+        
+        .playlist-editor .row {
+            display: flex !important;
+            flex-direction: row !important;
+            width: 100%;
+            margin: 0;
+        }
+        
+        /* Asegurar que las columnas nunca se apilen verticalmente */
+        .playlist-editor .col-lg-4,
+        .playlist-editor .col-lg-8 {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        /* Scrollbars personalizados para mejor experiencia */
+        .video-list-container::-webkit-scrollbar,
+        .playlist-content::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .video-list-container::-webkit-scrollbar-track,
+        .playlist-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+        
+        .video-list-container::-webkit-scrollbar-thumb,
+        .playlist-content::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+        
+        .video-list-container::-webkit-scrollbar-thumb:hover,
+        .playlist-content::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+        <i class="fas fa-bars" id="sidebarToggleIcon"></i>
+    </button>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="position-sticky pt-3">
+            <div class="text-center text-white mb-4">
+                <h4><i class="fas fa-video"></i> VideoSystem</h4>
+                {% if user %}
+                <small>Bienvenido, {{ user.username }}</small>
+                {% endif %}
+            </div>
+            
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link" href="/ui/dashboard">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/ui/videos">
+                        <i class="fas fa-film"></i> Videos
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link " href="/ui/playlists">
+                        <i class="fas fa-list"></i> Listas de Reproducción
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/ui/devices">
+                        <i class="fas fa-tv"></i> Dispositivos
+                    </a>
+                </li>
+                {% if user and user.is_admin %}
+                <li class="nav-item">
+                    <a class="nav-link" href="/ui/users">
+                        <i class="fas fa-users"></i> Usuarios
+                    </a>
+                </li>
+                {% endif %}
+                <li class="nav-item mt-3">
+                    <a class="nav-link text-danger" href="/ui/logout">
+                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+   
+ {% block content %}{% endblock %}
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Variables globales
+        let videos = [];
+        let playlistVideos = [];
+        let currentPlaylistId = {{ playlist.id if playlist else 'null' }};
+        let draggedElement = null;
+        let sidebarHidden = false;
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            loadVideos();
+            initializeDragAndDrop();
+            initializeSearch();
+            updatePlaylistHeader();
+            updateLayoutOnResize(); // Ajustar layout inicial
+            
+            {% if playlist %}
+            loadExistingPlaylist();
+            {% endif %}
+        });
+
+        // Toggle Sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const toggleIcon = document.getElementById('sidebarToggleIcon');
+            const toggleButton = document.getElementById('sidebarToggle');
+            
+            sidebarHidden = !sidebarHidden;
+            
+            if (sidebarHidden) {
+                sidebar.classList.add('hidden');
+                mainContent.classList.add('expanded');
+                toggleIcon.className = 'fas fa-bars';
+                toggleButton.classList.add('sidebar-hidden');
+            } else {
+                sidebar.classList.remove('hidden');
+                mainContent.classList.remove('expanded');
+                toggleIcon.className = 'fas fa-times';
+                toggleButton.classList.remove('sidebar-hidden');
+            }
+        }
+
+        // Manejo de redimensionamiento de ventana
+        window.addEventListener('resize', function() {
+            // Mantener la funcionalidad en todas las resoluciones
+            // No forzar cambios de layout automáticos
+            updateLayoutOnResize();
+        });
+
+        function updateLayoutOnResize() {
+            const width = window.innerWidth;
+            const playlistEditor = document.querySelector('.playlist-editor');
+            
+            // Ajustar altura dinámicamente según el viewport
+            if (playlistEditor) {
+                const headerHeight = document.querySelector('.border-bottom').offsetHeight || 80;
+                const formHeight = document.querySelector('.card').offsetHeight || 120;
+                const availableHeight = window.innerHeight - headerHeight - formHeight - 60;
+                
+                playlistEditor.style.height = `${Math.max(400, availableHeight)}px`;
+                
+                // Forzar layout horizontal siempre
+                playlistEditor.style.display = 'flex';
+                playlistEditor.style.flexDirection = 'row';
+            }
+            
+            // Asegurar que los paneles mantengan layout lado a lado
+            const videoPanel = document.querySelector('.video-search-panel');
+            const playlistPanel = document.querySelector('.playlist-builder-panel');
+            const col4 = document.querySelector('.playlist-editor .col-lg-4');
+            const col8 = document.querySelector('.playlist-editor .col-lg-8');
+            
+            if (videoPanel && playlistPanel && col4 && col8) {
+                // Forzar heights completos
+                videoPanel.style.height = '100%';
+                playlistPanel.style.height = '100%';
+                
+                // Asegurar flex en columnas
+                col4.style.display = 'flex';
+                col4.style.flexDirection = 'column';
+                col8.style.display = 'flex';
+                col8.style.flexDirection = 'column';
+                
+                // Ajustar proporciones según tamaño de pantalla
+                if (width <= 576) {
+                    // Móvil: 38% - 62%
+                    col4.style.flex = '0 0 38%';
+                    col4.style.maxWidth = '38%';
+                    col8.style.flex = '0 0 62%';
+                    col8.style.maxWidth = '62%';
+                } else if (width <= 768) {
+                    // Tablet: 40% - 60%
+                    col4.style.flex = '0 0 40%';
+                    col4.style.maxWidth = '40%';
+                    col8.style.flex = '0 0 60%';
+                    col8.style.maxWidth = '60%';
+                } else if (width <= 992) {
+                    // Desktop pequeño: 35% - 65%
+                    col4.style.flex = '0 0 35%';
+                    col4.style.maxWidth = '35%';
+                    col8.style.flex = '0 0 65%';
+                    col8.style.maxWidth = '65%';
+                } else {
+                    // Desktop grande: proporciones originales
+                    col4.style.flex = '';
+                    col4.style.maxWidth = '';
+                    col8.style.flex = '';
+                    col8.style.maxWidth = '';
+                }
+            }
+        }
+
+        // Cargar videos desde la API
+        async function loadVideos() {
+            try {
+                const spinner = document.getElementById('videoLoadingSpinner');
+                const emptyState = document.getElementById('videoEmptyState');
+                const videoLibrary = document.getElementById('videoLibrary');
+                
+                spinner.style.display = 'block';
+                
+                const response = await fetch('/api/videos');
+                const data = await response.json();
+                
+                videos = data.videos || [];
+                
+                spinner.style.display = 'none';
+                
+                if (videos.length === 0) {
+                    emptyState.style.display = 'block';
+                } else {
+                    renderVideoLibrary();
+                }
+            } catch (error) {
+                console.error('Error al cargar videos:', error);
+                document.getElementById('videoLoadingSpinner').style.display = 'none';
+                document.getElementById('videoEmptyState').style.display = 'block';
+            }
+        }
+
+        // Renderizar biblioteca de videos
+        function renderVideoLibrary(filteredVideos = null) {
+            const videoLibrary = document.getElementById('videoLibrary');
+            const videosToRender = filteredVideos || videos;
+            
+            videoLibrary.innerHTML = '';
+            
+            videosToRender.forEach(video => {
+                const videoElement = createVideoElement(video);
+                videoLibrary.appendChild(videoElement);
+            });
+        }
+
+        // Crear elemento de video
+        function createVideoElement(video) {
+            const div = document.createElement('div');
+            div.className = 'video-item';
+            div.draggable = true;
+            div.dataset.videoId = video.id;
+            
+            div.innerHTML = `
+                <div class="video-title">${video.title || video.filename}</div>
+                <div class="video-meta">
+                    <span class="video-duration">${formatDuration(video.duration || 0)}</span>
+                    <small class="ms-2">${formatFileSize(video.file_size || 0)}</small>
+                </div>
+            `;
+            
+            // Event listeners para drag & drop
+            div.addEventListener('dragstart', handleDragStart);
+            div.addEventListener('dragend', handleDragEnd);
+            
+            return div;
+        }
+
+        // Inicializar drag & drop
+        function initializeDragAndDrop() {
+            const dropZone = document.getElementById('dropZone');
+            const playlistContent = document.getElementById('playlistContent');
+            
+            // Drop zone events
+            dropZone.addEventListener('dragover', handleDragOver);
+            dropZone.addEventListener('drop', handleDrop);
+            
+            // Playlist content events
+            playlistContent.addEventListener('dragover', handleDragOver);
+            playlistContent.addEventListener('drop', handleDrop);
+        }
+
+        // Manejadores de drag & drop
+        function handleDragStart(e) {
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'copy';
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            draggedElement = null;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            
+            if (draggedElement) {
+                const videoId = parseInt(draggedElement.dataset.videoId);
+                const video = videos.find(v => v.id === videoId);
+                
+                if (video && !playlistVideos.find(pv => pv.video_id === videoId)) {
+                    addVideoToPlaylist(video);
+                }
+            }
+        }
+
+        // Agregar video a la playlist
+        function addVideoToPlaylist(video) {
+            const position = playlistVideos.length + 1;
+            const playlistVideo = {
+                video_id: video.id,
+                position: position,
+                video: video
+            };
+            
+            playlistVideos.push(playlistVideo);
+            renderPlaylist();
+            updatePlaylistInfo();
+        }
+
+        // Renderizar playlist
+        function renderPlaylist() {
+            const dropZone = document.getElementById('dropZone');
+            const playlistItems = document.getElementById('playlistItems');
+            
+            if (playlistVideos.length === 0) {
+                dropZone.classList.remove('has-items');
+                playlistItems.innerHTML = '';
+            } else {
+                dropZone.classList.add('has-items');
+                
+                playlistItems.innerHTML = '';
+                playlistVideos.forEach((playlistVideo, index) => {
+                    const itemElement = createPlaylistItem(playlistVideo, index);
+                    playlistItems.appendChild(itemElement);
+                });
+            }
+        }
+
+        // Crear elemento de playlist
+        function createPlaylistItem(playlistVideo, index) {
+            const div = document.createElement('div');
+            div.className = 'playlist-item';
+            div.dataset.position = index;
+            
+            div.innerHTML = `
+                <div class="position-indicator">${index + 1}</div>
+                <div class="drag-handle">
+                    <i class="fas fa-grip-vertical"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="video-title">${playlistVideo.video.title || playlistVideo.video.filename}</div>
+                    <div class="video-meta">
+                        <span class="video-duration">${formatDuration(playlistVideo.video.duration || 0)}</span>
+                        <small class="ms-2">${formatFileSize(playlistVideo.video.file_size || 0)}</small>
+                    </div>
+                </div>
+                <div class="remove-btn" onclick="removeFromPlaylist(${index})">
+                    <i class="fas fa-trash"></i>
+                </div>
+            `;
+            
+            return div;
+        }
+
+        // Remover video de la playlist
+        function removeFromPlaylist(index) {
+            playlistVideos.splice(index, 1);
+            renderPlaylist();
+            updatePlaylistInfo();
+        }
+
+        // Actualizar información de la playlist
+        function updatePlaylistInfo() {
+            const videoCount = document.getElementById('videoCount');
+            const totalDuration = document.getElementById('totalDuration');
+            const saveButton = document.getElementById('saveButton');
+            
+            videoCount.textContent = `${playlistVideos.length} video${playlistVideos.length !== 1 ? 's' : ''}`;
+            
+            const totalSeconds = playlistVideos.reduce((sum, pv) => sum + (pv.video.duration || 0), 0);
+            totalDuration.textContent = formatDuration(totalSeconds);
+            
+            saveButton.disabled = playlistVideos.length === 0;
+        }
+
+        // Actualizar header de la playlist
+        function updatePlaylistHeader() {
+            const titleInput = document.getElementById('playlistTitle');
+            const headerTitle = document.getElementById('playlistHeaderTitle');
+            
+            titleInput.addEventListener('input', function() {
+                headerTitle.textContent = this.value || 'Nueva Lista de Reproducción';
+            });
+        }
+
+        // Inicializar búsqueda
+        function initializeSearch() {
+            const searchInput = document.getElementById('videoSearch');
+            
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                
+                if (searchTerm.trim() === '') {
+                    renderVideoLibrary();
+                } else {
+                    const filtered = videos.filter(video => 
+                        (video.title || video.filename).toLowerCase().includes(searchTerm)
+                    );
+                    renderVideoLibrary(filtered);
+                }
+            });
+        }
+
+        // Limpiar búsqueda
+        function clearSearch() {
+            document.getElementById('videoSearch').value = '';
+            renderVideoLibrary();
+        }
+
+        // Guardar playlist
+        async function savePlaylist() {
+            const title = document.getElementById('playlistTitle').value.trim();
+            const description = document.getElementById('playlistDescription').value.trim();
+            
+            if (!title) {
+                alert('Por favor ingresa un título para la lista de reproducción');
+                return;
+            }
+            
+            if (playlistVideos.length === 0) {
+                alert('Agrega al menos un video a la lista de reproducción');
+                return;
+            }
+            
+            try {
+                const payload = {
+                    title: title,
+                    description: description,
+                    videos: playlistVideos.map((pv, index) => ({
+                        video_id: pv.video_id,
+                        position: index + 1
+                    }))
+                };
+                
+                const url = currentPlaylistId 
+                    ? `/api/playlists/${currentPlaylistId}`
+                    : '/api/playlists';
+                    
+                const method = currentPlaylistId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    alert('Lista de reproducción guardada exitosamente');
+                    
+                    if (!currentPlaylistId) {
+                        currentPlaylistId = result.id;
+                    }
+                } else {
+                    throw new Error('Error al guardar la lista de reproducción');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al guardar la lista de reproducción');
+            }
+        }
+
+        // Cargar playlist existente
+        async function loadExistingPlaylist() {
+            if (!currentPlaylistId) return;
+            
+            try {
+                const response = await fetch(`/api/playlists/${currentPlaylistId}`);
+                const playlist = await response.json();
+                
+                document.getElementById('playlistTitle').value = playlist.title;
+                document.getElementById('playlistDescription').value = playlist.description || '';
+                
+                playlistVideos = playlist.videos || [];
+                renderPlaylist();
+                updatePlaylistInfo();
+                updatePlaylistHeader();
+            } catch (error) {
+                console.error('Error al cargar playlist:', error);
+            }
+        }
+
+        // Limpiar playlist
+        function clearPlaylist() {
+            if (confirm('¿Estás seguro de que quieres limpiar toda la lista?')) {
+                playlistVideos = [];
+                renderPlaylist();
+                updatePlaylistInfo();
+            }
+        }
+
+        // Funciones de utilidad
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
+            
