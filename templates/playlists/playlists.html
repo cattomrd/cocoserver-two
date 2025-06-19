@@ -1,280 +1,237 @@
 {% extends "base.html" %}
 
-{% block content %}
-
-        <div class="container-fluid py-4">
-            <!-- Header -->
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
-                <h1 class="h2">
-                    <i class="fas fa-list text-primary"></i>
-                    Listas de Reproducción
-                </h1>
-                <div class="btn-toolbar mb-2 mb-md-0">
-                    <a href="/ui/edi-playlists" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Nueva Lista
-                    </a>
+{% block content %} 
+<!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <!-- Header -->
+        <div class="card">
+            <div class="card-body">
+                <h1><i class="fas fa-list"></i> Gestión de Listas de Reproducción</h1>
+                <p class="mb-0 text-muted">Crea, edita y gestiona tus listas de reproducción</p>
+            </div>
+        </div>
+        <!-- Action Buttons -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-3 justify-content-between">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-primary" onclick="showCreatePlaylist()">
+                            <i class="fas fa-plus"></i> Nueva Lista
+                        </button>
+                        <button class="btn btn-success" onclick="showPlaylistEditor()">
+                            <i class="fas fa-edit"></i> Editor Avanzado
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="refreshPlaylists()">
+                            <i class="fas fa-sync-alt"></i> <span class="d-mobile-none">Actualizar</span>
+                        </button>
+                    </div>
+                    <span class="badge bg-info fs-6" id="playlistCountBadge">0 listas</span>
                 </div>
             </div>
+        </div>
 
-            <!-- Controles de búsqueda y filtros para playlists -->
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <div class="input-group">
-                        <input type="text" id="playlistSearchInput" class="form-control" placeholder="Buscar listas por título o descripción...">
-                        <button class="btn btn-outline-primary" type="button" id="clearPlaylistSearch">
-                            <i class="fas fa-times"></i> Limpiar
+        <!-- Search and Filters -->
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="input-group">
+                            <input type="text" id="playlistSearchInput" class="form-control" placeholder="Buscar listas...">
+                            <button class="btn btn-outline-primary" id="clearPlaylistSearch">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <select class="form-select" id="playlistFilterStatus">
+                            <option value="all">Todas las listas</option>
+                            <option value="active">Listas activas</option>
+                            <option value="inactive">Listas inactivas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-secondary w-100" onclick="toggleView()">
+                            <i class="fas fa-th" id="viewToggleIcon"></i>
                         </button>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <select class="form-select" id="playlistFilterStatus">
-                        <option value="all">Todas las listas</option>
-                        <option value="active">Listas activas</option>
-                        <option value="inactive">Listas inactivas</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <select class="form-select" id="playlistPageSizeSelect">
-                        <option value="25">25 por página</option>
-                        <option value="50">50 por página</option>
-                        <option value="100" selected>100 por página</option>
-                        <option value="200">200 por página</option>
-                        <option value="500">Todas las listas</option>
-                    </select>
-                </div>
             </div>
+        </div>
 
-            <!-- Información de resultados -->
-            <div class="row mb-2">
-                <div class="col-md-6">
-                    <span id="playlistCountBadge" class="badge bg-info fs-6">0 listas</span>
-                </div>
-                <div class="col-md-6 text-end">
-                    <small class="text-muted" id="playlistPaginationInfo">
-                        Mostrando 0 - 0 de 0 resultados
-                    </small>
-                </div>
+        <!-- Table View -->
+        <div class="card" id="tableView">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-table"></i> Listas de Reproducción</h5>
             </div>
-
-            <!-- Tabla de listas de reproducción -->
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-video me-2"></i>Listas de Reproducción
-                    </h5>
-                </div>
-                
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Título</th>
-                                    <th>Descripción</th>
-                                    <th>Videos</th>
-                                    <th>Período</th>
-                                    <th>Estado</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="playlistsList">
-                                <tr>
-                                    <td colspan="6" class="text-center py-3">
-                                        <div class="spinner-border text-primary" role="status">
-                                            <span class="visually-hidden">Cargando...</span>
-                                        </div>
-                                        <p class="mt-2">Cargando listas de reproducción...</p>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Título</th>
+                                <th class="d-mobile-none">Descripción</th>
+                                <th>Videos</th>
+                                <th class="d-mobile-none">Fecha</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="playlistsList">
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <div class="spinner-border text-primary"></div>
+                                    <p class="mt-2">Cargando...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-    <!-- Modal para ver detalles de playlist -->
-    <div class="modal fade" id="playlistDetailModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="fas fa-list"></i> <span id="playlistDetailTitle">Detalles de Lista</span>
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="playlist-detail-content" id="playlistDetailContent">
-                        <!-- Contenido dinámico -->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="button" class="btn btn-primary" id="editPlaylistBtn">
-                        <i class="fas fa-edit"></i> Editar
-                    </button>
-                    <button type="button" class="btn btn-danger" id="deletePlaylistBtn">
-                        <i class="fas fa-trash"></i> Eliminar
-                    </button>
-                </div>
-            </div>
+        <!-- Card View -->
+        <div id="cardView" style="display: none;">
+            <div class="row" id="playlistCards"></div>
         </div>
-    </div>
+    </main>
 
-    <!-- Modal para editar playlist -->
-    <div class="modal fade" id="editPlaylistModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
+    <!-- Modal Crear/Editar Playlist -->
+    <div class="modal fade" id="createPlaylistModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Editar Lista de Reproducción</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="createPlaylistModalTitle">
+                        <i class="fas fa-plus"></i> Crear Nueva Lista
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="editPlaylistForm">
+                    <form id="createPlaylistForm">
                         <input type="hidden" id="editPlaylistId">
-                        <div class="mb-3">
-                            <label for="editPlaylistTitle" class="form-label">Título</label>
-                            <input type="text" class="form-control" id="editPlaylistTitle" required>
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label">Título *</label>
+                                <input type="text" class="form-control" id="playlistTitle" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Estado</label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="playlistActive" checked>
+                                    <label class="form-check-label">Activa</label>
+                                </div>
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <label for="editPlaylistDescription" class="form-label">Descripción</label>
-                            <textarea class="form-control" id="editPlaylistDescription" rows="3"></textarea>
+                            <label class="form-label">Descripción</label>
+                            <textarea class="form-control" id="playlistDescription" rows="3"></textarea>
                         </div>
-                        <div class="mb-3">
-                            <label for="editPlaylistStartDate" class="form-label">Fecha de Inicio</label>
-                            <input type="datetime-local" class="form-control" id="editPlaylistStartDate">
-                        </div>
-                        <div class="mb-3">
-                            <label for="editPlaylistExpiration" class="form-label">Fecha de Expiración</label>
-                            <input type="datetime-local" class="form-control" id="editPlaylistExpiration">
-                        </div>
-                        <div class="form-check mb-3">
-                            <input type="checkbox" class="form-check-input" id="editPlaylistActive">
-                            <label class="form-check-label" for="editPlaylistActive">Lista Activa</label>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha de Inicio</label>
+                                <input type="datetime-local" class="form-control" id="playlistStartDate">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha de Expiración</label>
+                                <input type="datetime-local" class="form-control" id="playlistExpiration">
+                            </div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="savePlaylistChanges()">Guardar Cambios</button>
+                    <button type="button" class="btn btn-primary" id="savePlaylistBtn">Guardar</button>
                 </div>
             </div>
         </div>
     </div>
-{% endblock %}
 
-{% block extra_scripts %}
-    <!-- Cargar main.js primero -->
-    <script src="/static/js/main.js"></script>
-    
-    <script>
-        // Esperar a que el DOM y main.js estén completamente cargados
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Página de playlists cargada');
-            
-            // Verificar si las funciones necesarias están disponibles
-            if (typeof window.loadPlaylists === 'function') {
-                console.log('Cargando playlists con main.js...');
-                
-                // Llamar a loadPlaylists con el filtro 'all'
-                // Esta función está definida en main.js
-                window.loadPlaylists('all');
-                
-                // Si existe playlist-pagination.js, sus event listeners se activarán automáticamente
-            } else {
-                console.error('La función loadPlaylists no está disponible');
-                // Intentar cargar de forma básica
-                loadBasicPlaylists();
-            }
-        });
-
-        // Función básica de respaldo
-        async function loadBasicPlaylists() {
-            console.log('Usando carga básica de playlists...');
-            const tbody = document.getElementById('playlistsList');
-            
-            try {
-                const response = await fetch('/api/playlists/?limit=10000');
-                const playlists = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error('Error al cargar playlists');
-                }
-                
-                // Actualizar contador
-                const badge = document.getElementById('playlistCountBadge');
-                if (badge) {
-                    badge.textContent = `${playlists.length} listas`;
-                }
-                
-                // Mostrar playlists
-                if (playlists.length === 0) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="6" class="text-center py-4">
-                                <p class="text-muted mb-0">No hay listas de reproducción disponibles</p>
-                            </td>
-                        </tr>
-                    `;
-                } else {
-                    tbody.innerHTML = playlists.map(playlist => {
-                        const videoCount = playlist.videos ? playlist.videos.length : 0;
-                        const isActive = playlist.is_active && 
-                                    (!playlist.expiration_date || new Date(playlist.expiration_date) > new Date());
-                        
-                        // Formatear período
-                        let periodText = '';
-                        if (playlist.start_date || playlist.expiration_date) {
-                            const startText = playlist.start_date ? 
-                                new Date(playlist.start_date).toLocaleDateString() : 'Sin inicio';
-                            const endText = playlist.expiration_date ? 
-                                new Date(playlist.expiration_date).toLocaleDateString() : 'Sin fin';
-                            periodText = `${startText} - ${endText}`;
-                        } else {
-                            periodText = 'Sin restricción de fecha';
-                        }
-                        
-                        return `
-                            <tr>
-                                <td>${playlist.title || 'Sin título'}</td>
-                                <td>${playlist.description || '<span class="text-muted">Sin descripción</span>'}</td>
-                                <td>
-                                    <span class="badge bg-secondary">${videoCount} videos</span>
-                                </td>
-                                <td>
-                                    <small class="text-muted">${periodText}</small>
-                                </td>
-                                <td>
-                                    <span class="badge ${isActive ? 'bg-success' : 'bg-danger'}">
-                                        ${isActive ? 'Activa' : 'Inactiva'}
-                                    </span>
-                                </td>
-                                <td>
-                                    <button class="btn btn-primary btn-sm" 
-                                            onclick="window.openPlaylistDetail ? openPlaylistDetail(${playlist.id}) : alert('Función no disponible')">
-                                        <i class="fas fa-eye"></i> Ver Detalles
-                                    </button>
-                                </td>
-                            </tr>
-                        `;
-                    }).join('');
-                }
-                
-            } catch (error) {
-                console.error('Error:', error);
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="text-center py-4">
-                            <div class="alert alert-danger mb-0">
-                                Error al cargar las listas: ${error.message}
+    <!-- Modal Editor Avanzado -->
+    <div class="modal fade" id="playlistEditorModal" tabindex="-1">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit"></i> Editor Avanzado
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <!-- Header del editor -->
+                    <div class="p-3 bg-light border-bottom">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" id="editorPlaylistTitle" placeholder="Nombre de la lista">
                             </div>
-                        </td>
-                    </tr>
-                `;
-            }
-        }
-    </script>
-    
-    <!-- Cargar playlist-pagination.js si existe (opcional) -->
-    <script src="/static/js/playlist-pagination.js" onerror="console.log('playlist-pagination.js no encontrado, usando funcionalidad básica')"></script>
+                            <div class="col-md-6 text-end">
+                                <span class="badge bg-info me-2" id="editorVideoCount">0 videos</span>
+                                <span class="badge bg-secondary me-2" id="editorTotalDuration">0:00</span>
+                                <button class="btn btn-outline-danger btn-sm me-2" onclick="clearEditorPlaylist()">
+                                    <i class="fas fa-trash"></i> Limpiar
+                                </button>
+                                <button class="btn btn-success btn-sm" id="saveEditorPlaylistBtn">
+                                    <i class="fas fa-save"></i> Guardar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Editor principal -->
+                    <div class="playlist-editor">
+                        <!-- Panel de Videos (Izquierda) -->
+                        <div class="video-search-panel">
+                            <div class="panel-header">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <h6><i class="fas fa-film"></i> Biblioteca de Videos</h6>
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllVisibleVideos()">
+                                            <i class="fas fa-check-double"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-primary" onclick="addSelectedVideos()" id="addSelectedVideosBtn" disabled>
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <input type="text" class="form-control mb-3" id="editorVideoSearch" placeholder="Buscar videos...">
+                                <div id="editorSelectionInfo" style="display: none;">
+                                    <small class="text-muted">
+                                        <span id="editorSelectedCount">0</span> video(s) seleccionado(s)
+                                        <button class="btn btn-sm btn-link p-0 ms-2" onclick="clearVideoSelection()">Limpiar</button>
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="panel-content">
+                                <div id="editorVideoLibrary"></div>
+                            </div>
+                        </div>
+
+                        <!-- Panel de Lista (Derecha) -->
+                        <div class="playlist-builder-panel">
+                            <div class="panel-header">
+                                <h6><i class="fas fa-list"></i> Lista de Reproducción</h6>
+                            </div>
+                            <div class="panel-content">
+                                <div class="drop-zone" id="editorDropZone">
+                                    <div>
+                                        <i class="fas fa-cloud-upload-alt fa-3x mb-3 opacity-50"></i>
+                                        <h5>Arrastra videos aquí</h5>
+                                        <p>O selecciona y usa "Agregar"</p>
+                                    </div>
+                                    <div id="editorPlaylistItems"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 {% endblock %}
+{% block scripts %} 
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/playlists.js"></script>
+{% endblock %}
+

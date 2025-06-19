@@ -1,708 +1,1346 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Videos - VideoSystem</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        /* Variables CSS para consistencia */
+        :root {
+            --sidebar-width: 250px;
+            --sidebar-width-collapsed: 0px;
+            --header-height: 70px;
+            --transition-speed: 0.3s;
+            --primary-color: #007bff;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --dark-color: #343a40;
+            --light-color: #f8f9fa;
+            --border-color: #dee2e6;
+        }
 
-{% block content %}
-    <main class="main-content" id="mainContent">
-        <div class="container-fluid py-4">
-            <!-- Header -->
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
-                <h1 class="h2">
-                    <i class="fas fa-film text-primary"></i>
-                    Videos
-                </h1>
-                <div class="btn-toolbar mb-2 mb-md-0">
-                    <div class="btn-group me-2">
-                        <button type="button" class="btn btn-outline-secondary" onclick="loadPlaylist()">
-                            <i class="fas fa-folder-open"></i> Cargar Lista
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="clearPlaylist()">
-                            <i class="fas fa-trash"></i> Limpiar
-                        </button>
-                    </div>
-                </div>
+        /* Reset y base */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--light-color);
+            overflow-x: hidden;
+        }
+
+        /* Sidebar responsive */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: linear-gradient(135deg, var(--dark-color) 0%, #495057 100%);
+            color: white;
+            transition: transform var(--transition-speed) ease;
+            z-index: 1000;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .sidebar.hidden {
+            transform: translateX(-100%);
+        }
+
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 4px 12px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar .nav-link:hover {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .sidebar .nav-link.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Toggle button responsive */
+        .sidebar-toggle {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1001;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .sidebar-toggle:hover {
+            background: #0056b3;
+            transform: scale(1.05);
+        }
+
+        .sidebar-toggle.sidebar-hidden {
+            left: 15px;
+        }
+
+        /* Main content responsive */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            padding: 20px;
+            transition: margin-left var(--transition-speed) ease;
+            background-color: var(--light-color);
+        }
+
+        .main-content.expanded {
+            margin-left: 0;
+        }
+
+        /* Header responsive */
+        .page-header {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .page-header h1 {
+            margin: 0;
+            color: var(--dark-color);
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+        }
+
+        /* Cards mejoradas */
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+            margin-bottom: 20px;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #0056b3 100%);
+            color: white;
+            border-radius: 12px 12px 0 0 !important;
+            border: none;
+            padding: 15px 20px;
+        }
+
+        .card-header h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        /* Form styles */
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+
+        /* Button styles */
+        .btn {
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning-color);
+            color: white;
+        }
+
+        .btn-outline-primary {
+            background: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+
+        .btn-outline-secondary {
+            background: transparent;
+            color: #6c757d;
+            border: 1px solid #6c757d;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Table responsive */
+        .table {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .table thead th {
+            background: var(--light-color);
+            border: none;
+            font-weight: 600;
+            color: var(--dark-color);
+            padding: 15px;
+        }
+
+        .table tbody tr {
+            transition: all 0.2s ease;
+        }
+
+        .table tbody tr:hover {
+            background: rgba(0, 123, 255, 0.05);
+            transform: scale(1.001);
+        }
+
+        .table tbody td {
+            padding: 15px;
+            vertical-align: middle;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        /* Progress bar */
+        .progress {
+            border-radius: 25px;
+            height: 25px;
+            background: #e9ecef;
+        }
+
+        .progress-bar {
+            border-radius: 25px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        /* Badges */
+        .badge {
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.75rem;
+        }
+
+        .badge.bg-success {
+            background: var(--success-color) !important;
+        }
+
+        .badge.bg-danger {
+            background: var(--danger-color) !important;
+        }
+
+        .badge.bg-warning {
+            background: var(--warning-color) !important;
+            color: #000 !important;
+        }
+
+        .badge.bg-info {
+            background: #17a2b8 !important;
+        }
+
+        /* Input groups */
+        .input-group {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .input-group .form-control {
+            border-radius: 0;
+            border-right: none;
+        }
+
+        .input-group .btn {
+            border-radius: 0;
+        }
+
+        .input-group .form-control:first-child {
+            border-radius: 8px 0 0 8px;
+        }
+
+        .input-group .btn:last-child {
+            border-radius: 0 8px 8px 0;
+        }
+
+        /* Loading spinner */
+        .loading-spinner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .spinner-border {
+            margin-right: 10px;
+        }
+
+        /* Collapse animation */
+        .collapse {
+            transition: all 0.3s ease;
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .toast {
+            border-radius: 8px;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        /* Media queries para responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.hidden {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar:not(.hidden) {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                padding: 15px;
+            }
+            
+            .page-header {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+            
+            .card {
+                margin-bottom: 15px;
+            }
+            
+            .card-header, .card-body {
+                padding: 15px;
+            }
+            
+            .table-responsive {
+                font-size: 0.9rem;
+            }
+            
+            .btn {
+                padding: 8px 16px;
+                font-size: 0.9rem;
+            }
+            
+            .form-control, .form-select {
+                padding: 10px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .main-content {
+                padding: 10px;
+            }
+            
+            .page-header {
+                padding: 12px;
+                margin-bottom: 10px;
+            }
+            
+            .card {
+                margin-bottom: 10px;
+            }
+            
+            .card-header, .card-body {
+                padding: 12px;
+            }
+            
+            .table-responsive {
+                font-size: 0.8rem;
+            }
+            
+            .btn {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Utilidades responsive */
+        .d-mobile-none {
+            display: block;
+        }
+
+        .d-mobile-block {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .d-mobile-none {
+                display: none;
+            }
+            
+            .d-mobile-block {
+                display: block;
+            }
+        }
+
+        /* Animaciones */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card, .table tbody tr {
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* Scrollbar personalizada */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+        <i class="fas fa-bars" id="sidebarToggleIcon"></i>
+    </button>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="position-sticky pt-3">
+            <div class="text-center text-white mb-4">
+                <h4><i class="fas fa-video"></i> VideoSystem</h4>
+                <small>Bienvenido, Usuario</small>
+            </div>
+            
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link" href="/ui/dashboard">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/ui/devices">
+                        <i class="fas fa-tv"></i> Dispositivos
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="/ui/videos">
+                        <i class="fas fa-film"></i> Videos
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/ui/playlists">
+                        <i class="fas fa-list"></i> Listas de Reproducción
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/ui/users">
+                        <i class="fas fa-users"></i> Usuarios
+                    </a>
+                </li>
+                <li class="nav-item mt-3">
+                    <a class="nav-link text-danger" href="/ui/logout">
+                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                    </a>
+                </li>
+            </ul>
         </div>
-                    <!-- Contenido de las pestañas -->
-                    <div class="tab-content" id="mainTabContent">
-                        
-                        <!-- ========================================= -->
-                        <!-- PESTAÑA DE VIDEOS -->
-                        <!-- ========================================= -->
-                        <div class="tab-pane fade show active" id="videos" role="tabpanel">
-                            
-                            <!-- Formulario de subida de videos -->
-                            <div class="row mb-4">
-                                <div class="col-md-12">
-                                    <div class="card">
-                                        <div class="card-header d-flex justify-content-between align-items-center">
-                                            <h5 class="mb-0">Subir Nuevo Video</h5>
-                                            <button type="button" class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#uploadForm">
-                                                <i class="fas fa-plus"></i> Mostrar/Ocultar
-                                            </button>
-                                        </div>
-                                        <div id="uploadForm" class="collapse">
-                                            <div class="card-body">
-                                                <form id="videoUploadForm">
-                                                    <div class="mb-3">
-                                                        <label for="videoTitle" class="form-label">Título</label>
-                                                        <input type="text" class="form-control" id="videoTitle" name="title" required>
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <label for="videoDescription" class="form-label">Descripción</label>
-                                                        <textarea class="form-control" id="videoDescription" name="description" rows="3"></textarea>
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <label for="videoExpiration" class="form-label">Fecha de Expiración (opcional)</label>
-                                                        <input type="datetime-local" class="form-control" id="videoExpiration" name="expiration_date">
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <label for="videoFile" class="form-label">Archivo de Video</label>
-                                                        <input type="file" class="form-control" id="videoFile" name="file" accept="video/*" required>
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <div class="progress d-none" id="uploadProgress" style="height: 25px;">
-                                                            <div class="progress-bar" role="progressbar" style="width: 0%; font-size: 1rem;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-                                                        </div>
-                                                    </div>
-                                                    <button type="submit" class="btn btn-primary btn-lg">Subir Video</button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+    </nav>
+
+    <main class="main-content" id="mainContent">
+        <!-- Header -->
+        <div class="page-header">
+            <h1><i class="fas fa-film"></i> Gestión de Videos</h1>
+            <p class="mb-0 text-muted">Sube, edita y gestiona tu biblioteca de videos</p>
+        </div>
+
+        <!-- Formulario de subida de videos -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-cloud-upload-alt"></i> Subir Nuevo Video</h5>
+                <button type="button" class="btn btn-light" data-bs-toggle="collapse" data-bs-target="#uploadForm">
+                    <i class="fas fa-plus"></i> <span class="d-mobile-none">Mostrar/Ocultar</span>
+                </button>
+            </div>
+            <div id="uploadForm" class="collapse">
+                <div class="card-body">
+                    <form id="videoUploadForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="videoTitle" class="form-label">Título *</label>
+                                <input type="text" class="form-control" id="videoTitle" name="title" required placeholder="Ingresa el título del video">
                             </div>
-                            
-                            <!-- Controles de búsqueda y filtros -->
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <div class="input-group">
-                                        <input type="text" id="videoSearchInput" class="form-control" placeholder="Buscar videos por título o descripción...">
-                                        <button class="btn btn-outline-primary" type="button" id="clearVideoSearch">
-                                            <i class="fas fa-times"></i> Limpiar
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <select class="form-select" id="videoFilterExpiration">
-                                        <option value="all">Todos los videos</option>
-                                        <option value="active">Videos activos</option>
-                                        <option value="expired">Videos expirados</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <select class="form-select" id="videoPageSizeSelect">
-                                        <option value="25" selected>25 por página</option>
-                                        <option value="50">50 por página</option>
-                                        <option value="100" >100 por página</option>
-                                        <option value="200">200 por página</option>
-                                        <option value="500">Todos los videos</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <!-- Información de resultados y paginación superior -->
-                            <div class="row mb-2">
-                                <div class="col-md-6">
-                                    <span id="videoCountBadge" class="badge bg-info fs-6">0 videos</span>
-                                </div>
-                                <div class="col-md-6 text-end">
-                                    <small class="text-muted" id="videoPaginationInfo">
-                                        Mostrando 0 - 0 de 0 resultados
-                                    </small>
-                                </div>
-                            </div>
-                            <!-- Tabla de videos con paginación -->
-                            <div class="card">
-                                <div class="card-header d-flex justify-content-between align-items-center">
-                                    <h5 class="mb-0">
-                                        <i class="fas fa-video me-2"></i>Biblioteca de Videos
-                                    </h5>
-                                    <div class="d-flex align-items-center">
-                                        <button class="btn btn-sm btn-outline-secondary me-2" 
-                                                id="firstVideoPageBtn" 
-                                                onclick="goToFirstVideoPage()" 
-                                                title="Primera página">
-                                            <i class="fas fa-angle-double-left"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary me-2" 
-                                                id="prevVideoPageBtn" 
-                                                onclick="goToPrevVideoPage()" 
-                                                title="Página anterior">
-                                            <i class="fas fa-angle-left"></i>
-                                        </button>
-                                        <span class="me-2">Página</span>
-                                        <input type="number" 
-                                            id="videoPageInput" 
-                                            class="form-control form-control-sm me-2" 
-                                            style="width: 70px;" 
-                                            min="1" 
-                                            value="1"
-                                            onchange="goToVideoPage(this.value)">
-                                        <button class="btn btn-sm btn-outline-secondary me-2" 
-                                                id="nextVideoPageBtn" 
-                                                onclick="goToNextVideoPage()" 
-                                                title="Página siguiente">
-                                            <i class="fas fa-angle-right"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary" 
-                                                id="lastVideoPageBtn" 
-                                                onclick="goToLastVideoPage()" 
-                                                title="Última página">
-                                            <i class="fas fa-angle-double-right"></i>
-                                        </button>
-                                        <small class="text-muted ms-2">de <span id="totalVideoPages">1</span></small>
-                                    </div>
-                                </div>
-                                <div class="card-body p-0">
-                                    <div class="table-responsive" style="min-height: 300px;">
-                                        <table class="table table-striped table-hover mb-0" id="videosTable">
-                                            <thead class="table-dark">
-                                                <tr>
-                                                    <th>
-                                                        <button class="btn btn-link text-white text-decoration-none p-0" 
-                                                                onclick="sortVideoTable('title')" 
-                                                                title="Ordenar por título">
-                                                            Título <i class="fas fa-sort ms-1"></i>
-                                                        </button>
-                                                    </th>
-                                                    <th>Descripción</th>
-                                                    <th>
-                                                        <button class="btn btn-link text-white text-decoration-none p-0" 
-                                                                onclick="sortVideoTable('upload_date')" 
-                                                                title="Ordenar por fecha de subida">
-                                                            Fecha de Subida <i class="fas fa-sort ms-1"></i>
-                                                        </button>
-                                                    </th>
-                                                    <th>
-                                                        <button class="btn btn-link text-white text-decoration-none p-0" 
-                                                                onclick="sortVideoTable('expiration_date')" 
-                                                                title="Ordenar por fecha de expiración">
-                                                            Expiración <i class="fas fa-sort ms-1"></i>
-                                                        </button>
-                                                    </th>
-                                                    <th>Estado</th>
-                                                    <th>Acciones</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="videosList">
-                                                <tr>
-                                                    <td colspan="6" class="text-center py-3" id="videosLoading">
-                                                        <div class="spinner-border text-primary" role="status">
-                                                            <span class="visually-hidden">Cargando...</span>
-                                                        </div>
-                                                        <p class="mt-2">Cargando videos...</p>
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                <div class="card-footer">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <small class="text-muted" id="videoPaginationFooter">
-                                            Página 1 de 1 <span class="text-primary">(0-0 de 0)</span>
-                                        </small>
-                                        <div>
-                                            <button class="btn btn-sm btn-outline-secondary me-1" onclick="goToFirstVideoPage()">
-                                                <i class="fas fa-angle-double-left"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-secondary me-1" onclick="goToPrevVideoPage()">
-                                                <i class="fas fa-angle-left"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-secondary me-1" onclick="goToNextVideoPage()">
-                                                <i class="fas fa-angle-right"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-secondary" onclick="goToLastVideoPage()">
-                                                <i class="fas fa-angle-double-right"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="videoExpiration" class="form-label">Fecha de Expiración</label>
+                                <input type="datetime-local" class="form-control" id="videoExpiration" name="expiration_date">
                             </div>
                         </div>
-                    </div> <!-- CIERRE DE CONTAINER -->
+                        <div class="mb-3">
+                            <label for="videoDescription" class="form-label">Descripción</label>
+                            <textarea class="form-control" id="videoDescription" name="description" rows="3" placeholder="Descripción opcional del video"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="videoFile" class="form-label">Archivo de Video *</label>
+                            <input type="file" class="form-control" id="videoFile" name="file" accept="video/*" required>
+                            <div class="form-text">Formatos soportados: MP4, AVI, MOV, WMV (Máximo 2GB)</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="progress d-none" id="uploadProgress" style="height: 25px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-upload"></i> Subir Video
+                            </button>
+                            <button type="reset" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-times"></i> Limpiar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros y búsqueda -->
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-end">
+                    <div class="col-md-5 mb-3">
+                        <label for="videoSearchInput" class="form-label">Buscar Videos</label>
+                        <div class="input-group">
+                            <input type="text" id="videoSearchInput" class="form-control" placeholder="Buscar por título o descripción...">
+                            <button class="btn btn-outline-primary" type="button" id="clearVideoSearch">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="videoFilterExpiration" class="form-label">Filtrar por Estado</label>
+                        <select class="form-select" id="videoFilterExpiration">
+                            <option value="all">Todos los videos</option>
+                            <option value="active">Videos activos</option>
+                            <option value="expired">Videos expirados</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="badge bg-info fs-6" id="videoCountBadge">0 videos</span>
+                            <button class="btn btn-outline-primary" onclick="refreshVideos()">
+                                <i class="fas fa-sync-alt"></i> <span class="d-mobile-none">Actualizar</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de videos -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-video"></i> Biblioteca de Videos</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="videosTable">
+                        <thead>
+                            <tr>
+                                <th>Título</th>
+                                <th class="d-mobile-none">Descripción</th>
+                                <th class="d-mobile-none">Fecha de Subida</th>
+                                <th>Expiración</th>
+                                <th>Estado</th>
+                                <th width="150">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="videosList">
+                            <!-- Loading state -->
+                            <tr>
+                                <td colspan="6" class="text-center py-5" id="videosLoading">
+                                    <div class="loading-spinner">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Cargando...</span>
+                                        </div>
+                                        Cargando videos...
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
     <!-- Modal para editar video -->
     <div class="modal fade" id="editVideoModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Editar Video</h5>
+                    <h5 class="modal-title"><i class="fas fa-edit"></i> Editar Video</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form id="editVideoForm">
                         <input type="hidden" id="editVideoId">
-                        <div class="mb-3">
-                            <label for="editVideoTitle" class="form-label">Título</label>
-                            <input type="text" class="form-control" id="editVideoTitle" required>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="editVideoTitle" class="form-label">Título *</label>
+                                <input type="text" class="form-control" id="editVideoTitle" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="editVideoExpiration" class="form-label">Fecha de Expiración</label>
+                                <input type="datetime-local" class="form-control" id="editVideoExpiration">
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="editVideoDescription" class="form-label">Descripción</label>
-                            <textarea class="form-control" id="editVideoDescription" rows="3"></textarea>
+                            <textarea class="form-control" id="editVideoDescription" rows="4"></textarea>
                         </div>
-                        <div class="mb-3">
-                            <label for="editVideoExpiration" class="form-label">Fecha de Expiración (opcional)</label>
-                            <input type="datetime-local" class="form-control" id="editVideoExpiration">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Información del archivo:</strong>
+                            <div id="videoFileInfo" class="mt-2">
+                                <!-- Información del archivo se cargará aquí -->
+                            </div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary btn-lg" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary btn-lg" id="saveVideoChangesBtn">Guardar Cambios</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="saveVideoChangesBtn">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
                 </div>
             </div>
         </div>
     </div>
-</div>
-    </main>
-{% endblock %}
 
-{% block extra_styles %}
-    <!-- CSS adicional para videos -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <style>
-        .table th button {
-            border: none !important;
-            background: none !important;
-            font-weight: bold !important;
-            color: inherit !important;
-        }
+    <!-- Modal de confirmación para eliminar -->
+    <div class="modal fade" id="deleteVideoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-exclamation-triangle text-danger"></i> Confirmar Eliminación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Estás seguro de que quieres eliminar este video?</p>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Advertencia:</strong> Esta acción no se puede deshacer. El video se eliminará permanentemente del servidor.
+                    </div>
+                    <div id="deleteVideoInfo">
+                        <!-- Información del video a eliminar -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteVideoBtn">
+                        <i class="fas fa-trash"></i> Eliminar Video
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        .table th button:hover {
-            background-color: rgba(255, 255, 255, 0.1) !important;
-            color: inherit !important;
-        }
-
-        .table th button:focus {
-            box-shadow: none !important;
-            color: inherit !important;
-        }
-
-        .table-warning {
-            --bs-table-bg: #fff3cd;
-        }
-    </style>
-{% endblock %}
-{% block extra_scripts %}
-    <!-- CSS adicional para paginación -->
-    <style>
-        .table th button {
-            border: none !important;
-            background: none !important;
-            font-weight: bold !important;
-            color: inherit !important;
-        }
-
-        .table th button:hover {
-            background-color: rgba(255, 255, 255, 0.1) !important;
-            color: inherit !important;
-        }
-
-        .table th button:focus {
-            box-shadow: none !important;
-            color: inherit !important;
-        }
-
-        .table-warning {
-            --bs-table-bg: #fff3cd;
-        }
-
-        .btn-group .btn:first-child {
-            border-top-left-radius: 0.375rem;
-            border-bottom-left-radius: 0.375rem;
-        }
-
-        .btn-group .btn:last-child {
-            border-top-right-radius: 0.375rem;
-            border-bottom-right-radius: 0.375rem;
-        }
-
-        #playlistPageInput {
-            max-width: 80px;
-        }
-
-        .table th button i.fa-sort-up,
-        .table th button i.fa-sort-down {
-            color: #0d6efd !important;
-        }
-    </style>
+    <!-- Toast container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer">
+        <!-- Toasts aparecerán aquí -->
+    </div>
 
     <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Cargar main.js PRIMERO -->
-    <script src="/static/js/main.js"></script>
-    
-    </script>
-    <!-- Script de paginación mejorado -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        console.log('Inicializando paginación mejorada...');
-
-        // Variables globales para paginación
-        let playlistPagination = {
-            currentPage: 1,
-            pageSize: 25,
-            totalItems: 0,
-            totalPages: 1,
-            filteredData: [],
-            searchTerm: '',
-            filter: 'all'
-        };
-
-        // Funciones auxiliares
-        function isPlaylistActivePag(playlist) {
-            if (!playlist.is_active) return false;
-            if (!playlist.expiration_date) return true;
-            return new Date(playlist.expiration_date) > new Date();
+        // Renderizar videos en la tabla
+        function renderVideos(filteredVideos = null) {
+            const videosList = document.getElementById('videosList');
+            const videosToRender = filteredVideos || videos;
+            
+            if (videosToRender.length === 0) {
+                videosList.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="fas fa-video fa-3x mb-3 opacity-50"></i>
+                                <h5>No hay videos disponibles</h5>
+                                <p>Sube tu primer video para comenzar</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            videosList.innerHTML = '';
+            videosToRender.forEach(video => {
+                const row = createVideoRow(video);
+                videosList.appendChild(row);
+            });
         }
 
-        function isExpiredPag(dateString) {
-            return new Date(dateString) < new Date();
+        // Crear fila de video
+        function createVideoRow(video) {
+            const tr = document.createElement('tr');
+            const isExpired = video.expiration_date && new Date(video.expiration_date) < new Date();
+            
+            tr.innerHTML = `
+                <td>
+                    <div class="fw-bold">${video.title}</div>
+                    <small class="text-muted d-block d-md-none">${video.description || 'Sin descripción'}</small>
+                    <small class="text-muted d-block d-md-none">Subido: ${formatDate(video.upload_date)}</small>
+                </td>
+                <td class="d-mobile-none">
+                    <span class="text-muted">${video.description || 'Sin descripción'}</span>
+                </td>
+                <td class="d-mobile-none">
+                    <span class="text-muted">${formatDate(video.upload_date)}</span>
+                </td>
+                <td>
+                    ${video.expiration_date 
+                        ? `<span class="badge ${isExpired ? 'bg-danger' : 'bg-warning'}">${formatDate(video.expiration_date)}</span>`
+                        : '<span class="badge bg-success">Sin expiración</span>'
+                    }
+                </td>
+                <td>
+                    <span class="badge ${isExpired ? 'bg-danger' : 'bg-success'}">
+                        <i class="fas ${isExpired ? 'fa-times' : 'fa-check'}"></i>
+                        ${isExpired ? 'Expirado' : 'Activo'}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-outline-primary" onclick="editVideo(${video.id})" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-success" onclick="downloadVideo(${video.id})" title="Descargar">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="deleteVideo(${video.id})" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            return tr;
         }
 
-        function formatDatePag(dateString) {
-            if (!dateString) return 'N/A';
-            return new Date(dateString).toLocaleString('es-ES', {
+        // Manejar subida de video
+        async function handleVideoUpload(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('videoTitle').value.trim();
+            const description = document.getElementById('videoDescription').value.trim();
+            const expiration = document.getElementById('videoExpiration').value;
+            const file = document.getElementById('videoFile').files[0];
+            
+            if (!title || !file) {
+                showToast('Por favor completa todos los campos requeridos', 'error');
+                return;
+            }
+            
+            try {
+                // Mostrar progress bar
+                const progressContainer = document.getElementById('uploadProgress');
+                const progressBar = progressContainer.querySelector('.progress-bar');
+                progressContainer.classList.remove('d-none');
+                
+                // Simular subida con progreso
+                for (let i = 0; i <= 100; i += 10) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    progressBar.style.width = `${i}%`;
+                    progressBar.textContent = `${i}%`;
+                    progressBar.setAttribute('aria-valuenow', i);
+                }
+                
+                // Simular creación del video
+                const newVideo = {
+                    id: Date.now(),
+                    title: title,
+                    description: description,
+                    filename: file.name,
+                    upload_date: new Date().toISOString(),
+                    expiration_date: expiration || null,
+                    duration: Math.floor(Math.random() * 600) + 60, // Random duration
+                    file_size: file.size
+                };
+                
+                videos.unshift(newVideo); // Agregar al inicio
+                renderVideos();
+                updateVideoCount();
+                
+                // Limpiar formulario
+                document.getElementById('videoUploadForm').reset();
+                progressContainer.classList.add('d-none');
+                
+                // Colapsar formulario
+                const collapse = new bootstrap.Collapse(document.getElementById('uploadForm'));
+                collapse.hide();
+                
+                showToast('Video subido exitosamente', 'success');
+                
+            } catch (error) {
+                console.error('Error al subir video:', error);
+                showToast('Error al subir el video', 'error');
+                document.getElementById('uploadProgress').classList.add('d-none');
+            }
+        }
+
+        // Búsqueda de videos
+        function handleSearch() {
+            const searchTerm = document.getElementById('videoSearchInput').value.toLowerCase().trim();
+            const filter = document.getElementById('videoFilterExpiration').value;
+            
+            let filtered = videos;
+            
+            // Aplicar filtro de búsqueda
+            if (searchTerm) {
+                filtered = filtered.filter(video =>
+                    video.title.toLowerCase().includes(searchTerm) ||
+                    (video.description && video.description.toLowerCase().includes(searchTerm))
+                );
+            }
+            
+            // Aplicar filtro de expiración
+            filtered = applyExpirationFilter(filtered, filter);
+            
+            renderVideos(filtered);
+            updateVideoCount(filtered.length);
+        }
+
+        // Filtrar por expiración
+        function handleFilter() {
+            handleSearch(); // Reutilizar la lógica de búsqueda
+        }
+
+        function applyExpirationFilter(videoList, filter) {
+            const now = new Date();
+            
+            switch (filter) {
+                case 'active':
+                    return videoList.filter(video => 
+                        !video.expiration_date || new Date(video.expiration_date) > now
+                    );
+                case 'expired':
+                    return videoList.filter(video => 
+                        video.expiration_date && new Date(video.expiration_date) <= now
+                    );
+                default:
+                    return videoList;
+            }
+        }
+
+        // Limpiar búsqueda
+        function clearSearch() {
+            document.getElementById('videoSearchInput').value = '';
+            document.getElementById('videoFilterExpiration').value = 'all';
+            renderVideos();
+            updateVideoCount();
+        }
+
+        // Actualizar contador de videos
+        function updateVideoCount(count = null) {
+            const badge = document.getElementById('videoCountBadge');
+            const videoCount = count !== null ? count : videos.length;
+            badge.textContent = `${videoCount} video${videoCount !== 1 ? 's' : ''}`;
+        }
+
+        // Editar video
+        function editVideo(videoId) {
+            const video = videos.find(v => v.id === videoId);
+            if (!video) return;
+            
+            // Llenar el formulario de edición
+            document.getElementById('editVideoId').value = video.id;
+            document.getElementById('editVideoTitle').value = video.title;
+            document.getElementById('editVideoDescription').value = video.description || '';
+            
+            if (video.expiration_date) {
+                // Convertir a formato datetime-local
+                const date = new Date(video.expiration_date);
+                const formattedDate = date.toISOString().slice(0, 16);
+                document.getElementById('editVideoExpiration').value = formattedDate;
+            } else {
+                document.getElementById('editVideoExpiration').value = '';
+            }
+            
+            // Mostrar información del archivo
+            const fileInfo = document.getElementById('videoFileInfo');
+            fileInfo.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Archivo:</strong> ${video.filename}<br>
+                        <strong>Duración:</strong> ${formatDuration(video.duration)}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Tamaño:</strong> ${formatFileSize(video.file_size)}<br>
+                        <strong>Subido:</strong> ${formatDate(video.upload_date)}
+                    </div>
+                </div>
+            `;
+            
+            // Mostrar modal
+            const modal = new bootstrap.Modal(document.getElementById('editVideoModal'));
+            modal.show();
+        }
+
+        // Guardar cambios del video
+        function saveVideoChanges() {
+            const videoId = parseInt(document.getElementById('editVideoId').value);
+            const title = document.getElementById('editVideoTitle').value.trim();
+            const description = document.getElementById('editVideoDescription').value.trim();
+            const expiration = document.getElementById('editVideoExpiration').value;
+            
+            if (!title) {
+                showToast('El título es requerido', 'error');
+                return;
+            }
+            
+            const videoIndex = videos.findIndex(v => v.id === videoId);
+            if (videoIndex === -1) return;
+            
+            // Actualizar video
+            videos[videoIndex] = {
+                ...videos[videoIndex],
+                title: title,
+                description: description,
+                expiration_date: expiration || null
+            };
+            
+            renderVideos();
+            
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editVideoModal'));
+            modal.hide();
+            
+            showToast('Video actualizado exitosamente', 'success');
+        }
+
+        // Eliminar video
+        function deleteVideo(videoId) {
+            const video = videos.find(v => v.id === videoId);
+            if (!video) return;
+            
+            videoToDelete = videoId;
+            
+            // Mostrar información del video a eliminar
+            const deleteInfo = document.getElementById('deleteVideoInfo');
+            deleteInfo.innerHTML = `
+                <div class="card">
+                    <div class="card-body">
+                        <h6>${video.title}</h6>
+                        <p class="text-muted mb-1">${video.description || 'Sin descripción'}</p>
+                        <small class="text-muted">
+                            Archivo: ${video.filename} (${formatFileSize(video.file_size)})
+                        </small>
+                    </div>
+                </div>
+            `;
+            
+            // Mostrar modal de confirmación
+            const modal = new bootstrap.Modal(document.getElementById('deleteVideoModal'));
+            modal.show();
+        }
+
+        // Confirmar eliminación
+        function confirmDeleteVideo() {
+            if (!videoToDelete) return;
+            
+            const videoIndex = videos.findIndex(v => v.id === videoToDelete);
+            if (videoIndex === -1) return;
+            
+            const deletedVideo = videos[videoIndex];
+            videos.splice(videoIndex, 1);
+            
+            renderVideos();
+            updateVideoCount();
+            
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteVideoModal'));
+            modal.hide();
+            
+            videoToDelete = null;
+            
+            showToast(`Video "${deletedVideo.title}" eliminado`, 'success');
+        }
+
+        // Descargar video
+        function downloadVideo(videoId) {
+            const video = videos.find(v => v.id === videoId);
+            if (!video) return;
+            
+            showToast(`Descargando "${video.title}"...`, 'info');
+            
+            // Simular descarga
+            setTimeout(() => {
+                showToast('Descarga completada', 'success');
+            }, 2000);
+        }
+
+        // Refrescar videos
+        function refreshVideos() {
+            const button = event.target.closest('button');
+            const icon = button.querySelector('i');
+            
+            icon.classList.add('fa-spin');
+            
+            setTimeout(() => {
+                icon.classList.remove('fa-spin');
+                showToast('Videos actualizados', 'success');
+            }, 1000);
+        }
+
+        // Sistema de notificaciones toast
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${getToastBootstrapClass(type)} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="fas ${getToastIcon(type)} me-2"></i>
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            // Remover elemento después de ocultar
+            toast.addEventListener('hidden.bs.toast', () => {
+                toast.remove();
+            });
+        }
+
+        function getToastBootstrapClass(type) {
+            const classes = {
+                'success': 'success',
+                'error': 'danger',
+                'warning': 'warning',
+                'info': 'info'
+            };
+            return classes[type] || 'info';
+        }
+
+        function getToastIcon(type) {
+            const icons = {
+                'success': 'fa-check-circle',
+                'error': 'fa-exclamation-circle',
+                'warning': 'fa-exclamation-triangle',
+                'info': 'fa-info-circle'
+            };
+            return icons[type] || 'fa-info-circle';
+        }
+
+        // Funciones de utilidad
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-ES', {
                 year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
+                month: 'short',
+                day: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
             });
         }
 
-        function escapeHtmlPag(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+        function formatDuration(seconds) {
+            if (!seconds || seconds < 0) return '0:00';
+            
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${secs.toString().padStart(2, '0')}`;
+            }
         }
 
-        // SOBRESCRIBIR COMPLETAMENTE loadPlaylists
-        window.loadPlaylistsWithPagination = async function(filter = 'all') {
-            console.log('Cargando playlists con paginación avanzada:', filter);
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
             
-            const playlistsList = document.getElementById('playlistsList');
-            if (!playlistsList) {
-                console.error('No se encontró playlistsList');
-                return;
-            }
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
 
-            try {
-                // Mostrar loading
-                playlistsList.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="text-center py-3">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Cargando...</span>
-                            </div>
-                            <p class="mt-2">Cargando listas de reproducción...</p>
-                        </td>
-                    </tr>
-                `;
-
-                // Cargar todas las playlists
-                const response = await fetch(`${API_URL}/playlists/?limit=10000`);
-                if (!response.ok) {
-                    throw new Error(`Error: ${response.status} ${response.statusText}`);
+        // Atajos de teclado
+        document.addEventListener('keydown', function(e) {
+            // Escape para cerrar modales o sidebar
+            if (e.key === 'Escape') {
+                if (window.innerWidth <= 768 && !sidebarHidden) {
+                    toggleSidebar();
                 }
-
-                window.allPlaylists = await response.json();
-                console.log(`Playlists cargadas: ${window.allPlaylists.length}`);
-
-                // Configurar filtro inicial
-                playlistPagination.filter = filter;
-                playlistPagination.currentPage = 1;
-
-                // Aplicar filtros y mostrar
-                applyPlaylistFilters();
-
-            } catch (error) {
-                console.error('Error cargando playlists:', error);
-                playlistsList.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="text-center py-5">
-                            <div class="alert alert-danger">
-                                Error al cargar listas: ${error.message}
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }
-        };
-
-        // Aplicar filtros y paginación
-        function applyPlaylistFilters() {
-            if (!window.allPlaylists || !Array.isArray(window.allPlaylists)) {
-                console.log('No hay datos de playlists disponibles');
-                return;
-            }
-
-            let filtered = [...window.allPlaylists];
-            
-            // Filtrar por estado
-            if (playlistPagination.filter === 'active') {
-                filtered = filtered.filter(playlist => isPlaylistActivePag(playlist));
-            } else if (playlistPagination.filter === 'inactive') {
-                filtered = filtered.filter(playlist => !isPlaylistActivePag(playlist));
-            }
-
-            // Filtrar por búsqueda
-            if (playlistPagination.searchTerm) {
-                filtered = filtered.filter(playlist => 
-                    (playlist.title || '').toLowerCase().includes(playlistPagination.searchTerm) ||
-                    (playlist.description || '').toLowerCase().includes(playlistPagination.searchTerm)
-                );
-            }
-
-            playlistPagination.filteredData = filtered;
-            playlistPagination.totalItems = filtered.length;
-            playlistPagination.totalPages = Math.ceil(playlistPagination.totalItems / playlistPagination.pageSize);
-            
-            // Ajustar página si es necesario
-            if (playlistPagination.currentPage > playlistPagination.totalPages && playlistPagination.totalPages > 0) {
-                playlistPagination.currentPage = playlistPagination.totalPages;
-            }
-            if (playlistPagination.currentPage < 1) {
-                playlistPagination.currentPage = 1;
-            }
-
-            console.log(`Filtrados: ${playlistPagination.totalItems}, Páginas: ${playlistPagination.totalPages}, Página actual: ${playlistPagination.currentPage}`);
-
-            // Mostrar página actual
-            displayPlaylistPage();
-            updatePlaylistPaginationInfo();
-            updatePlaylistPaginationButtons();
-        }
-
-        // Mostrar página actual
-        function displayPlaylistPage() {
-            const startIndex = (playlistPagination.currentPage - 1) * playlistPagination.pageSize;
-            const endIndex = Math.min(startIndex + playlistPagination.pageSize, playlistPagination.totalItems);
-            const pageData = playlistPagination.filteredData.slice(startIndex, endIndex);
-
-            const playlistsList = document.getElementById('playlistsList');
-            if (!playlistsList) return;
-            
-            if (pageData.length === 0) {
-                playlistsList.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="text-center py-5">
-                            <div class="text-muted">
-                                <i class="fas fa-search fa-3x mb-3"></i>
-                                <p class="mb-0">No se encontraron listas de reproducción</p>
-                                ${playlistPagination.searchTerm ? '<p class="small">Intenta con otros términos de búsqueda</p>' : ''}
-                            </div>
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            const rows = pageData.map(playlist => {
-                const active = isPlaylistActivePag(playlist);
-                const expirationText = playlist.expiration_date 
-                    ? `${isExpiredPag(playlist.expiration_date) ? 'Expiró' : 'Expira'}: ${formatDatePag(playlist.expiration_date)}`
-                    : 'Sin expiración';
-
-                return `
-                    <tr class="${active ? '' : 'table-warning'}">
-                        <td>
-                            <strong>${escapeHtmlPag(playlist.title || 'Sin título')}</strong>
-                        </td>
-                        <td>
-                            <span class="text-muted">${escapeHtmlPag(playlist.description || 'Sin descripción')}</span>
-                        </td>
-                        <td>
-                            <span class="badge bg-info">${playlist.videos ? playlist.videos.length : 0} videos</span>
-                        </td>
-                        <td>
-                            <small class="text-muted">${expirationText}</small>
-                        </td>
-                        <td>
-                            <span class="badge ${active ? 'bg-success' : 'bg-danger'}">
-                                ${active ? 'Activa' : 'Inactiva'}
-                            </span>
-                        </td>
-                        <td>
-                            <button class="btn btn-primary btn-sm" onclick="openPlaylistDetail(${playlist.id})">
-                                <i class="fas fa-eye"></i> Ver Detalles
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-            playlistsList.innerHTML = rows;
-            console.log(`Mostrando ${pageData.length} playlists en página ${playlistPagination.currentPage}`);
-        }
-
-        // Actualizar información de paginación
-        function updatePlaylistPaginationInfo() {
-            const startItem = playlistPagination.totalItems > 0 ? (playlistPagination.currentPage - 1) * playlistPagination.pageSize + 1 : 0;
-            const endItem = Math.min(playlistPagination.currentPage * playlistPagination.pageSize, playlistPagination.totalItems);
-            
-            const playlistCountBadge = document.getElementById('playlistCountBadge');
-            if (playlistCountBadge) {
-                playlistCountBadge.textContent = `${playlistPagination.totalItems} listas`;
             }
             
-            const paginationInfo = document.getElementById('playlistPaginationInfo');
-            if (paginationInfo) {
-                paginationInfo.textContent = `Mostrando ${startItem} - ${endItem} de ${playlistPagination.totalItems} resultados`;
-            }
-        }
-
-        // Actualizar botones de paginación
-        function updatePlaylistPaginationButtons() {
-            const firstBtn = document.getElementById('firstPlaylistPageBtn');
-            const prevBtn = document.getElementById('prevPlaylistPageBtn');
-            const nextBtn = document.getElementById('nextPlaylistPageBtn');
-            const lastBtn = document.getElementById('lastPlaylistPageBtn');
-            const pageInput = document.getElementById('playlistPageInput');
-            const totalPagesSpan = document.getElementById('totalPlaylistPages');
-            const paginationFooter = document.getElementById('playlistPaginationFooter');
-            
-            if (firstBtn) firstBtn.disabled = playlistPagination.currentPage <= 1;
-            if (prevBtn) prevBtn.disabled = playlistPagination.currentPage <= 1;
-            if (nextBtn) nextBtn.disabled = playlistPagination.currentPage >= playlistPagination.totalPages;
-            if (lastBtn) lastBtn.disabled = playlistPagination.currentPage >= playlistPagination.totalPages;
-            
-            if (pageInput) {
-                pageInput.value = playlistPagination.currentPage;
-                pageInput.max = playlistPagination.totalPages;
+            // Ctrl+F para buscar
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                document.getElementById('videoSearchInput').focus();
             }
             
-            if (totalPagesSpan) {
-                totalPagesSpan.textContent = playlistPagination.totalPages;
+            // Ctrl+U para mostrar formulario de subida
+            if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+                e.preventDefault();
+                const uploadForm = document.getElementById('uploadForm');
+                const collapse = new bootstrap.Collapse(uploadForm, { toggle: true });
             }
-            
-            if (paginationFooter) {
-                const startItem = playlistPagination.totalItems > 0 ? (playlistPagination.currentPage - 1) * playlistPagination.pageSize + 1 : 0;
-                const endItem = Math.min(playlistPagination.currentPage * playlistPagination.pageSize, playlistPagination.totalItems);
-                paginationFooter.innerHTML = `
-                    Página ${playlistPagination.currentPage} de ${playlistPagination.totalPages} 
-                    <span class="text-primary">(${startItem}-${endItem} de ${playlistPagination.totalItems})</span>
-                `;
-            }
-        }
-
-        // Funciones de navegación
-        window.goToPlaylistPage = function(page) {
-            if (page >= 1 && page <= playlistPagination.totalPages && page !== playlistPagination.currentPage) {
-                playlistPagination.currentPage = page;
-                displayPlaylistPage();
-                updatePlaylistPaginationInfo();
-                updatePlaylistPaginationButtons();
-            }
-        };
-
-        window.goToFirstPlaylistPage = function() {
-            window.goToPlaylistPage(1);
-        };
-
-        window.goToPrevPlaylistPage = function() {
-            if (playlistPagination.currentPage > 1) {
-                window.goToPlaylistPage(playlistPagination.currentPage - 1);
-            }
-        };
-
-        window.goToNextPlaylistPage = function() {
-            if (playlistPagination.currentPage < playlistPagination.totalPages) {
-                window.goToPlaylistPage(playlistPagination.currentPage + 1);
-            }
-        };
-
-        window.goToLastPlaylistPage = function() {
-            window.goToPlaylistPage(playlistPagination.totalPages);
-        };
-
-        window.sortPlaylistTable = function(field) {
-            console.log('Ordenamiento por:', field);
-            // Implementar ordenamiento si se necesita
-        };
-
-        // SOBRESCRIBIR la función loadPlaylists original
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM listo, configurando paginación...');
-            
-            // Esperar un poco para que main.js se cargue
-            setTimeout(() => {
-                // Sobrescribir la función original
-                window.loadPlaylists = window.loadPlaylistsWithPagination;
-                console.log('loadPlaylists sobrescrito con paginación');
-
-                // Configurar event listeners
-                setupPlaylistEventListeners();
-                
-                // Si ya estamos en la pestaña de playlists, cargar
-                const playlistsTab = document.getElementById('playlists-tab');
-                if (playlistsTab && playlistsTab.classList.contains('active')) {
-                    window.loadPlaylists('all');
-                }
-            }, 200);
         });
 
-        function setupPlaylistEventListeners() {
-            // Filtro de estado
-            const playlistFilterStatus = document.getElementById('playlistFilterStatus');
-            if (playlistFilterStatus) {
-                playlistFilterStatus.addEventListener('change', function() {
-                    playlistPagination.filter = this.value;
-                    playlistPagination.currentPage = 1;
-                    applyPlaylistFilters();
-                });
+        // Prevenir envío accidental del formulario con Enter
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.type !== 'submit') {
+                if (e.target.form && e.target.form.id === 'videoUploadForm') {
+                    e.preventDefault();
+                }
             }
+        });
+    </script>
+</body>
+</html> Variables globales
+        let videos = [];
+        let sidebarHidden = false;
+        let resizeTimeout;
+        let videoToDelete = null;
 
-            // Búsqueda con debounce
-            const playlistSearchInput = document.getElementById('playlistSearchInput');
-            if (playlistSearchInput) {
-                let searchTimeout;
-                playlistSearchInput.addEventListener('input', function() {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => {
-                        playlistPagination.searchTerm = this.value.toLowerCase().trim();
-                        playlistPagination.currentPage = 1;
-                        applyPlaylistFilters();
-                    }, 300);
-                });
+        // Datos de ejemplo
+        const sampleVideos = [
+            {
+                id: 1,
+                title: "Video Tutorial 1",
+                description: "Tutorial básico de configuración",
+                filename: "tutorial1.mp4",
+                upload_date: "2024-01-15T10:30:00",
+                expiration_date: null,
+                duration: 180,
+                file_size: 15728640
+            },
+            {
+                id: 2,
+                title: "Presentación Corporativa",
+                description: "Presentación de la empresa para clientes",
+                filename: "presentation.mp4",
+                upload_date: "2024-01-20T14:15:00",
+                expiration_date: "2024-12-31T23:59:00",
+                duration: 300,
+                file_size: 52428800
+            },
+            {
+                id: 3,
+                title: "Demo del Producto",
+                description: "Demostración completa del producto principal",
+                filename: "demo.mp4",
+                upload_date: "2024-02-01T09:00:00",
+                expiration_date: "2024-06-30T23:59:00",
+                duration: 240,
+                file_size: 31457280
             }
+        ];
 
-            // Limpiar búsqueda
-            const clearPlaylistSearchBtn = document.getElementById('clearPlaylistSearch');
-            if (clearPlaylistSearchBtn) {
-                clearPlaylistSearchBtn.addEventListener('click', function() {
-                    const searchInput = document.getElementById('playlistSearchInput');
-                    if (searchInput) {
-                        searchInput.value = '';
-                        playlistPagination.searchTerm = '';
-                        playlistPagination.currentPage = 1;
-                        applyPlaylistFilters();
-                    }
-                });
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeLayout();
+            loadVideos();
+            initializeEventListeners();
+            
+            // Event listeners para responsive
+            window.addEventListener('resize', handleResize);
+        });
+
+        // Inicializar layout responsive
+        function initializeLayout() {
+            if (window.innerWidth <= 768) {
+                sidebarHidden = true;
+                applySidebarState();
             }
-
-            // Selector de tamaño de página
-            const playlistPageSizeSelect = document.getElementById('playlistPageSizeSelect');
-            if (playlistPageSizeSelect) {
-                playlistPageSizeSelect.addEventListener('change', function() {
-                    playlistPagination.pageSize = parseInt(this.value);
-                    playlistPagination.currentPage = 1;
-                    applyPlaylistFilters();
-                });
-            }
-
-            // Event listener para cambio de pestaña
-            const playlistsTab = document.getElementById('playlists-tab');
-            if (playlistsTab) {
-                playlistsTab.addEventListener('shown.bs.tab', function() {
-                    console.log('Pestaña playlists activada, cargando...');
-                    window.loadPlaylists('all');
-                });
-            }
-
-            console.log('Event listeners de paginación configurados');
         }
 
-        console.log('Script de paginación cargado');
-    </script>
-{% endblock %}
-</body>
-</html>
+        function handleResize() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                const isMobile = window.innerWidth <= 768;
+                if (isMobile && !sidebarHidden) {
+                    sidebarHidden = true;
+                    applySidebarState();
+                }
+            }, 150);
+        }
+
+        // Toggle Sidebar
+        function toggleSidebar() {
+            sidebarHidden = !sidebarHidden;
+            applySidebarState();
+        }
+
+        function applySidebarState() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const toggleIcon = document.getElementById('sidebarToggleIcon');
+            const toggleButton = document.getElementById('sidebarToggle');
+            
+            if (sidebarHidden) {
+                sidebar.classList.add('hidden');
+                mainContent.classList.add('expanded');
+                toggleIcon.className = 'fas fa-bars';
+                toggleButton.classList.add('sidebar-hidden');
+            } else {
+                sidebar.classList.remove('hidden');
+                mainContent.classList.remove('expanded');
+                toggleIcon.className = 'fas fa-times';
+                toggleButton.classList.remove('sidebar-hidden');
+            }
+        }
+
+        // Inicializar event listeners
+        function initializeEventListeners() {
+            // Formulario de subida
+            document.getElementById('videoUploadForm').addEventListener('submit', handleVideoUpload);
+            
+            // Búsqueda y filtros
+            document.getElementById('videoSearchInput').addEventListener('input', handleSearch);
+            document.getElementById('clearVideoSearch').addEventListener('click', clearSearch);
+            document.getElementById('videoFilterExpiration').addEventListener('change', handleFilter);
+            
+            // Modal de edición
+            document.getElementById('saveVideoChangesBtn').addEventListener('click', saveVideoChanges);
+            document.getElementById('confirmDeleteVideoBtn').addEventListener('click', confirmDeleteVideo);
+        }
+
+        // Cargar videos
+        async function loadVideos() {
+            try {
+                const loading = document.getElementById('videosLoading');
+                loading.style.display = 'table-row';
+                
+                // Simular carga de API
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                videos = sampleVideos;
+                renderVideos();
+                updateVideoCount();
+                
+            } catch (error) {
+                console.error('Error al cargar videos:', error);
+                showToast('Error al cargar videos', 'error');
+            }
+        }
+
+        // Formatear fecha
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+        // Formatear duración
+        function formatDuration(seconds) {
+            if (!seconds || seconds < 0) return '0:00';
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+        }

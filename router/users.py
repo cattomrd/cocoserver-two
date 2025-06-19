@@ -118,7 +118,7 @@ async def handle_ad_user_listing(request: Request, search: Optional[str], admin_
     # Verificar si AD está disponible
     if not AD_AVAILABLE or not ad_service:
         return templates.TemplateResponse(
-            "users.html",  # Usar template existente
+            "/users/users.html",  # Usar template existente
             {
                 "request": request, 
                 "title": "Usuarios Active Directory",
@@ -136,7 +136,7 @@ async def handle_ad_user_listing(request: Request, search: Optional[str], admin_
         config_test = ad_service.test_connection()
         if not config_test.get("success", False):
             return templates.TemplateResponse(
-                "users.html",
+                "/users/users.html",
                 {
                     "request": request, 
                     "title": "Usuarios Active Directory",
@@ -151,7 +151,7 @@ async def handle_ad_user_listing(request: Request, search: Optional[str], admin_
     except Exception as e:
         logger.error(f"Error verificando configuración AD: {str(e)}")
         return templates.TemplateResponse(
-            "users.html",
+            "/users/users.html",
             {
                 "request": request, 
                 "title": "Usuarios Active Directory",
@@ -177,14 +177,14 @@ async def handle_ad_user_listing(request: Request, search: Optional[str], admin_
                 ad_users = [
                     user for user in all_users 
                     if search_term.lower() in user.get('username', '').lower() or
-                       search_term.lower() in user.get('fullname', '').lower() or
-                       search_term.lower() in user.get('email', '').lower()
+                        search_term.lower() in user.get('fullname', '').lower() or
+                        search_term.lower() in user.get('email', '').lower()
                 ][:200]
         else:
             ad_users = ad_service.get_all_users(limit=200)
         
         return templates.TemplateResponse(
-            "users.html",
+            "/users/users.html",
             {
                 "request": request, 
                 "title": "Usuarios Active Directory",
@@ -200,7 +200,7 @@ async def handle_ad_user_listing(request: Request, search: Optional[str], admin_
     except Exception as e:
         logger.error(f"Error buscando usuarios en AD: {str(e)}")
         return templates.TemplateResponse(
-            "users.html",
+            "/users/users.html",
             {
                 "request": request, 
                 "title": "Usuarios Active Directory",
@@ -239,7 +239,7 @@ async def handle_local_user_listing(
     users = query.order_by(User.username).all()
     
     return templates.TemplateResponse(
-        "users.html",
+        "/users/users.html",
         {
             "request": request, 
             "title": "Gestión de Usuarios",
@@ -277,7 +277,7 @@ async def ad_debug_page(request: Request, db: Session = Depends(get_db)):
             connection_test = {"success": False, "error": str(e)}
     
     return templates.TemplateResponse(
-        "ad_debug.html",
+        "users/ad_debug.html",
         {
             "request": request,
             "title": "Diagnóstico Active Directory",
@@ -863,7 +863,7 @@ async def create_user_page(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/ui/login?error=Permisos de administrador requeridos", status_code=302)
         
     return templates.TemplateResponse(
-        "user_create.html",
+        "/users/user_create.html",
         {
             "request": request, 
             "title": "Crear Usuario",
