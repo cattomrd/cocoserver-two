@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 
 {% block content %}
-<main class="main-content" id="mainContent">
-    <div class="container-fluid py-4">
-        <!-- Header -->
-        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
-            <h1 class="h2">
-                <i class="fas fa-list text-primary"></i>
-                Listas de Reproducción
-            </h1>
+    <div class="container-fluid px-3 py-4" style="max-width: auto; width: auto;">
+        <!-- Content wrapper for sidebar compatibility -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+                <h1 class="h2">
+                    <i class="fas fa-list text-primary"></i>
+                    Listas de Reproducción
+                </h1>
             <div class="btn-toolbar mb-2 mb-md-0">
                 <a href="/ui/edi-playlists" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Nueva Lista
@@ -17,7 +18,7 @@
         </div>
                             
         <!-- Formulario para crear nueva playlist -->
-        <div class="row mb-4">
+        <div class="row mb-3">
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
@@ -58,27 +59,27 @@
         </div>
 
         <!-- Controles de búsqueda y filtros para playlists -->
-        <div class="row mb-3">
-            <div class="col-md-6">
+        <div class="row mb-3 g-3">
+            <div class="col-lg-6 col-md-12">
                 <div class="input-group">
                     <input type="text" id="playlistSearchInput" class="form-control" placeholder="Buscar listas por título o descripción...">
                     <button class="btn btn-outline-primary" type="button" id="clearPlaylistSearch">
-                        <i class="fas fa-times"></i> Limpiar
+                        <i class="fas fa-times"></i> <span class="d-none d-sm-inline">Limpiar</span>
                     </button>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-3 col-md-6">
                 <select class="form-select" id="playlistFilterStatus">
                     <option value="all">Todas las listas</option>
                     <option value="active">Listas activas</option>
                     <option value="inactive">Listas inactivas</option>
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-3 col-md-6">
                 <select class="form-select" id="playlistPageSizeSelect">
-                    <option value="25">25 por página</option>
+                    <option value="25" >25 por página</option>
                     <option value="50">50 por página</option>
-                    <option value="100" selected>100 por página</option>
+                    <option value="100" selected >100 por página</option>
                     <option value="200">200 por página</option>
                     <option value="500">Todas las listas</option>
                 </select>
@@ -86,84 +87,88 @@
         </div>
 
         <!-- Información de resultados y paginación -->
-        <div class="row mb-2">
-            <div class="col-md-6">
+        <div class="row mb-2 g-2">
+            <div class="col-md-6 col-12">
                 <span id="playlistCountBadge" class="badge bg-info fs-6">0 listas</span>
             </div>
-            <div class="col-md-6 text-end">
+            <div class="col-md-6 col-12 text-md-end text-start">
                 <small class="text-muted" id="playlistPaginationInfo">
                     Mostrando 0 - 0 de 0 resultados
                 </small>
             </div>
         </div>
 
-        <!-- Tabla de listas de reproducción -->
+ <!-- Tabla de listas de reproducción -->
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
                     <i class="fas fa-video me-2"></i>Listas de Reproducción
                 </h5>
-                <div class="d-flex align-items-center">
-                    <div class="btn-group" role="group" aria-label="Navegación de páginas">
-                        <button class="btn btn-sm btn-outline-secondary me-2"  
-                                id="firstPlaylistPageBtn" onclick="goToFirstPlaylistPage()" 
-                                title="Primera página">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                       <button class="btn btn-outline-secondary" 
+                            id="firstPlaylistPageBtn" 
+                            onclick="goToFirstPlaylistPage()" 
+                            title="Primera página">
                             <i class="fas fa-angle-double-left"></i>
                         </button>
-                        <button class="btn btn-sm btn-outline-secondary me-2" 
-                                id="prevPlaylistPageBtn" onclick="goToPrevPlaylistPage()" 
+                        <button class="btn btn-outline-secondary" 
+                                id="prevPlaylistPageBtn" 
+                                onclick="goToPrevPlaylistPage()" 
                                 title="Página anterior">
                             <i class="fas fa-angle-left"></i>
-                        </button>
+                        </button>               
+                        <span class="me-2">Página</span>
+                            <input type="number" 
+                           id="playlistPageInput" 
+                           class="form-control form-control-sm me-2" 
+                           style="width: 70px;" 
+                           min="1" 
+                           value="1"
+                           onchange="goToPlaylistPage(this.value)">
                         <button class="btn btn-sm btn-outline-secondary me-2" 
-                                id="nextPlaylistPageBtn" onclick="goToNextPlaylistPage()" 
+                                id="nextPlaylistPageBtn" 
+                                onclick="goToNextPlaylistPage()" 
                                 title="Página siguiente">
                             <i class="fas fa-angle-right"></i>
                         </button>
-                        <button class="btn btn-sm btn-outline-secondary me-2" 
-                                id="lastPlaylistPageBtn" onclick="goToLastPlaylistPage()" 
-                                title="Última página">
-                            <i class="fas fa-angle-double-right"></i>
+                             <button class="btn btn-sm btn-outline-secondary" 
+                            id="lastPlaylistPageBtn" 
+                            onclick="goToLastPlaylistPage()" 
+                            title="Última página">
+                        <i class="fas fa-angle-double-right"></i>
                         </button>
-                    </div>
-                    
-                    <div class="d-flex align-items-center">
-                        <small class="text-muted me-2">Página</small>
-                        <input type="number" id="playlistPageInput" class="form-control form-control-sm text-center" 
-                            style="width: 60px;" min="1" value="1" 
-                            onchange="goToPlaylistPage(parseInt(this.value))">
-                        <small class="text-muted ms-2">de <span id="playlistTotalPages">1</span></small>
+                        <small class="text-muted text-nowrap">de <span id="playlistTotalPages">1</span></small>
                     </div>
                 </div>
             </div>
             
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
+             <div class="card-body p-0">
+                <div class="table-responsive" style="min-height: 300px;">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
                             <tr>
-                                <th>
-                                    <button class="btn btn-link text-decoration-none text-dark p-0" 
+                                <th class="text-nowrap">
+                                    <button class="btn btn-link text-white text-decoration-none p-0" 
                                             onclick="sortPlaylists('title')">
                                         Título <i class="fas fa-sort ms-1"></i>
                                     </button>
                                 </th>
-                                <th>Descripción</th>
-                                <th>Videos</th>
-                                <th>
-                                    <button class="btn btn-link text-decoration-none text-dark p-0" 
+                                <th class="d-none d-lg-table-cell">Descripción</th>
+                                <th class="text-center">Videos</th>
+                                <th class="d-none d-md-table-cell">
+                                    <button class="btn btn-link text-white text-decoration-none p-0" 
                                             onclick="sortPlaylists('start_date')">
                                         Inicio <i class="fas fa-sort ms-1"></i>
                                     </button>
                                 </th>
-                                <th>
-                                    <button class="btn btn-link text-decoration-none text-dark p-0" 
+                                <th class="d-none d-md-table-cell">
+                                    <button class="btn btn-link text-white text-decoration-none p-0" 
                                             onclick="sortPlaylists('expiration_date')">
                                         Expiración <i class="fas fa-sort ms-1"></i>
                                     </button>
                                 </th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="playlistsList">
@@ -181,21 +186,22 @@
             </div>
             
             <div class="card-footer bg-light">
-                <div class="row align-items-center">
-                    <div class="col-md-6">
+                <div class="row align-items-center g-2">
+                    <div class="col-lg-6 col-12 text-center text-lg-start">
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i>
-                            Tip: Usa los filtros y búsqueda para encontrar listas específicas
+                            <span class="d-none d-sm-inline">Tip: Usa los filtros y búsqueda para encontrar listas específicas</span>
+                            <span class="d-sm-none">Usa filtros para buscar</span>
                         </small>
                     </div>
-                    <div class="col-md-6 text-end">
+                    <div class="col-lg-6 col-12 text-center text-lg-end">
                         <small class="text-muted" id="playlistPaginationFooter">
                             <!-- Información adicional de paginación -->
                         </small>
                     </div>
                 </div>
             </div>
-        </div>
+        </div> <!-- Close content-wrapper -->
     </div>
 </main>
 
@@ -242,7 +248,276 @@
 {% endblock %}
 
 {% block extra_scripts %}
+    <style>
+        /* Compatibility with sliding panels and sidebars */
+        .main-content {
+            width: 100%;
+            min-height: 100vh;
+            transition: all 0.3s ease;
+        }
+        
+        .content-wrapper {
+            width: 100%;
+            max-width: none;
+        }
+        
+        /* Responsive adjustments for different screen sizes */
+        @media (max-width: 1400px) {
+            .container-fluid {
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .container-fluid {
+                padding-left: 0.75rem !important;
+                padding-right: 0.75rem !important;
+            }
+            
+            /* Stack controls on smaller screens */
+            .d-flex.justify-content-between.flex-wrap {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .btn-toolbar {
+                margin-bottom: 0 !important;
+                align-self: flex-start;
+            }
+        }
+        
+        @media (max-width: 992px) {
+            /* Adjust table controls for tablets */
+            .card-header .d-flex {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start !important;
+            }
+            
+            .card-header .btn-group {
+                flex-wrap: wrap;
+            }
+            
+            /* Stack search and filter controls */
+            .row.mb-3 .col-md-6,
+            .row.mb-3 .col-md-3 {
+                margin-bottom: 0.75rem;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container-fluid {
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+            }
+            
+            /* Hide some table columns on mobile */
+            .table th:nth-child(2),
+            .table td:nth-child(2),
+            .table th:nth-child(4),
+            .table td:nth-child(4),
+            .table th:nth-child(5),
+            .table td:nth-child(5) {
+                display: none;
+            }
+            
+            /* Adjust pagination for mobile */
+            .card-header .d-flex .btn-group {
+                display: none;
+            }
+            
+            .card-header .d-flex .d-flex:last-child {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            /* Mobile-friendly action buttons */
+            .btn-group-sm .btn {
+                padding: 0.25rem 0.4rem;
+                font-size: 0.75rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            /* Extra mobile optimizations */
+            .h2 {
+                font-size: 1.5rem;
+            }
+            
+            .card-header h5 {
+                font-size: 1rem;
+            }
+            
+            /* Simplify table even more */
+            .table th:nth-child(3),
+            .table td:nth-child(3) {
+                display: none;
+            }
+            
+            .table td:first-child {
+                font-size: 0.875rem;
+            }
+        }
+        
+        /* Panel sidebar compatibility */
+        .sidebar-open .main-content {
+            margin-left: 0;
+            width: 100%;
+        }
+        
+        .sidebar-collapsed .main-content {
+            margin-left: 0;
+            width: 100%;
+        }
+        
+        /* Table responsive improvements */
+        .table-responsive {
+            border: none;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .table {
+            margin-bottom: 0;
+            min-width: 800px; /* Ensure minimum width for readability */
+        }
+        
+        @media (max-width: 768px) {
+            .table {
+                min-width: 600px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .table {
+                min-width: 500px;
+            }
+        }
+        
+        /* Pagination controls responsive */
+        .card-header .d-flex {
+            gap: 1rem;
+        }
+        
+        @media (max-width: 992px) {
+            .card-header .btn-group button {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.8rem;
+            }
+            
+            .card-header input[type="number"] {
+                width: 50px !important;
+            }
+        }
+        
+        /* Form controls responsive */
+        .input-group, .form-select {
+            width: 100%;
+        }
+        
+        /* Badge and button improvements */
+        .badge {
+            font-size: 0.75em;
+            padding: 0.35em 0.65em;
+        }
+        
+        .btn-group-sm .btn {
+            line-height: 1.2;
+        }
+        
+        /* Loading state improvements */
+        .spinner-border {
+            width: 2rem;
+            height: 2rem;
+        }
+        
+        /* Content spacing adjustments */
+        .pb-2.mb-3.border-bottom {
+            padding-bottom: 1rem !important;
+            margin-bottom: 1.5rem !important;
+        }
+        
+        /* Card footer responsive */
+        .card-footer .row {
+            align-items: center;
+        }
+        
+        @media (max-width: 768px) {
+            .card-footer .row {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center !important;
+            }
+            
+            .card-footer .col-md-6 {
+                text-align: center !important;
+            }
+        }
+    </style>
+
     <script>
+        // Compatibility with sliding panels and dynamic layout
+        function handleSidebarResize() {
+            const mainContent = document.getElementById('mainContent');
+            const contentWrapper = document.querySelector('.content-wrapper');
+            
+            if (mainContent && contentWrapper) {
+                // Force reflow to ensure proper sizing
+                setTimeout(() => {
+                    const table = document.querySelector('.table-responsive');
+                    if (table) {
+                        table.style.width = '100%';
+                    }
+                    
+                    // Trigger responsive recalculation
+                    window.dispatchEvent(new Event('resize'));
+                }, 100);
+            }
+        }
+        
+        // Listen for sidebar state changes
+        document.addEventListener('DOMContentLoaded', function() {
+            // Watch for sidebar toggle events
+            const sidebarToggle = document.querySelector('[data-bs-toggle="collapse"]');
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', () => {
+                    setTimeout(handleSidebarResize, 350); // Wait for animation
+                });
+            }
+            
+            // Watch for any element with sidebar-related classes
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'attributes' && 
+                        (mutation.attributeName === 'class' || mutation.attributeName === 'style')) {
+                        const target = mutation.target;
+                        if (target.classList.contains('sidebar') || 
+                            target.classList.contains('offcanvas') ||
+                            target.id === 'sidebar' ||
+                            target.classList.contains('collapse')) {
+                            handleSidebarResize();
+                        }
+                    }
+                });
+            });
+            
+            // Observe body and main containers for class changes
+            observer.observe(document.body, {
+                attributes: true,
+                attributeFilter: ['class', 'style'],
+                subtree: true
+            });
+            
+            // Listen for window resize
+            window.addEventListener('resize', () => {
+                setTimeout(handleSidebarResize, 100);
+            });
+            
+            // Initial setup
+            handleSidebarResize();
+        });
+
         // Variables globales para paginación - Compatible con main.js
         let currentPlaylistPage = 1;
         let playlistPageSize = 100;
@@ -432,9 +707,11 @@
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="7" class="text-center py-4">
-                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                            <p class="text-muted">No se encontraron listas de reproducción</p>
-                            ${currentPlaylistSearchTerm ? '<p class="small text-muted">Intenta con otros términos de búsqueda</p>' : ''}
+                            <div class="d-flex flex-column align-items-center">
+                                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                                <p class="text-muted mb-1">No se encontraron listas de reproducción</p>
+                                ${currentPlaylistSearchTerm ? '<p class="small text-muted">Intenta con otros términos de búsqueda</p>' : '<p class="small text-muted">Crea tu primera lista para comenzar</p>'}
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -451,22 +728,41 @@
                 
                 return `
                     <tr>
-                        <td><strong>${escapeHtml(playlist.title)}</strong></td>
-                        <td>${escapeHtml(playlist.description || '-')}</td>
-                        <td><span class="badge bg-info">${videoCount} videos</span></td>
-                        <td>${formatDate(playlist.start_date)}</td>
-                        <td>${formatDate(playlist.expiration_date)}</td>
-                        <td>${statusBadge}</td>
                         <td>
+                            <div class="d-flex flex-column">
+                                <strong class="text-truncate" style="max-width: 200px;" title="${escapeHtml(playlist.title)}">${escapeHtml(playlist.title)}</strong>
+                                <small class="text-muted d-lg-none">${escapeHtml(playlist.description || '-')}</small>
+                            </div>
+                        </td>
+                        <td class="d-none d-lg-table-cell">
+                            <span class="text-truncate d-inline-block" style="max-width: 250px;" title="${escapeHtml(playlist.description || '-')}">
+                                ${escapeHtml(playlist.description || '-')}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-info">${videoCount}</span>
+                            <div class="d-md-none">
+                                <small class="text-muted d-block">${formatDate(playlist.start_date)}</small>
+                                <small class="text-muted d-block">${formatDate(playlist.expiration_date)}</small>
+                            </div>
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            <small>${formatDate(playlist.start_date)}</small>
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            <small>${formatDate(playlist.expiration_date)}</small>
+                        </td>
+                        <td class="text-center">${statusBadge}</td>
+                        <td class="text-center">
                             <div class="btn-group btn-group-sm" role="group">
-                                <button class="btn btn-outline-primary" onclick="editPlaylist(${playlist.id})" title="Editar">
-                                    <i class="fas fa-edit"></i>
+                                <button class="btn btn-outline-primary btn-sm" onclick="editPlaylist(${playlist.id})" title="Editar">
+                                    <i class="fas fa-edit"></i><span class="d-none d-xl-inline ms-1">Editar</span>
                                 </button>
-                                <a href="/ui/edi-playlists?id=${playlist.id}" class="btn btn-outline-info" title="Editar Videos">
-                                    <i class="fas fa-video"></i>
+                                <a href="/ui/edi-playlists?id=${playlist.id}" class="btn btn-outline-info btn-sm" title="Editar Videos">
+                                    <i class="fas fa-video"></i><span class="d-none d-xl-inline ms-1">Videos</span>
                                 </a>
-                                <button class="btn btn-outline-danger" onclick="deletePlaylist(${playlist.id})" title="Eliminar">
-                                    <i class="fas fa-trash"></i>
+                                <button class="btn btn-outline-danger btn-sm" onclick="deletePlaylist(${playlist.id})" title="Eliminar">
+                                    <i class="fas fa-trash"></i><span class="d-none d-xl-inline ms-1">Eliminar</span>
                                 </button>
                             </div>
                         </td>
