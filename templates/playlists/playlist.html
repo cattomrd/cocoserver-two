@@ -1,0 +1,737 @@
+{% extends "/base.html" %}
+{% set title = playlist.title if playlist else "Lista de Reproducción" %}
+
+{% block styles %}
+<link href="{{ url_for('static', path='/css/playlists.css') }}" rel="stylesheet">
+<style>
+    .playlist-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 0.5rem;
+    }
+    
+    .video-item {
+        transition: all 0.3s ease;
+        border: 1px solid #e0e0e0;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .video-item:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    
+    .video-thumbnail {
+        width: 120px;
+        height: 90px;
+        object-fit: cover;
+        border-radius: 0.375rem;
+    }
+    
+    .video-duration {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.75rem;
+    }
+    
+    .playlist-stats {
+        background: rgba(255,255,255,0.1);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        backdrop-filter: blur(10px);
+    }
+    
+    .video-order {
+        background: #6c757d;
+        color: white;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 0.875rem;
+    }
+    
+    .control-panel {
+        position: sticky;
+        top: 20px;
+        z-index: 1000;
+    }
+    
+    @media (max-width: 768px) {
+        .video-thumbnail {
+            width: 80px;
+            height: 60px;
+        }
+        
+        .playlist-header {
+            padding: 1rem 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="container-fluid py-4">
+    <!-- Header de la Playlist -->
+    <div class="playlist-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center mb-3">
+                        <a href="{{ url_for('get_playlists_page') }}" class="btn btn-outline-light me-3">
+                            <i class="fas fa-arrow-left"></i> Volver
+                        </a>
+                        <h1 class="mb-0" id="playlistTitle">
+                            {{ playlist.title if playlist else "Cargando..." }}
+                        </h1>
+                    </div>
+                    <p class="mb-0 opacity-75" id="playlistDescription">
+                        {{ playlist.description if playlist and playlist.description else "Sin descripción" }}
+                    </p>
+                </div>
+                <div class="col-md-4">
+                    <div class="playlist-stats text-md-end text-start mt-3 mt-md-0">
+                        <div class="d-flex flex-wrap gap-3 justify-content-md-end justify-content-start">
+                            <div>
+                                <small class="d-block opacity-75">Videos</small>
+                                <strong id="videoCount">{{ playlist.videos|length if playlist and playlist.videos else 0 }}</strong>
+                            </div>
+                            <div>
+                                <small class="d-block opacity-75">Duración Total</small>
+                                <strong id="totalDuration">0h 0m</strong>
+                            </div>
+                            <div>
+                                <small class="d-block opacity-75">Estado</small>
+                                <span class="badge {% if playlist and playlist.is_active %}bg-success{% else %}bg-secondary{% endif %}" id="playlistStatus">
+                                    {{ "Activa" if playlist and playlist.is_active else "Inactiva" }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row">
+            <!-- Panel de Control -->
+            <div class="col-lg-3">
+                <div class="card control-panel">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cog me-2"></i>Controles
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Botones de Acción -->
+                        <div class="d-grid gap-2 mb-3">
+                            <button class="btn btn-primary" onclick="playPlaylist()" id="playBtn">
+                                <i class="fas fa-play me-2"></i>Reproducir Lista
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="editPlaylist()" id="editBtn">
+                                <i class="fas fa-edit me-2"></i>Editar Lista
+                            </button>
+                            <button class="btn btn-outline-success" onclick="duplicatePlaylist()" id="duplicateBtn">
+                                <i class="fas fa-copy me-2"></i>Duplicar Lista
+                            </button>
+                        </div>
+
+                        <!-- Información Adicional -->
+                        <hr>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Creada:</label>
+                            <p class="small mb-2" id="createdDate">
+                                {{ playlist.created_at.strftime('%d/%m/%Y %H:%M') if playlist and playlist.created_at else "-" }}
+                            </p>
+                        </div>
+
+                        <div class="mb-3" id="expirationSection" {% if not playlist or not playlist.expiration_date %}style="display: none;"{% endif %}>
+                            <label class="form-label small fw-bold">Expira:</label>
+                            <p class="small mb-2" id="expirationDate">
+                                {{ playlist.expiration_date.strftime('%d/%m/%Y') if playlist and playlist.expiration_date else "-" }}
+                            </p>
+                        </div>
+
+                        <!-- Filtros de Video -->
+                        <hr>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Buscar Videos:</label>
+                            <input type="text" class="form-control form-control-sm" 
+                                   id="videoSearchInput" placeholder="Buscar en esta lista...">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ordenar por:</label>
+                            <select class="form-select form-select-sm" id="sortSelect" onchange="sortVideos()">
+                                <option value="order">Orden de lista</option>
+                                <option value="title">Título (A-Z)</option>
+                                <option value="title_desc">Título (Z-A)</option>
+                                <option value="duration">Duración (menor)</option>
+                                <option value="duration_desc">Duración (mayor)</option>
+                            </select>
+                        </div>
+
+                        <!-- Estadísticas -->
+                        <hr>
+                        <div class="small text-muted">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Videos mostrados:</span>
+                                <span id="visibleVideos">0</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Duración promedio:</span>
+                                <span id="avgDuration">0m</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Videos -->
+            <div class="col-lg-9">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-video me-2"></i>Videos de la Lista
+                        </h5>
+                        <div>
+                            <button class="btn btn-outline-primary btn-sm" onclick="selectAllVideos()" id="selectAllBtn">
+                                <i class="fas fa-check-square me-1"></i>Seleccionar Todos
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- Lista de Videos -->
+                        <div id="videosList">
+                            <!-- Videos se cargan aquí dinámicamente -->
+                            <div class="text-center py-5" id="loadingVideos">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Cargando videos de la lista...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-light">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Haz clic en un video para reproducir desde esa posición
+                                </small>
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                <small class="text-muted" id="playlistFooterInfo">
+                                    <!-- Información adicional -->
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Reproducción -->
+    <div class="modal fade" id="playModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reproducir Lista de Reproducción</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center">
+                        <i class="fas fa-play-circle fa-5x text-primary mb-3"></i>
+                        <h4>Iniciando Reproducción</h4>
+                        <p class="text-muted">La lista de reproducción se enviará a los dispositivos configurados.</p>
+                        <div class="progress mt-3">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%" id="playProgress"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast para notificaciones -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="fas fa-info-circle text-primary me-2"></i>
+                <strong class="me-auto">Sistema</strong>
+                <small class="text-muted">ahora</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                <!-- Mensaje dinámico -->
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='/js/main.js') }}"></script>
+<script src="{{ url_for('static', path='/js/playlists.js') }}"></script>
+
+<script>
+// Variables globales
+let currentPlaylist = {{ playlist|tojson if playlist else 'null' }};
+let playlistVideos = {{ playlist.videos|tojson if playlist and playlist.videos else '[]' }};
+let filteredVideos = [];
+let selectedVideos = [];
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎵 Inicializando vista de playlist');
+    
+    // Si no hay playlist en el servidor, intentar cargar desde URL
+    if (!currentPlaylist) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const playlistId = urlParams.get('id');
+        if (playlistId) {
+            loadPlaylistData(playlistId);
+        } else {
+            showError('No se especificó ID de playlist');
+        }
+    } else {
+        initializePlaylistView();
+    }
+    
+    // Event listeners
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    // Búsqueda de videos
+    const searchInput = document.getElementById('videoSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            filterVideos(this.value);
+        });
+    }
+    
+    // Selección de videos
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('video-checkbox')) {
+            updateSelectedVideos();
+        }
+    });
+}
+
+async function loadPlaylistData(playlistId) {
+    try {
+        showToast('Cargando información de la playlist...', 'info');
+        
+        const response = await fetch(`/api/playlists/${playlistId}`);
+        if (!response.ok) {
+            throw new Error(`Error al cargar playlist: ${response.status}`);
+        }
+        
+        currentPlaylist = await response.json();
+        playlistVideos = currentPlaylist.videos || [];
+        
+        initializePlaylistView();
+        showToast('Playlist cargada correctamente', 'success');
+        
+    } catch (error) {
+        console.error('Error cargando playlist:', error);
+        showError(`Error al cargar la playlist: ${error.message}`);
+    }
+}
+
+function initializePlaylistView() {
+    if (!currentPlaylist) return;
+    
+    // Actualizar información del header
+    updatePlaylistHeader();
+    
+    // Cargar videos
+    filteredVideos = [...playlistVideos];
+    renderVideosList();
+    
+    // Actualizar estadísticas
+    updateStatistics();
+    
+    // Ocultar indicador de carga
+    const loadingElement = document.getElementById('loadingVideos');
+    if (loadingElement) {
+        loadingElement.style.display = 'none';
+    }
+}
+
+function updatePlaylistHeader() {
+    // Actualizar título
+    const titleElement = document.getElementById('playlistTitle');
+    if (titleElement) {
+        titleElement.textContent = currentPlaylist.title;
+        document.title = `Playlist: ${currentPlaylist.title}`;
+    }
+    
+    // Actualizar descripción
+    const descElement = document.getElementById('playlistDescription');
+    if (descElement) {
+        descElement.textContent = currentPlaylist.description || 'Sin descripción';
+    }
+    
+    // Actualizar contadores
+    const videoCountElement = document.getElementById('videoCount');
+    if (videoCountElement) {
+        videoCountElement.textContent = playlistVideos.length;
+    }
+    
+    // Actualizar duración total
+    const totalDuration = playlistVideos.reduce((total, video) => total + (video.duration || 0), 0);
+    const durationElement = document.getElementById('totalDuration');
+    if (durationElement) {
+        durationElement.textContent = formatDuration(totalDuration);
+    }
+    
+    // Actualizar estado
+    const statusElement = document.getElementById('playlistStatus');
+    if (statusElement) {
+        statusElement.textContent = currentPlaylist.is_active ? 'Activa' : 'Inactiva';
+        statusElement.className = `badge ${currentPlaylist.is_active ? 'bg-success' : 'bg-secondary'}`;
+    }
+    
+    // Actualizar fecha de creación
+    const createdElement = document.getElementById('createdDate');
+    if (createdElement && currentPlaylist.created_at) {
+        createdElement.textContent = formatDate(currentPlaylist.created_at);
+    }
+    
+    // Actualizar fecha de expiración
+    if (currentPlaylist.expiration_date) {
+        const expirationSection = document.getElementById('expirationSection');
+        const expirationElement = document.getElementById('expirationDate');
+        if (expirationSection && expirationElement) {
+            expirationSection.style.display = 'block';
+            expirationElement.textContent = formatDate(currentPlaylist.expiration_date);
+        }
+    }
+}
+
+function renderVideosList() {
+    const videosList = document.getElementById('videosList');
+    if (!videosList) return;
+    
+    if (filteredVideos.length === 0) {
+        videosList.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-video-slash fa-3x text-muted mb-3"></i>
+                <h5>No hay videos en esta lista</h5>
+                <p class="text-muted">Esta lista de reproducción está vacía o no se encontraron videos que coincidan con tu búsqueda.</p>
+                <button class="btn btn-primary" onclick="editPlaylist()">
+                    <i class="fas fa-plus me-2"></i>Añadir Videos
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    videosList.innerHTML = filteredVideos.map((video, index) => `
+        <div class="video-item p-3" data-video-id="${video.id}">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <div class="video-order">${index + 1}</div>
+                </div>
+                <div class="col-auto">
+                    <div class="position-relative">
+                        ${video.thumbnail ? 
+                            `<img src="${video.thumbnail}" class="video-thumbnail" alt="Thumbnail">` :
+                            `<div class="video-thumbnail bg-light d-flex align-items-center justify-content-center">
+                                <i class="fas fa-video fa-2x text-muted"></i>
+                            </div>`
+                        }
+                        <div class="video-duration">${formatDuration(video.duration || 0)}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <h6 class="mb-1">${video.title || 'Sin título'}</h6>
+                    <p class="text-muted mb-1 small">${video.description || 'Sin descripción'}</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="badge bg-info">${formatDuration(video.duration || 0)}</span>
+                        ${video.is_active ? 
+                            '<span class="badge bg-success">Activo</span>' : 
+                            '<span class="badge bg-secondary">Inactivo</span>'
+                        }
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="btn-group-vertical btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="playFromVideo(${video.id})" title="Reproducir desde aquí">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button class="btn btn-outline-info" onclick="previewVideo(${video.id})" title="Vista previa">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <input type="checkbox" class="form-check-input video-checkbox" 
+                           value="${video.id}" id="video_${video.id}">
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    updateVisibleCount();
+}
+
+function filterVideos(searchTerm) {
+    if (!searchTerm.trim()) {
+        filteredVideos = [...playlistVideos];
+    } else {
+        const term = searchTerm.toLowerCase();
+        filteredVideos = playlistVideos.filter(video => 
+            (video.title || '').toLowerCase().includes(term) ||
+            (video.description || '').toLowerCase().includes(term)
+        );
+    }
+    
+    renderVideosList();
+    updateStatistics();
+}
+
+function sortVideos() {
+    const sortSelect = document.getElementById('sortSelect');
+    const sortBy = sortSelect.value;
+    
+    switch (sortBy) {
+        case 'title':
+            filteredVideos.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+            break;
+        case 'title_desc':
+            filteredVideos.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
+            break;
+        case 'duration':
+            filteredVideos.sort((a, b) => (a.duration || 0) - (b.duration || 0));
+            break;
+        case 'duration_desc':
+            filteredVideos.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+            break;
+        default: // order
+            // Mantener orden original de la playlist
+            filteredVideos = playlistVideos.filter(video => 
+                filteredVideos.some(filtered => filtered.id === video.id)
+            );
+            break;
+    }
+    
+    renderVideosList();
+}
+
+function updateStatistics() {
+    // Videos visibles
+    const visibleElement = document.getElementById('visibleVideos');
+    if (visibleElement) {
+        visibleElement.textContent = filteredVideos.length;
+    }
+    
+    // Duración promedio
+    const avgElement = document.getElementById('avgDuration');
+    if (avgElement && filteredVideos.length > 0) {
+        const avgDuration = filteredVideos.reduce((sum, video) => sum + (video.duration || 0), 0) / filteredVideos.length;
+        avgElement.textContent = formatDuration(avgDuration);
+    }
+}
+
+function updateVisibleCount() {
+    const visibleElement = document.getElementById('visibleVideos');
+    if (visibleElement) {
+        visibleElement.textContent = filteredVideos.length;
+    }
+}
+
+// Funciones de acción
+function playPlaylist() {
+    if (!currentPlaylist) {
+        showToast('No hay playlist cargada', 'warning');
+        return;
+    }
+    
+    showToast('Iniciando reproducción de la playlist...', 'info');
+    
+    // Mostrar modal de progreso
+    const playModal = new bootstrap.Modal(document.getElementById('playModal'));
+    playModal.show();
+    
+    // Simular progreso
+    simulatePlayProgress();
+}
+
+function simulatePlayProgress() {
+    const progressBar = document.getElementById('playProgress');
+    let progress = 0;
+    
+    const interval = setInterval(() => {
+        progress += Math.random() * 20;
+        if (progress >= 100) {
+            progress = 100;
+            clearInterval(interval);
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('playModal')).hide();
+                showToast('Playlist enviada a dispositivos', 'success');
+            }, 1000);
+        }
+        progressBar.style.width = progress + '%';
+    }, 200);
+}
+
+function editPlaylist() {
+    if (!currentPlaylist) {
+        showToast('No hay playlist para editar', 'warning');
+        return;
+    }
+    
+    // Redirigir al editor
+    window.location.href = `/edi-playlists?id=${currentPlaylist.id}`;
+}
+
+function duplicatePlaylist() {
+    if (!currentPlaylist) {
+        showToast('No hay playlist para duplicar', 'warning');
+        return;
+    }
+    
+    showToast('Función de duplicar en desarrollo', 'info');
+}
+
+function playFromVideo(videoId) {
+    const video = playlistVideos.find(v => v.id === videoId);
+    if (video) {
+        showToast(`Reproduciendo desde: ${video.title}`, 'info');
+    }
+}
+
+function previewVideo(videoId) {
+    const video = playlistVideos.find(v => v.id === videoId);
+    if (video) {
+        showToast(`Vista previa: ${video.title}`, 'info');
+    }
+}
+
+function selectAllVideos() {
+    const checkboxes = document.querySelectorAll('.video-checkbox');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    
+    checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+    });
+    
+    updateSelectedVideos();
+    
+    selectAllBtn.innerHTML = allChecked ? 
+        '<i class="fas fa-check-square me-1"></i>Seleccionar Todos' :
+        '<i class="fas fa-square me-1"></i>Deseleccionar Todos';
+}
+
+function updateSelectedVideos() {
+    const checkboxes = document.querySelectorAll('.video-checkbox:checked');
+    selectedVideos = Array.from(checkboxes).map(cb => parseInt(cb.value));
+    
+    console.log('Videos seleccionados:', selectedVideos);
+}
+
+// Funciones utilitarias
+function formatDuration(seconds) {
+    if (!seconds) return '0m';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('notificationToast');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    if (toast && toastMessage) {
+        toastMessage.textContent = message;
+        
+        // Cambiar ícono según tipo
+        const toastHeader = toast.querySelector('.toast-header i');
+        if (toastHeader) {
+            toastHeader.className = `fas fa-${getToastIcon(type)} text-${getToastColor(type)} me-2`;
+        }
+        
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+    }
+}
+
+function getToastIcon(type) {
+    const icons = {
+        'success': 'check-circle',
+        'error': 'exclamation-circle',
+        'warning': 'exclamation-triangle',
+        'info': 'info-circle'
+    };
+    return icons[type] || 'info-circle';
+}
+
+function getToastColor(type) {
+    const colors = {
+        'success': 'success',
+        'error': 'danger',
+        'warning': 'warning',
+        'info': 'primary'
+    };
+    return colors[type] || 'primary';
+}
+
+function showError(message) {
+    const videosList = document.getElementById('videosList');
+    if (videosList) {
+        videosList.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                <h5>Error al cargar</h5>
+                <p class="text-muted">${message}</p>
+                <button class="btn btn-primary" onclick="location.reload()">
+                    <i class="fas fa-sync me-2"></i>Reintentar
+                </button>
+            </div>
+        `;
+    }
+    showToast(message, 'error');
+}
+
+console.log('🎵 Vista de playlist inicializada');
+</script>
+{% endblock %}

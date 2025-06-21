@@ -662,3 +662,554 @@
         background-color: rgba(255, 255, 255, 0.05);
     }
 }
+
+
+/* ==========================================
+   ESTILOS ADICIONALES PARA EDIT-PLAYLISTS
+   ========================================== */
+
+/* Variables CSS mejoradas */
+:root {
+    --editor-primary: #0d6efd;
+    --editor-success: #198754;
+    --editor-danger: #dc3545;
+    --editor-warning: #ffc107;
+    --editor-info: #0dcaf0;
+    --editor-light: #f8f9fa;
+    --editor-dark: #212529;
+    --editor-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --editor-shadow-hover: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    --editor-border-radius: 0.375rem;
+    --editor-transition: all 0.15s ease-in-out;
+}
+
+/* ==========================================
+   CARDS DE VIDEOS MEJORADOS
+   ========================================== */
+
+.video-card {
+    transition: var(--editor-transition);
+    cursor: grab;
+    border: 1px solid #dee2e6;
+    background: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.video-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--editor-shadow-hover);
+    border-color: var(--editor-primary);
+}
+
+.video-card:active {
+    cursor: grabbing;
+    transform: scale(0.98);
+}
+
+.video-card.dragging {
+    opacity: 0.8;
+    transform: rotate(2deg);
+    z-index: 1000;
+}
+
+/* Indicadores visuales para diferentes tipos de cards */
+.available-video-card {
+    border-left: 4px solid var(--editor-primary) !important;
+}
+
+.available-video-card::before {
+    content: "\f067"; /* Plus icon */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    color: var(--editor-primary);
+    font-size: 0.75rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.available-video-card:hover::before {
+    opacity: 1;
+}
+
+.playlist-video-card {
+    border-left: 4px solid var(--editor-success) !important;
+}
+
+.playlist-video-card::before {
+    content: "\f0c9"; /* Grip lines */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    color: var(--editor-success);
+    font-size: 0.75rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.playlist-video-card:hover::before {
+    opacity: 1;
+}
+
+/* ==========================================
+   THUMBNAILS Y MEDIA
+   ========================================== */
+
+.video-thumbnail-sm {
+    width: 60px;
+    height: 45px;
+    object-fit: cover;
+    border-radius: var(--editor-border-radius);
+    border: 1px solid #dee2e6;
+    background: var(--editor-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-thumbnail-md {
+    width: 80px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: var(--editor-border-radius);
+}
+
+.video-thumbnail-lg {
+    width: 120px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: var(--editor-border-radius);
+}
+
+/* Placeholder para videos sin thumbnail */
+.video-thumbnail-placeholder {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    font-size: 1.5rem;
+    border: 2px dashed #dee2e6;
+}
+
+/* ==========================================
+   DRAG & DROP ZONES
+   ========================================== */
+
+.drop-zone {
+    min-height: 200px;
+    border: 2px dashed transparent;
+    border-radius: var(--editor-border-radius);
+    transition: var(--editor-transition);
+    position: relative;
+}
+
+.drop-zone.drag-over {
+    border-color: var(--editor-success);
+    background-color: rgba(25, 135, 84, 0.05);
+}
+
+.drop-zone.drag-over::after {
+    content: "\f0ee"; /* Plus circle */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3rem;
+    color: var(--editor-success);
+    opacity: 0.7;
+    z-index: 10;
+}
+
+.available-videos-drop-zone {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border: 1px solid #e0e0e0;
+}
+
+.playlist-drop-zone {
+    background: linear-gradient(135deg, #ffffff 0%, #f0f8f0 100%);
+    border: 1px solid #d4edda;
+}
+
+/* ==========================================
+   SORTABLE STATES
+   ========================================== */
+
+.sortable-ghost {
+    opacity: 0.4;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px dashed var(--editor-primary);
+    transform: scale(0.95);
+}
+
+.sortable-chosen {
+    transform: scale(1.02);
+    box-shadow: var(--editor-shadow-hover);
+    z-index: 999;
+}
+
+.sortable-drag {
+    transform: rotate(5deg);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+/* ==========================================
+   DRAG HANDLES
+   ========================================== */
+
+.drag-handle {
+    cursor: move;
+    padding: 0.5rem;
+    border-radius: var(--editor-border-radius);
+    transition: var(--editor-transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.drag-handle:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+    color: var(--editor-primary);
+    transform: scale(1.1);
+}
+
+.drag-handle:active {
+    background-color: rgba(13, 110, 253, 0.2);
+}
+
+/* ==========================================
+   SEARCH Y FILTERS
+   ========================================== */
+
+.search-container {
+    position: relative;
+}
+
+.search-container .form-control {
+    padding-left: 2.5rem;
+}
+
+.search-container::before {
+    content: "\f002"; /* Search icon */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 5;
+}
+
+.search-results-count {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* ==========================================
+   ESTADÍSTICAS Y BADGES
+   ========================================== */
+
+.stats-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #e0e0e0;
+    border-radius: var(--editor-border-radius);
+    padding: 1rem;
+    transition: var(--editor-transition);
+}
+
+.stats-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--editor-shadow-hover);
+}
+
+.stats-number {
+    font-size: 2rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.stats-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.duration-badge {
+    background: linear-gradient(135deg, var(--editor-info) 0%, #0dcaf0 100%);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* ==========================================
+   BUTTONS Y ACTIONS
+   ========================================== */
+
+.action-button {
+    transition: var(--editor-transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.action-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.action-button:hover::before {
+    left: 100%;
+}
+
+.btn-add-video {
+    background: linear-gradient(135deg, var(--editor-success) 0%, #20c997 100%);
+    border: none;
+    color: white;
+}
+
+.btn-remove-video {
+    background: linear-gradient(135deg, var(--editor-danger) 0%, #fd7e14 100%);
+    border: none;
+    color: white;
+}
+
+.btn-reorder {
+    background: linear-gradient(135deg, var(--editor-primary) 0%, #6f42c1 100%);
+    border: none;
+    color: white;
+}
+
+/* ==========================================
+   LOADING STATES
+   ========================================== */
+
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    border-radius: var(--editor-border-radius);
+}
+
+.loading-content {
+    text-align: center;
+    color: var(--editor-primary);
+}
+
+.loading-spinner {
+    width: 3rem;
+    height: 3rem;
+    margin-bottom: 1rem;
+}
+
+/* ==========================================
+   EMPTY STATES
+   ========================================== */
+
+.empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: #6c757d;
+}
+
+.empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.empty-state-description {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ==========================================
+   RESPONSIVE DESIGN
+   ========================================== */
+
+@media (max-width: 768px) {
+    .video-card {
+        margin-bottom: 0.75rem;
+    }
+    
+    .video-thumbnail-sm {
+        width: 50px;
+        height: 38px;
+    }
+    
+    .drag-handle {
+        padding: 0.25rem;
+    }
+    
+    .stats-number {
+        font-size: 1.5rem;
+    }
+    
+    .drop-zone {
+        min-height: 150px;
+    }
+    
+    .action-button {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.875rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .video-card .row {
+        --bs-gutter-x: 0.5rem;
+    }
+    
+    .video-thumbnail-sm {
+        width: 40px;
+        height: 30px;
+    }
+    
+    .stats-card {
+        padding: 0.75rem;
+    }
+    
+    .empty-state {
+        padding: 2rem 0.5rem;
+    }
+    
+    .empty-state-icon {
+        font-size: 2rem;
+    }
+}
+
+/* ==========================================
+   ACCESSIBILITY IMPROVEMENTS
+   ========================================== */
+
+.video-card:focus {
+    outline: 2px solid var(--editor-primary);
+    outline-offset: 2px;
+}
+
+.drag-handle:focus {
+    outline: 2px solid var(--editor-primary);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .video-card,
+    .drag-handle,
+    .action-button,
+    .stats-card {
+        transition: none;
+    }
+    
+    .video-card:hover,
+    .stats-card:hover {
+        transform: none;
+    }
+}
+
+/* ==========================================
+   DARK MODE SUPPORT (opcional)
+   ========================================== */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --editor-light: #343a40;
+        --editor-dark: #f8f9fa;
+    }
+    
+    .video-card {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #f8f9fa;
+    }
+    
+    .drop-zone {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+    
+    .stats-card {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #f8f9fa;
+    }
+    
+    .empty-state {
+        color: #a0aec0;
+    }
+    
+    .empty-state-title {
+        color: #e2e8f0;
+    }
+}
+
+/* ==========================================
+   UTILITY CLASSES
+   ========================================== */
+
+.cursor-grab {
+    cursor: grab;
+}
+
+.cursor-grabbing {
+    cursor: grabbing;
+}
+
+.no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.transition-fast {
+    transition: all 0.1s ease-in-out;
+}
+
+.transition-normal {
+    transition: var(--editor-transition);
+}
+
+.transition-slow {
+    transition: all 0.3s ease-in-out;
+}
+
+.shadow-soft {
+    box-shadow: var(--editor-shadow);
+}
+
+.shadow-hover {
+    box-shadow: var(--editor-shadow-hover);
+}
+
+.border-radius-custom {
+    border-radius: var(--editor-border-radius);
+}
