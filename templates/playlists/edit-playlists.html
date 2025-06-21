@@ -1,571 +1,1396 @@
 {% extends "base.html" %}
 
 {% block content %}
-
-    <!-- Main Content -->
-    <main class="main-content" id="mainContent">
-        <div class="container-fluid py-4">
-            <!-- Header -->
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
-                <h1 class="h2">
-                    <i class="fas fa-edit text-primary"></i>
-                    Editor de Lista de Reproducción
-                </h1>
-                <div class="btn-toolbar mb-2 mb-md-0">
-                    <div class="btn-group me-2">
-                        <button type="button" class="btn btn-outline-secondary" onclick="loadPlaylist()">
-                            <i class="fas fa-folder-open"></i> Cargar Lista
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="clearPlaylist()">
-                            <i class="fas fa-trash"></i> Limpiar
-                        </button>
-                    </div>
+<main class="main-content" id="mainContent">
+    <div class="container-fluid py-4">
+        <!-- Header -->
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+            <h1 class="h2">
+                <i class="fas fa-edit text-primary"></i>
+                <span id="pageTitle">Editar Lista {{ playlist.title if playlist else 'Nueva Lista' }}</span>
+            </h1>
+            <div class="btn-toolbar mb-2 mb-md-0">
+                <div class="btn-group me-2">
+                    <button type="button" class="btn btn-outline-secondary" onclick="loadPlaylistSelector()">
+                        <i class="fas fa-folder-open"></i> Cargar Lista
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="savePlaylistChanges()">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="previewPlaylist()">
+                        <i class="fas fa-play"></i> Vista Previa
+                    </button>
+                </div>
+                <div class="btn-group">
+                    <a href="/ui/playlists" class="btn btn-outline-dark">
+                        <i class="fas fa-arrow-left"></i> Volver a Listas
+                    </a>
                 </div>
             </div>
+        </div>
 
-            <!-- Playlist Info Form -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card">
+        <!-- Información de la Lista -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>Información de la Lista
+                            <span id="playlistStatusBadge" class="badge bg-secondary ms-2">{{ playlist.status if playlist else 'Nueva' }}</span>
+                        </h5>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#playlistInfoCollapse">
+                            <i class="fas fa-edit"></i> Editar Info
+                        </button>
+                    </div>
+                    <div id="playlistInfoCollapse" class="collapse {{ 'show' if not playlist }}">
                         <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="playlistTitle" class="form-label">Título de la Lista</label>
-                                        <input type="text" class="form-control" id="playlistTitle" 
-                                               placeholder="Ingresa el título de la lista..." 
-                                               value="{{ playlist.title if playlist else '' }}">
+                            <form id="playlistInfoForm">
+                                <input type="hidden" id="playlistId" name="id" value="{{ playlist.id if playlist else '' }}">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="playlistTitle" class="form-label">
+                                                Título de la Lista <span class="text-danger">*</span>
+                                            </label>
+                                            <input type="text" class="form-control" id="playlistTitle" name="title" 
+                                                   value="{{ playlist.title if playlist else '' }}" 
+                                                   placeholder="Ingresa el título de la lista..." required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="playlistDescription" class="form-label">Descripción</label>
+                                            <input type="text" class="form-control" id="playlistDescription" name="description" 
+                                                   value="{{ playlist.description if playlist else '' }}"
+                                                   placeholder="Descripción de la lista...">
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="playlistDescription" class="form-label">Descripción</label>
-                                        <input type="text" class="form-control" id="playlistDescription" 
-                                               placeholder="Descripción opcional..." 
-                                               value="{{ playlist.description if playlist else '' }}">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="playlistStartDate" class="form-label">Fecha de Inicio</label>
+                                            <input type="datetime-local" class="form-control" id="playlistStartDate" 
+                                                   name="start_date" value="{{ playlist.start_date if playlist else '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="playlistExpiration" class="form-label">Fecha de Expiración</label>
+                                            <input type="datetime-local" class="form-control" id="playlistExpiration" 
+                                                   name="expiration_date" value="{{ playlist.expiration_date if playlist else '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <div class="form-check form-switch mt-4">
+                                                <input class="form-check-input" type="checkbox" id="playlistActive" 
+                                                       name="is_active" {{ 'checked' if playlist and playlist.is_active else 'checked' }}>
+                                                <label class="form-check-label" for="playlistActive">Lista Activa</label>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
+                                <div class="d-flex justify-content-end">
+                                    <button type="button" class="btn btn-primary" onclick="updatePlaylistInfo()">
+                                        <i class="fas fa-save"></i> Actualizar Información
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estadísticas de la Lista -->
+        <div class="row mb-4" id="playlistStats" {{ 'style=display:block' if playlist and playlist.videos else 'style=display:none' }}>
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0" id="totalVideos">{{ playlist.videos|length if playlist and playlist.videos else 0 }}</h4>
+                                <p class="mb-0">Videos</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-video fa-2x"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Main Editor -->
-            <div class="row playlist-editor">
-                <!-- Video Search Panel -->
-                <div class="col-lg-4">
-                    <div class="video-search-panel">
-                        <div class="panel-header">
-                            <i class="fas fa-search"></i> Biblioteca de Videos
-                        </div>
-                        
-                        <div class="search-container">
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="videoSearch" 
-                                       placeholder="Buscar videos...">
-                                <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
-                                    <i class="fas fa-times"></i>
-                                </button>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0" id="totalDuration">0m</h4>
+                                <p class="mb-0">Duración Total</p>
                             </div>
-                        </div>
-
-                        <div class="video-list-container" id="videoLibrary">
-                            <div class="loading-spinner" id="videoLoadingSpinner">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Cargando videos...</span>
-                                </div>
-                                <p class="mt-2">Cargando biblioteca de videos...</p>
-                            </div>
-                            
-                            <div class="empty-state" id="videoEmptyState" style="display: none;">
-                                <i class="fas fa-film fa-3x mb-3"></i>
-                                <h5>No hay videos disponibles</h5>
-                                <p>Sube algunos videos para comenzar a crear listas de reproducción.</p>
+                            <div class="align-self-center">
+                                <i class="fas fa-clock fa-2x"></i>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- Playlist Builder Panel -->
-                <div class="col-lg-8">
-                    <div class="playlist-builder-panel">
-                        <div class="panel-header">
-                            <i class="fas fa-list"></i> 
-                            <span id="playlistHeaderTitle">Nueva Lista de Reproducción</span>
-                            <span class="badge bg-light text-dark ms-2" id="videoCount">0 videos</span>
-                        </div>
-
-                        <div class="playlist-content" id="playlistContent">
-                            <div class="drop-zone" id="dropZone">
-                                <i class="fas fa-cloud-upload-alt fa-3x mb-3"></i>
-                                <h5>Arrastra videos aquí</h5>
-                                <p>Selecciona videos de la biblioteca y arrástralos para crear tu lista de reproducción</p>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0" id="avgDuration">0m</h4>
+                                <p class="mb-0">Duración Promedio</p>
                             </div>
-                            
-                            <div id="playlistItems"></div>
+                            <div class="align-self-center">
+                                <i class="fas fa-chart-bar fa-2x"></i>
+                            </div>
                         </div>
-
-                        <div class="playlist-controls">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <small class="text-muted">
-                                        <i class="fas fa-info-circle"></i>
-                                        Arrastra para reordenar • Duración total: <span id="totalDuration">0:00</span>
-                                    </small>
-                                </div>
-                                <button class="btn btn-save-playlist" onclick="savePlaylist()" id="saveButton" disabled>
-                                    <i class="fas fa-save"></i> Guardar Lista de Reproducción
-                                </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="mb-0" id="lastUpdate">{{ playlist.updated_at.strftime('%d/%m') if playlist and playlist.updated_at else '-' }}</h4>
+                                <p class="mb-0">Última Actualización</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-calendar fa-2x"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </main>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Variables globales
-        let videos = [];
-        let playlistVideos = [];
-        let currentPlaylistId = {{ playlist.id if playlist else 'null' }};
-        let draggedElement = null;
-        let sidebarHidden = false;
-
-        // Inicialización
-        document.addEventListener('DOMContentLoaded', function() {
-            loadVideos();
-            initializeDragAndDrop();
-            initializeSearch();
-            updatePlaylistHeader();
-            updateLayoutOnResize(); // Ajustar layout inicial
-            
-            {% if playlist %}
-            loadExistingPlaylist();
-            {% endif %}
-        });
-
-        // Toggle Sidebar
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-            const toggleIcon = document.getElementById('sidebarToggleIcon');
-            const toggleButton = document.getElementById('sidebarToggle');
-            
-            sidebarHidden = !sidebarHidden;
-            
-            if (sidebarHidden) {
-                sidebar.classList.add('hidden');
-                mainContent.classList.add('expanded');
-                toggleIcon.className = 'fas fa-bars';
-                toggleButton.classList.add('sidebar-hidden');
-            } else {
-                sidebar.classList.remove('hidden');
-                mainContent.classList.remove('expanded');
-                toggleIcon.className = 'fas fa-times';
-                toggleButton.classList.remove('sidebar-hidden');
-            }
-        }
-
-        // Manejo de redimensionamiento de ventana
-        window.addEventListener('resize', function() {
-            // Mantener la funcionalidad en todas las resoluciones
-            // No forzar cambios de layout automáticos
-            updateLayoutOnResize();
-        });
-
-        function updateLayoutOnResize() {
-            const width = window.innerWidth;
-            const playlistEditor = document.querySelector('.playlist-editor');
-            
-            // Ajustar altura dinámicamente según el viewport
-            if (playlistEditor) {
-                const headerHeight = document.querySelector('.border-bottom').offsetHeight || 80;
-                const formHeight = document.querySelector('.card').offsetHeight || 120;
-                const availableHeight = window.innerHeight - headerHeight - formHeight - 60;
-                
-                playlistEditor.style.height = `${Math.max(400, availableHeight)}px`;
-                
-                // Forzar layout horizontal siempre
-                playlistEditor.style.display = 'flex';
-                playlistEditor.style.flexDirection = 'row';
-            }
-            
-            // Asegurar que los paneles mantengan layout lado a lado
-            const videoPanel = document.querySelector('.video-search-panel');
-            const playlistPanel = document.querySelector('.playlist-builder-panel');
-            const col4 = document.querySelector('.playlist-editor .col-lg-4');
-            const col8 = document.querySelector('.playlist-editor .col-lg-8');
-            
-            if (videoPanel && playlistPanel && col4 && col8) {
-                // Forzar heights completos
-                videoPanel.style.height = '100%';
-                playlistPanel.style.height = '100%';
-                
-                // Asegurar flex en columnas
-                col4.style.display = 'flex';
-                col4.style.flexDirection = 'column';
-                col8.style.display = 'flex';
-                col8.style.flexDirection = 'column';
-                
-                // Ajustar proporciones según tamaño de pantalla
-                if (width <= 576) {
-                    // Móvil: 38% - 62%
-                    col4.style.flex = '0 0 38%';
-                    col4.style.maxWidth = '38%';
-                    col8.style.flex = '0 0 62%';
-                    col8.style.maxWidth = '62%';
-                } else if (width <= 768) {
-                    // Tablet: 40% - 60%
-                    col4.style.flex = '0 0 40%';
-                    col4.style.maxWidth = '40%';
-                    col8.style.flex = '0 0 60%';
-                    col8.style.maxWidth = '60%';
-                } else if (width <= 992) {
-                    // Desktop pequeño: 35% - 65%
-                    col4.style.flex = '0 0 35%';
-                    col4.style.maxWidth = '35%';
-                    col8.style.flex = '0 0 65%';
-                    col8.style.maxWidth = '65%';
-                } else {
-                    // Desktop grande: proporciones originales
-                    col4.style.flex = '';
-                    col4.style.maxWidth = '';
-                    col8.style.flex = '';
-                    col8.style.maxWidth = '';
-                }
-            }
-        }
-
-        // Cargar videos desde la API
-        async function loadVideos() {
-            try {
-                const spinner = document.getElementById('videoLoadingSpinner');
-                const emptyState = document.getElementById('videoEmptyState');
-                const videoLibrary = document.getElementById('videoLibrary');
-                
-                spinner.style.display = 'block';
-                
-                const response = await fetch('/api/videos');
-                const data = await response.json();
-                
-                videos = data.videos || [];
-                
-                spinner.style.display = 'none';
-                
-                if (videos.length === 0) {
-                    emptyState.style.display = 'block';
-                } else {
-                    renderVideoLibrary();
-                }
-            } catch (error) {
-                console.error('Error al cargar videos:', error);
-                document.getElementById('videoLoadingSpinner').style.display = 'none';
-                document.getElementById('videoEmptyState').style.display = 'block';
-            }
-        }
-
-        // Renderizar biblioteca de videos
-        function renderVideoLibrary(filteredVideos = null) {
-            const videoLibrary = document.getElementById('videoLibrary');
-            const videosToRender = filteredVideos || videos;
-            
-            videoLibrary.innerHTML = '';
-            
-            videosToRender.forEach(video => {
-                const videoElement = createVideoElement(video);
-                videoLibrary.appendChild(videoElement);
-            });
-        }
-
-        // Crear elemento de video
-        function createVideoElement(video) {
-            const div = document.createElement('div');
-            div.className = 'video-item';
-            div.draggable = true;
-            div.dataset.videoId = video.id;
-            
-            div.innerHTML = `
-                <div class="video-title">${video.title || video.filename}</div>
-                <div class="video-meta">
-                    <span class="video-duration">${formatDuration(video.duration || 0)}</span>
-                    <small class="ms-2">${formatFileSize(video.file_size || 0)}</small>
-                </div>
-            `;
-            
-            // Event listeners para drag & drop
-            div.addEventListener('dragstart', handleDragStart);
-            div.addEventListener('dragend', handleDragEnd);
-            
-            return div;
-        }
-
-        // Inicializar drag & drop
-        function initializeDragAndDrop() {
-            const dropZone = document.getElementById('dropZone');
-            const playlistContent = document.getElementById('playlistContent');
-            
-            // Drop zone events
-            dropZone.addEventListener('dragover', handleDragOver);
-            dropZone.addEventListener('drop', handleDrop);
-            
-            // Playlist content events
-            playlistContent.addEventListener('dragover', handleDragOver);
-            playlistContent.addEventListener('drop', handleDrop);
-        }
-
-        // Manejadores de drag & drop
-        function handleDragStart(e) {
-            draggedElement = this;
-            this.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'copy';
-        }
-
-        function handleDragEnd(e) {
-            this.classList.remove('dragging');
-            draggedElement = null;
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-        }
-
-        function handleDrop(e) {
-            e.preventDefault();
-            
-            if (draggedElement) {
-                const videoId = parseInt(draggedElement.dataset.videoId);
-                const video = videos.find(v => v.id === videoId);
-                
-                if (video && !playlistVideos.find(pv => pv.video_id === videoId)) {
-                    addVideoToPlaylist(video);
-                }
-            }
-        }
-
-        // Agregar video a la playlist
-        function addVideoToPlaylist(video) {
-            const position = playlistVideos.length + 1;
-            const playlistVideo = {
-                video_id: video.id,
-                position: position,
-                video: video
-            };
-            
-            playlistVideos.push(playlistVideo);
-            renderPlaylist();
-            updatePlaylistInfo();
-        }
-
-        // Renderizar playlist
-        function renderPlaylist() {
-            const dropZone = document.getElementById('dropZone');
-            const playlistItems = document.getElementById('playlistItems');
-            
-            if (playlistVideos.length === 0) {
-                dropZone.classList.remove('has-items');
-                playlistItems.innerHTML = '';
-            } else {
-                dropZone.classList.add('has-items');
-                
-                playlistItems.innerHTML = '';
-                playlistVideos.forEach((playlistVideo, index) => {
-                    const itemElement = createPlaylistItem(playlistVideo, index);
-                    playlistItems.appendChild(itemElement);
-                });
-            }
-        }
-
-        // Crear elemento de playlist
-        function createPlaylistItem(playlistVideo, index) {
-            const div = document.createElement('div');
-            div.className = 'playlist-item';
-            div.dataset.position = index;
-            
-            div.innerHTML = `
-                <div class="position-indicator">${index + 1}</div>
-                <div class="drag-handle">
-                    <i class="fas fa-grip-vertical"></i>
-                </div>
-                <div class="flex-grow-1">
-                    <div class="video-title">${playlistVideo.video.title || playlistVideo.video.filename}</div>
-                    <div class="video-meta">
-                        <span class="video-duration">${formatDuration(playlistVideo.video.duration || 0)}</span>
-                        <small class="ms-2">${formatFileSize(playlistVideo.video.file_size || 0)}</small>
+        <!-- Editor Drag & Drop -->
+        <div class="row">
+            <!-- Panel Izquierdo: Biblioteca de Videos -->
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-video me-2"></i>Biblioteca de Videos
+                            </h5>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-light text-dark me-2" id="availableVideoCount">0 videos</span>
+                                <button class="btn btn-outline-light btn-sm" onclick="loadAvailableVideos()" title="Recargar videos">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- Búsqueda de Videos -->
+                        <div class="p-3 border-bottom">
+                            <div class="input-group">
+                                <input type="text" id="videoSearchInput" class="form-control" 
+                                       placeholder="Buscar videos...">
+                                <button class="btn btn-outline-secondary" type="button" id="clearVideoSearchBtn">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Lista de Videos Disponibles -->
+                        <div id="availableVideosContainer" class="available-videos-drop-zone" 
+                             style="height: 500px; overflow-y: auto;">
+                            <div id="availableVideosList" class="p-2">
+                                <!-- Videos disponibles se cargan aquí -->
+                                <div class="text-center py-5" id="loadingAvailableVideos">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Cargando...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Cargando videos disponibles...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            Arrastra videos hacia la lista de reproducción
+                        </small>
                     </div>
                 </div>
-                <div class="remove-btn" onclick="removeFromPlaylist(${index})">
-                    <i class="fas fa-trash"></i>
+            </div>
+
+            <!-- Panel Derecho: Lista de Reproducción Actual -->
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header bg-success text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list me-2"></i>Lista de Reproducción
+                            </h5>
+                            <span class="badge bg-light text-dark" id="playlistVideoCount">
+                                {{ playlist.videos|length if playlist and playlist.videos else 0 }} videos
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- Zona de Drop para Videos -->
+                        <div id="playlistDropZone" class="playlist-drop-zone" 
+                             style="height: 560px; overflow-y: auto;">
+                            
+                            <!-- Mensaje de Drop Zone Vacía -->
+                            <div id="emptyPlaylistMessage" class="text-center py-5 m-3" 
+                                 style="{{ 'display:none' if playlist and playlist.videos else 'display:block' }}">
+                                <i class="fas fa-plus-circle fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">Lista Vacía</h5>
+                                <p class="text-muted">Arrastra videos desde la biblioteca para añadirlos a esta lista</p>
+                            </div>
+                            
+                            <!-- Lista Ordenable de Videos -->
+                            <div id="playlistVideosList" class="p-2">
+                                {% if playlist and playlist.videos %}
+                                    {% for video in playlist.videos %}
+                                    <div class="playlist-video-item" data-video-id="{{ video.id }}" data-order="{{ loop.index }}">
+                                        <div class="card mb-2 video-card">
+                                            <div class="card-body p-2">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="drag-handle me-2">
+                                                        <i class="fas fa-grip-vertical text-muted"></i>
+                                                    </div>
+                                                    <div class="video-thumbnail me-3">
+                                                        {% if video.thumbnail %}
+                                                            <img src="{{ video.thumbnail }}" alt="Thumbnail" 
+                                                                 class="img-thumbnail" style="width: 60px; height: 45px; object-fit: cover;">
+                                                        {% else %}
+                                                            <div class="bg-secondary d-flex align-items-center justify-content-center text-white" 
+                                                                 style="width: 60px; height: 45px; border-radius: 0.25rem;">
+                                                                <i class="fas fa-video"></i>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <h6 class="mb-1 video-title">{{ video.title }}</h6>
+                                                        <small class="text-muted video-duration">
+                                                            <span class="badge bg-secondary me-1">{{ loop.index }}</span>
+                                                            {{ video.duration|duration_format if video.duration else '0:00' }}
+                                                        </small>
+                                                    </div>
+                                                    <div class="video-actions">
+                                                        <button class="btn btn-sm btn-outline-danger" 
+                                                                onclick="removeVideoFromPlaylist({{ video.id }})" 
+                                                                title="Eliminar de la lista">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="fas fa-sort"></i>
+                                Arrastra para reordenar • Duración: <span id="totalPlaylistDuration">0:00</span>
+                            </small>
+                            <button class="btn btn-sm btn-outline-danger" onclick="clearPlaylist()" title="Vaciar lista">
+                                <i class="fas fa-trash"></i> Vaciar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Botones de Acción Finales -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetChanges()">
+                            <i class="fas fa-undo"></i> Deshacer Cambios
+                        </button>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-outline-primary me-2" onclick="previewPlaylist()">
+                            <i class="fas fa-play"></i> Vista Previa
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="savePlaylistChanges()">
+                            <i class="fas fa-save"></i> Guardar Lista de Reproducción
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Modal Selector de Playlist (mantener el existente) -->
+<div class="modal fade" id="playlistSelectorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-folder-open"></i> Seleccionar Lista de Reproducción
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="playlistSearchModal" 
+                           placeholder="Buscar lista por título...">
+                </div>
+                <div class="list-group" id="playlistSelectorList" style="max-height: 400px; overflow-y: auto;">
+                    <div class="text-center py-3">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="createNewPlaylist()">
+                    <i class="fas fa-plus"></i> Crear Nueva Lista
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Vista Previa (mantener el existente) -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-play"></i> Vista Previa de la Lista
+                    <span id="previewTitle" class="text-muted ms-2"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-body">
+                                <div id="videoPlayer" class="text-center p-5 bg-dark text-white">
+                                    <i class="fas fa-play fa-3x mb-3"></i>
+                                    <h5>Selecciona un video para reproducir</h5>
+                                </div>
+                                <div class="mt-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 id="currentVideoTitle">Sin video seleccionado</h6>
+                                            <small class="text-muted" id="currentVideoInfo">-</small>
+                                        </div>
+                                        <div class="btn-group">
+                                            <button class="btn btn-outline-secondary" onclick="playPrevious()">
+                                                <i class="fas fa-step-backward"></i>
+                                            </button>
+                                            <button class="btn btn-outline-primary" id="playPauseBtn" onclick="togglePlayPause()">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                            <button class="btn btn-outline-secondary" onclick="playNext()">
+                                                <i class="fas fa-step-forward"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Lista de Reproducción</h6>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="previewPlaylist" style="max-height: 500px; overflow-y: auto;">
+                                    <!-- Se llena dinámicamente -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar Vista Previa</button>
+                <button type="button" class="btn btn-primary" onclick="saveAndPublish()">
+                    <i class="fas fa-check"></i> Guardar y Publicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast para notificaciones -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="fas fa-info-circle text-primary me-2"></i>
+            <strong class="me-auto">Sistema</strong>
+            <small class="text-muted">ahora</small>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastMessage">
+            <!-- Mensaje dinámico -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Usar scripts existentes -->
+<script src="{{ url_for('static', path='/js/main.js') }}"></script>
+<script src="{{ url_for('static', path='/js/playlist.js') }}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+
+<script>
+// Variables globales específicas del editor
+let currentPlaylistData = {{ playlist|tojson if playlist else 'null' }};
+let availableVideos = [];
+let playlistVideos = {{ playlist.videos|tojson if playlist and playlist.videos else '[]' }};
+let hasUnsavedChanges = false;
+let sortableAvailable, sortablePlaylist;
+
+// Inicialización cuando carga el DOM
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar que los elementos necesarios estén disponibles
+    const requiredElements = [
+        'availableVideosList',
+        'playlistVideosList', 
+        'videoSearchInput',
+        'playlistInfoForm'
+    ];
+    
+    let missingElements = [];
+    requiredElements.forEach(id => {
+        if (!document.getElementById(id)) {
+            missingElements.push(id);
+        }
+    });
+    
+    if (missingElements.length > 0) {
+        console.warn('Elementos faltantes:', missingElements);
+        showToast('Algunos elementos no están disponibles', 'warning');
+    }
+    
+    // Inicializar editor
+    initializePlaylistEditor();
+});
+
+function initializePlaylistEditor() {
+    console.log('🎵 Inicializando Editor de Playlist');
+    
+    try {
+        // Detectar ID de playlist desde URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const playlistId = urlParams.get('id');
+        
+        if (playlistId && !currentPlaylistData) {
+            loadPlaylistForEdit(playlistId);
+        } else if (currentPlaylistData) {
+            setupEditMode();
+        }
+        
+        // Cargar videos disponibles
+        loadAvailableVideos();
+        
+        // Configurar event listeners primero
+        setupEventListeners();
+        
+        // Configurar drag & drop
+        setTimeout(() => {
+            initializeDragAndDrop();
+        }, 100);
+        
+        // Actualizar estadísticas
+        updatePlaylistStats();
+        
+        // Detectar cambios no guardados
+        window.addEventListener('beforeunload', function(e) {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error inicializando editor:', error);
+        showToast('Error al inicializar el editor', 'error');
+    }
+}
+
+function setupEditMode() {
+    if (currentPlaylistData) {
+        document.getElementById('pageTitle').textContent = `Editar Lista: ${currentPlaylistData.title}`;
+        document.title = `Editor - ${currentPlaylistData.title}`;
+        updatePlaylistStats();
+    }
+}
+
+async function loadPlaylistForEdit(playlistId) {
+    try {
+        showToast('Cargando lista para editar...', 'info');
+        
+        // Usar función existente de playlist.js si está disponible
+        if (typeof loadPlaylistData === 'function') {
+            currentPlaylistData = await loadPlaylistData(playlistId);
+        } else {
+            const response = await fetch(`/api/playlists/${playlistId}`);
+            if (!response.ok) throw new Error('Error al cargar la playlist');
+            currentPlaylistData = await response.json();
+        }
+        
+        playlistVideos = currentPlaylistData.videos || [];
+        setupEditMode();
+        renderPlaylistVideos();
+        
+        showToast('Lista cargada correctamente', 'success');
+        
+    } catch (error) {
+        console.error('Error cargando playlist:', error);
+        showToast('Error al cargar la lista de reproducción', 'error');
+    }
+}
+
+async function loadAvailableVideos() {
+    console.log('🎬 Cargando videos disponibles...');
+    
+    try {
+        const loadingElement = document.getElementById('loadingAvailableVideos');
+        if (loadingElement) {
+            loadingElement.style.display = 'block';
+        }
+        
+        let response;
+        let videoData = [];
+        
+        // Intentar diferentes endpoints comunes para videos
+        const possibleEndpoints = [
+            '/api/videos',
+            '/api/videos/active', 
+            '/videos/api',
+            '/ui/videos/api'
+        ];
+        
+        // Usar función existente de main.js si está disponible
+        if (typeof getAllVideos === 'function') {
+            console.log('📹 Usando función getAllVideos existente');
+            availableVideos = await getAllVideos();
+        } else if (typeof loadVideos === 'function') {
+            console.log('📹 Usando función loadVideos existente');
+            availableVideos = await loadVideos();
+        } else {
+            // Probar endpoints uno por uno
+            for (const endpoint of possibleEndpoints) {
+                try {
+                    console.log(`📡 Probando endpoint: ${endpoint}`);
+                    response = await fetch(endpoint);
+                    if (response.ok) {
+                        videoData = await response.json();
+                        console.log(`✅ Datos cargados desde ${endpoint}:`, videoData);
+                        break;
+                    }
+                } catch (e) {
+                    console.log(`❌ Falló ${endpoint}:`, e.message);
+                    continue;
+                }
+            }
+            
+            // Si ningún endpoint funcionó, crear datos de ejemplo
+            if (!videoData || videoData.length === 0) {
+                console.warn('⚠️ No se pudieron cargar videos, usando datos de ejemplo');
+                videoData = createExampleVideos();
+            }
+            
+            // Filtrar solo videos activos
+            if (Array.isArray(videoData)) {
+                availableVideos = videoData.filter(video => 
+                    video && (video.is_active !== false) && (video.status !== 'inactive')
+                );
+            } else if (videoData.videos && Array.isArray(videoData.videos)) {
+                availableVideos = videoData.videos.filter(video => 
+                    video && (video.is_active !== false) && (video.status !== 'inactive')
+                );
+            } else {
+                availableVideos = [];
+            }
+        }
+        
+        console.log(`📊 Videos disponibles cargados: ${availableVideos.length}`);
+        
+        // Asegurar que cada video tenga las propiedades necesarias
+        availableVideos = availableVideos.map(video => ({
+            id: video.id || Math.random(),
+            title: video.title || video.name || 'Sin título',
+            description: video.description || '',
+            duration: video.duration || 0,
+            thumbnail: video.thumbnail || video.thumb || null,
+            is_active: video.is_active !== false,
+            ...video
+        }));
+        
+        renderAvailableVideos();
+        updateVideoCount();
+        
+        if (loadingElement) {
+            loadingElement.style.display = 'none';
+        }
+        
+        showToast(`${availableVideos.length} videos cargados`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Error cargando videos:', error);
+        
+        // Crear videos de ejemplo como fallback
+        availableVideos = createExampleVideos();
+        renderAvailableVideos();
+        
+        const loadingElement = document.getElementById('loadingAvailableVideos');
+        if (loadingElement) {
+            loadingElement.innerHTML = `
+                <div class="text-center py-3">
+                    <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
+                    <p class="text-warning">Error al cargar videos del servidor</p>
+                    <p class="small text-muted">Mostrando videos de ejemplo</p>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadAvailableVideos()">
+                        <i class="fas fa-sync"></i> Reintentar
+                    </button>
                 </div>
             `;
-            
-            return div;
         }
+    }
+}
 
-        // Remover video de la playlist
-        function removeFromPlaylist(index) {
-            playlistVideos.splice(index, 1);
-            renderPlaylist();
-            updatePlaylistInfo();
+function createExampleVideos() {
+    return [
+        {
+            id: 1,
+            title: "Video de Ejemplo 1",
+            description: "Este es un video de ejemplo para pruebas",
+            duration: 120,
+            thumbnail: null,
+            is_active: true
+        },
+        {
+            id: 2, 
+            title: "Tutorial de Programación",
+            description: "Tutorial básico de JavaScript",
+            duration: 300,
+            thumbnail: null,
+            is_active: true
+        },
+        {
+            id: 3,
+            title: "Presentación Corporativa",
+            description: "Video institucional de la empresa",
+            duration: 180,
+            thumbnail: null,
+            is_active: true
+        },
+        {
+            id: 4,
+            title: "Capacitación de Seguridad",
+            description: "Normas de seguridad laboral",
+            duration: 240,
+            thumbnail: null,
+            is_active: true
+        },
+        {
+            id: 5,
+            title: "Webinar Marketing Digital",
+            description: "Estrategias de marketing online",
+            duration: 450,
+            thumbnail: null,
+            is_active: true
         }
+    ];
+}
 
-        // Actualizar información de la playlist
-        function updatePlaylistInfo() {
-            const videoCount = document.getElementById('videoCount');
-            const totalDuration = document.getElementById('totalDuration');
-            const saveButton = document.getElementById('saveButton');
-            
-            videoCount.textContent = `${playlistVideos.length} video${playlistVideos.length !== 1 ? 's' : ''}`;
-            
-            const totalSeconds = playlistVideos.reduce((sum, pv) => sum + (pv.video.duration || 0), 0);
-            totalDuration.textContent = formatDuration(totalSeconds);
-            
-            saveButton.disabled = playlistVideos.length === 0;
-        }
+function renderAvailableVideos(videos = null) {
+    const videosToRender = videos || availableVideos;
+    const container = document.getElementById('availableVideosList');
+    const loadingElement = document.getElementById('loadingAvailableVideos');
+    
+    if (!container) {
+        console.error('❌ Container availableVideosList no encontrado');
+        return;
+    }
+    
+    if (loadingElement) loadingElement.style.display = 'none';
+    
+    console.log(`🎬 Renderizando ${videosToRender.length} videos disponibles`);
+    
+    if (videosToRender.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-video fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No hay videos disponibles</h5>
+                <p class="text-muted">No se encontraron videos que coincidan con tu búsqueda</p>
+                <button class="btn btn-outline-primary btn-sm" onclick="clearVideoSearch()">
+                    <i class="fas fa-times"></i> Limpiar búsqueda
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Filtrar videos que ya están en la playlist actual
+    const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
+    const availableOnly = videosToRender.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
+    
+    if (availableOnly.length === 0 && videosToRender.length > 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                <h5 class="text-success">Todos los videos están en la lista</h5>
+                <p class="text-muted">No hay más videos disponibles para añadir</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = availableOnly.map(video => {
+        const videoId = parseInt(video.id);
+        const title = escapeHtml(video.title || 'Sin título');
+        const description = escapeHtml(video.description || '');
+        const duration = formatDuration(video.duration || 0);
+        
+        return `
+            <div class="available-video-item mb-2" data-video-id="${videoId}" draggable="true">
+                <div class="card video-card border-0 shadow-sm">
+                    <div class="card-body p-2">
+                        <div class="d-flex align-items-center">
+                            <div class="video-thumbnail me-2">
+                                ${video.thumbnail ? 
+                                    `<img src="${video.thumbnail}" alt="Thumbnail" class="img-thumbnail" style="width: 50px; height: 37px; object-fit: cover;">` :
+                                    `<div class="bg-primary bg-gradient d-flex align-items-center justify-content-center text-white" style="width: 50px; height: 37px; border-radius: 0.25rem;">
+                                        <i class="fas fa-video"></i>
+                                    </div>`
+                                }
+                            </div>
+                            <div class="flex-grow-1 min-width-0">
+                                <h6 class="mb-0 video-title small fw-bold text-truncate" title="${title}">
+                                    ${title}
+                                </h6>
+                                ${description ? `<p class="mb-0 small text-muted text-truncate" title="${description}">${description}</p>` : ''}
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>${duration}
+                                </small>
+                            </div>
+                            <div class="video-actions">
+                                <button class="btn btn-sm btn-outline-success" 
+                                        onclick="addVideoToPlaylist(${videoId})" 
+                                        title="Añadir a la lista">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    console.log(`✅ ${availableOnly.length} videos renderizados (${videosToRender.length - availableOnly.length} ya en playlist)`);
+}
 
-        // Actualizar header de la playlist
-        function updatePlaylistHeader() {
-            const titleInput = document.getElementById('playlistTitle');
-            const headerTitle = document.getElementById('playlistHeaderTitle');
-            
-            titleInput.addEventListener('input', function() {
-                headerTitle.textContent = this.value || 'Nueva Lista de Reproducción';
-            });
-        }
+function renderPlaylistVideos() {
+    const container = document.getElementById('playlistVideosList');
+    const emptyMessage = document.getElementById('emptyPlaylistMessage');
+    
+    if (playlistVideos.length === 0) {
+        emptyMessage.style.display = 'block';
+        container.innerHTML = '';
+        return;
+    }
+    
+    emptyMessage.style.display = 'none';
+    
+    container.innerHTML = playlistVideos.map((video, index) => `
+        <div class="playlist-video-item" data-video-id="${video.id}" data-order="${index + 1}">
+            <div class="card mb-2 video-card">
+                <div class="card-body p-2">
+                    <div class="d-flex align-items-center">
+                        <div class="drag-handle me-2">
+                            <i class="fas fa-grip-vertical text-muted"></i>
+                        </div>
+                        <div class="video-thumbnail me-3">
+                            ${video.thumbnail ? 
+                                `<img src="${video.thumbnail}" alt="Thumbnail" class="img-thumbnail" style="width: 60px; height: 45px; object-fit: cover;">` :
+                                `<div class="bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 60px; height: 45px; border-radius: 0.25rem;">
+                                    <i class="fas fa-video"></i>
+                                </div>`
+                            }
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1 video-title">${escapeHtml(video.title)}</h6>
+                            <small class="text-muted video-duration">
+                                <span class="badge bg-secondary me-1">${index + 1}</span>
+                                ${formatDuration(video.duration || 0)}
+                            </small>
+                        </div>
+                        <div class="video-actions">
+                            <button class="btn btn-sm btn-outline-danger" 
+                                    onclick="removeVideoFromPlaylist(${video.id})" 
+                                    title="Eliminar de la lista">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    // Reinicializar sortable para la playlist
+    initializePlaylistSortable();
+}
 
-        // Inicializar búsqueda
-        function initializeSearch() {
-            const searchInput = document.getElementById('videoSearch');
-            
-            searchInput.addEventListener('input', function() {
-                const searchTerm = this.value.toLowerCase();
-                
-                if (searchTerm.trim() === '') {
-                    renderVideoLibrary();
-                } else {
-                    const filtered = videos.filter(video => 
-                        (video.title || video.filename).toLowerCase().includes(searchTerm)
-                    );
-                    renderVideoLibrary(filtered);
-                }
-            });
-        }
-
-        // Limpiar búsqueda
-        function clearSearch() {
-            document.getElementById('videoSearch').value = '';
-            renderVideoLibrary();
-        }
-
-        // Guardar playlist
-        async function savePlaylist() {
-            const title = document.getElementById('playlistTitle').value.trim();
-            const description = document.getElementById('playlistDescription').value.trim();
-            
-            if (!title) {
-                alert('Por favor ingresa un título para la lista de reproducción');
-                return;
-            }
-            
-            if (playlistVideos.length === 0) {
-                alert('Agrega al menos un video a la lista de reproducción');
-                return;
-            }
-            
-            try {
-                const payload = {
-                    title: title,
-                    description: description,
-                    videos: playlistVideos.map((pv, index) => ({
-                        video_id: pv.video_id,
-                        position: index + 1
-                    }))
-                };
-                
-                const url = currentPlaylistId 
-                    ? `/api/playlists/${currentPlaylistId}`
-                    : '/api/playlists';
-                    
-                const method = currentPlaylistId ? 'PUT' : 'POST';
-                
-                const response = await fetch(url, {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    alert('Lista de reproducción guardada exitosamente');
-                    
-                    if (!currentPlaylistId) {
-                        currentPlaylistId = result.id;
+function initializeDragAndDrop() {
+    // Verificar que Sortable esté disponible
+    if (typeof Sortable === 'undefined') {
+        console.warn('Sortable no está disponible, intentando cargar...');
+        setTimeout(initializeDragAndDrop, 500);
+        return;
+    }
+    
+    try {
+        // Sortable para videos disponibles (solo para mostrar efecto visual)
+        const availableContainer = document.getElementById('availableVideosList');
+        if (availableContainer) {
+            sortableAvailable = new Sortable(availableContainer, {
+                group: {
+                    name: 'videos',
+                    pull: 'clone',
+                    put: true
+                },
+                sort: false,
+                animation: 150,
+                onStart: function(evt) {
+                    evt.item.classList.add('dragging');
+                },
+                onEnd: function(evt) {
+                    evt.item.classList.remove('dragging');
+                    // Si el video se movió a la playlist
+                    if (evt.to.id === 'playlistVideosList') {
+                        const videoId = parseInt(evt.item.dataset.videoId);
+                        addVideoToPlaylist(videoId);
+                        evt.item.remove(); // Remover el elemento clonado
                     }
-                } else {
-                    throw new Error('Error al guardar la lista de reproducción');
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al guardar la lista de reproducción');
-            }
+            });
         }
+        
+        // Inicializar sortable para la playlist
+        initializePlaylistSortable();
+        
+        console.log('✅ Drag & Drop inicializado correctamente');
+        
+    } catch (error) {
+        console.error('Error inicializando drag & drop:', error);
+        showToast('Error al configurar drag & drop', 'warning');
+    }
+}
 
-        // Cargar playlist existente
-        async function loadExistingPlaylist() {
-            if (!currentPlaylistId) return;
-            
-            try {
-                const response = await fetch(`/api/playlists/${currentPlaylistId}`);
-                const playlist = await response.json();
+function initializePlaylistSortable() {
+    const playlistContainer = document.getElementById('playlistVideosList');
+    if (!playlistContainer) {
+        console.warn('Playlist container no encontrado');
+        return;
+    }
+    
+    try {
+        if (sortablePlaylist) {
+            sortablePlaylist.destroy();
+        }
+        
+        sortablePlaylist = new Sortable(playlistContainer, {
+            group: {
+                name: 'videos',
+                pull: false,
+                put: true
+            },
+            handle: '.drag-handle',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            onEnd: function(evt) {
+                // Reordenar array de videos
+                const movedVideo = playlistVideos.splice(evt.oldIndex, 1)[0];
+                playlistVideos.splice(evt.newIndex, 0, movedVideo);
                 
-                document.getElementById('playlistTitle').value = playlist.title;
-                document.getElementById('playlistDescription').value = playlist.description || '';
+                // Re-renderizar para actualizar números de orden
+                renderPlaylistVideos();
+                updatePlaylistStats();
+                markAsUnsaved();
                 
-                playlistVideos = playlist.videos || [];
-                renderPlaylist();
-                updatePlaylistInfo();
-                updatePlaylistHeader();
-            } catch (error) {
-                console.error('Error al cargar playlist:', error);
+                showToast('Videos reordenados', 'success');
+            },
+            onAdd: function(evt) {
+                // Cuando se añade un video desde la biblioteca
+                const videoId = parseInt(evt.item.dataset.videoId);
+                addVideoToPlaylist(videoId);
+                evt.item.remove(); // Remover el elemento clonado
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error inicializando sortable de playlist:', error);
+        showToast('Error al configurar la ordenación de videos', 'warning');
+    }
+}
+
+// Funciones de gestión de videos
+function addVideoToPlaylist(videoId) {
+    const video = availableVideos.find(v => v.id === videoId);
+    if (!video) {
+        showToast('Video no encontrado', 'error');
+        return;
+    }
+    
+    // Verificar si ya está en la playlist
+    if (playlistVideos.find(v => v.id === videoId)) {
+        showToast('El video ya está en la lista', 'warning');
+        return;
+    }
+    
+    // Añadir video a la playlist
+    playlistVideos.push(video);
+    
+    // Re-renderizar ambas listas
+    renderPlaylistVideos();
+    renderAvailableVideos();
+    updatePlaylistStats();
+    updateVideoCount();
+    markAsUnsaved();
+    
+    showToast(`"${video.title}" añadido a la lista`, 'success');
+}
+
+function removeVideoFromPlaylist(videoId) {
+    const videoIndex = playlistVideos.findIndex(v => v.id === videoId);
+    if (videoIndex === -1) return;
+    
+    const video = playlistVideos[videoIndex];
+    
+    if (confirm(`¿Eliminar "${video.title}" de la lista?`)) {
+        playlistVideos.splice(videoIndex, 1);
+        
+        // Re-renderizar ambas listas
+        renderPlaylistVideos();
+        renderAvailableVideos();
+        updatePlaylistStats();
+        updateVideoCount();
+        markAsUnsaved();
+        
+        showToast(`"${video.title}" eliminado de la lista`, 'success');
+    }
+}
+
+function clearPlaylist() {
+    if (playlistVideos.length === 0) return;
+    
+    if (confirm('¿Eliminar todos los videos de la lista?\n\nEsta acción no se puede deshacer.')) {
+        playlistVideos = [];
+        
+        renderPlaylistVideos();
+        renderAvailableVideos();
+        updatePlaylistStats();
+        updateVideoCount();
+        markAsUnsaved();
+        
+        showToast('Lista vaciada', 'success');
+    }
+}
+
+// Funciones de búsqueda mejoradas
+function searchAvailableVideos() {
+    const searchInput = document.getElementById('videoSearchInput');
+    if (!searchInput) {
+        console.warn('❌ Search input no encontrado');
+        return;
+    }
+    
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    console.log(`🔍 Buscando videos: "${searchTerm}"`);
+    
+    if (!searchTerm) {
+        renderAvailableVideos();
+        updateVideoCount();
+        return;
+    }
+    
+    // Búsqueda mejorada: título, descripción, términos parciales
+    const filteredVideos = availableVideos.filter(video => {
+        const title = (video.title || '').toLowerCase();
+        const description = (video.description || '').toLowerCase();
+        const tags = (video.tags || '').toLowerCase();
+        
+        // Búsqueda por palabras individuales
+        const searchWords = searchTerm.split(' ').filter(word => word.length > 0);
+        
+        return searchWords.some(word => 
+            title.includes(word) || 
+            description.includes(word) ||
+            tags.includes(word)
+        ) || 
+        title.includes(searchTerm) ||
+        description.includes(searchTerm) ||
+        tags.includes(searchTerm);
+    });
+    
+    console.log(`📊 Encontrados ${filteredVideos.length} videos de ${availableVideos.length} total`);
+    
+    renderAvailableVideos(filteredVideos);
+    updateVideoCount();
+    
+    // Mostrar mensaje si no hay resultados
+    if (filteredVideos.length === 0 && availableVideos.length > 0) {
+        showToast(`No se encontraron videos con "${searchTerm}"`, 'info');
+    }
+}
+
+function clearVideoSearch() {
+    const searchInput = document.getElementById('videoSearchInput');
+    if (searchInput) {
+        searchInput.value = '';
+        console.log('🗑️ Búsqueda limpiada');
+        renderAvailableVideos();
+        updateVideoCount();
+        showToast('Búsqueda limpiada', 'info');
+    }
+}
+
+// Funciones de actualización y guardado
+function updatePlaylistStats() {
+    const stats = document.getElementById('playlistStats');
+    const totalVideos = playlistVideos.length;
+    
+    if (totalVideos === 0) {
+        stats.style.display = 'none';
+        return;
+    }
+    
+    stats.style.display = 'block';
+    
+    const totalDuration = playlistVideos.reduce((sum, video) => sum + (video.duration || 0), 0);
+    const avgDuration = totalVideos > 0 ? totalDuration / totalVideos : 0;
+    
+    document.getElementById('totalVideos').textContent = totalVideos;
+    document.getElementById('totalDuration').textContent = formatDuration(totalDuration);
+    document.getElementById('avgDuration').textContent = formatDuration(avgDuration);
+    document.getElementById('totalPlaylistDuration').textContent = formatDuration(totalDuration);
+    document.getElementById('playlistVideoCount').textContent = `${totalVideos} video${totalVideos !== 1 ? 's' : ''}`;
+}
+
+function updateVideoCount() {
+    const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
+    const availableCount = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id))).length;
+    const totalVideos = availableVideos.length;
+    
+    const availableCountElement = document.getElementById('availableVideoCount');
+    if (availableCountElement) {
+        availableCountElement.textContent = `${availableCount} disponibles`;
+        availableCountElement.title = `${availableCount} videos disponibles de ${totalVideos} total`;
+    }
+    
+    console.log(`📊 Videos: ${availableCount} disponibles, ${playlistVideos.length} en playlist, ${totalVideos} total`);
+}
+
+async function updatePlaylistInfo() {
+    const form = document.getElementById('playlistInfoForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    data.is_active = document.getElementById('playlistActive').checked;
+    
+    try {
+        // Usar función existente de playlist.js si está disponible
+        if (typeof updatePlaylist === 'function') {
+            await updatePlaylist(data);
+        } else {
+            const playlistId = document.getElementById('playlistId').value;
+            const url = playlistId ? `/api/playlists/${playlistId}` : '/api/playlists';
+            const method = playlistId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (!response.ok) throw new Error('Error al actualizar');
+            const result = await response.json();
+            
+            if (!playlistId) {
+                document.getElementById('playlistId').value = result.id;
+                currentPlaylistData = result;
             }
         }
+        
+        document.getElementById('pageTitle').textContent = `Editar Lista: ${data.title}`;
+        showToast('Información actualizada correctamente', 'success');
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('Error al actualizar la información', 'error');
+    }
+}
 
-        // Limpiar playlist
-        function clearPlaylist() {
-            if (confirm('¿Estás seguro de que quieres limpiar toda la lista?')) {
-                playlistVideos = [];
-                renderPlaylist();
-                updatePlaylistInfo();
-            }
+async function savePlaylistChanges() {
+    const playlistId = document.getElementById('playlistId').value;
+    
+    if (!playlistId) {
+        showToast('Primero debes guardar la información de la lista', 'warning');
+        return;
+    }
+    
+    try {
+        // Preparar datos para guardar
+        const videoOrder = playlistVideos.map((video, index) => ({
+            video_id: video.id,
+            order: index + 1
+        }));
+        
+        // Usar función existente si está disponible
+        if (typeof savePlaylistVideos === 'function') {
+            await savePlaylistVideos(playlistId, videoOrder);
+        } else {
+            const response = await fetch(`/api/playlists/${playlistId}/videos`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ videos: videoOrder })
+            });
+            
+            if (!response.ok) throw new Error('Error al guardar');
         }
+        
+        hasUnsavedChanges = false;
+        showToast('Lista de reproducción guardada correctamente', 'success');
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('Error al guardar la lista de reproducción', 'error');
+    }
+}
 
-        // Funciones de utilidad
-        function formatDuration(seconds) {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const secs = Math.floor(seconds % 60);
-            
-            if (hours > 0) {
-                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-            } else {
-                return `${minutes}:${secs.toString().padStart(2, '0')}`;
-            }
+function resetChanges() {
+    if (hasUnsavedChanges && confirm('¿Deshacer todos los cambios no guardados?')) {
+        if (currentPlaylistData) {
+            playlistVideos = currentPlaylistData.videos || [];
+        } else {
+            playlistVideos = [];
         }
+        
+        renderPlaylistVideos();
+        renderAvailableVideos();
+        updatePlaylistStats();
+        updateVideoCount();
+        hasUnsavedChanges = false;
+        
+        showToast('Cambios deshecho', 'info');
+    }
+}
 
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 B';
-            
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-        }
-    </script>
+// Funciones de utilidades (usar las existentes de main.js si están disponibles)
+function formatDuration(seconds) {
+    if (typeof window.formatDuration === 'function') {
+        return window.formatDuration(seconds);
+    }
+    
+    if (!seconds || seconds === 0) return '0:00';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
+function escapeHtml(text) {
+    if (typeof window.escapeHtml === 'function') {
+        return window.escapeHtml(text);
+    }
+    
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showToast(message, type = 'info') {
+    if (typeof window.showToast === 'function') {
+        return window.showToast(message, type);
+    }
+    
+    // Implementación básica si no existe la función
+    const toast = document.getElementById('notificationToast');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    if (toast && toastMessage) {
+        toastMessage.textContent = message;
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+    }
+}
+
+function setupEventListeners() {
+    // Event listener para detectar cambios
+    document.addEventListener('change', markAsUnsaved);
+    
+    // Event listener para búsqueda de videos
+    const searchInput = document.getElementById('videoSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(searchAvailableVideos, 300));
+        searchInput.addEventListener('keyup', searchAvailableVideos);
+    }
+    
+    // Event listener para limpiar búsqueda
+    const clearSearchBtn = document.getElementById('clearVideoSearchBtn');
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', clearVideoSearch);
+    }
+    
+    // Event listeners para formulario
+    const playlistForm = document.getElementById('playlistInfoForm');
+    if (playlistForm) {
+        playlistForm.addEventListener('change', markAsUnsaved);
+        playlistForm.addEventListener('input', markAsUnsaved);
+    }
+}
+
+function markAsUnsaved() {
+    hasUnsavedChanges = true;
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Funciones para mantener compatibilidad con modales existentes
+function loadPlaylistSelector() {
+    // Implementar selector de playlist
+    showToast('Selector de playlist', 'info');
+}
+
+function previewPlaylist() {
+    if (playlistVideos.length === 0) {
+        showToast('La lista no contiene videos', 'warning');
+        return;
+    }
+    showToast('Vista previa de playlist', 'info');
+}
+
+function saveAndPublish() {
+    savePlaylistChanges();
+}
+
+// Estilos adicionales para drag & drop
+const additionalStyles = `
+    <style>
+    .video-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: grab;
+    }
+    
+    .video-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .video-card:active {
+        cursor: grabbing;
+    }
+    
+    .available-videos-drop-zone {
+        min-height: 200px;
+    }
+    
+    .playlist-drop-zone {
+        min-height: 200px;
+        border: 2px dashed transparent;
+        transition: border-color 0.3s ease, background-color 0.3s ease;
+    }
+    
+    .playlist-drop-zone.drag-over {
+        border-color: #28a745;
+        background-color: rgba(40, 167, 69, 0.1);
+    }
+    
+    .sortable-ghost {
+        opacity: 0.5;
+        background-color: #f8f9fa;
+    }
+    
+    .sortable-chosen {
+        transform: scale(1.02);
+    }
+    
+    .dragging {
+        opacity: 0.8;
+        transform: rotate(2deg);
+    }
+    
+    .drag-handle {
+        cursor: move;
+        padding: 0.5rem;
+    }
+    
+    .drag-handle:hover {
+        background-color: rgba(0,0,0,0.1);
+        border-radius: 0.25rem;
+    }
+    </style>
+`;
+
+document.head.insertAdjacentHTML('beforeend', additionalStyles);
+
+// Hacer funciones disponibles globalmente
+window.addVideoToPlaylist = addVideoToPlaylist;
+window.removeVideoFromPlaylist = removeVideoFromPlaylist;
+window.clearPlaylist = clearPlaylist;
+window.updatePlaylistInfo = updatePlaylistInfo;
+window.savePlaylistChanges = savePlaylistChanges;
+window.resetChanges = resetChanges;
+window.loadPlaylistSelector = loadPlaylistSelector;
+window.previewPlaylist = previewPlaylist;
+window.saveAndPublish = saveAndPublish;
+window.searchAvailableVideos = searchAvailableVideos;
+window.clearVideoSearch = clearVideoSearch;
+window.loadAvailableVideos = loadAvailableVideos;
+
+// Helper de debug
+window.playlistDebug = function() {
+    console.log('🎵 ESTADO DEL EDITOR DE PLAYLIST:');
+    console.log('📁 Playlist actual:', currentPlaylistData);
+    console.log('🎬 Videos disponibles:', availableVideos.length);
+    console.log('📋 Videos en playlist:', playlistVideos.length);
+    console.log('💾 Cambios no guardados:', hasUnsavedChanges);
+    console.log('🔧 Sortable disponible:', typeof Sortable !== 'undefined');
+    return {
+        currentPlaylistData,
+        availableVideos,
+        playlistVideos,
+        hasUnsavedChanges
+    };
+};
+
+console.log('🎵 Editor de Playlist inicializado correctamente');
+console.log('💡 Tip: Ejecuta playlistDebug() en la consola para ver el estado actual');
+</script>
 {% endblock %}

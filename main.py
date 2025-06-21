@@ -17,7 +17,7 @@ from models import models
 from models.database import engine
 
 # Importar los routers
-from router import videos, playlists, raspberry, ui, devices, device_playlists, services_enhanced as services, device_service_api
+from router import videos, playlists, raspberry, ui, devices, device_playlists, services_enhanced as services, device_service_api,playlists_api
 from router.auth import router as auth_router
 from router.users import router as users_router
 from router.playlist_checker_api import router as playlist_checker_router
@@ -117,6 +117,7 @@ app.include_router(auth_router)         # Rutas de autenticación API originales
 app.include_router(users_router)        # Gestión de usuarios original
 app.include_router(videos.router)
 app.include_router(playlists.router)
+app.include_router(playlists_api.router)
 app.include_router(raspberry.router)
 app.include_router(ui.router)
 app.include_router(devices.router)
