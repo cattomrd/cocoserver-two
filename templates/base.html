@@ -3,66 +3,412 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Listas de Reproducción - VideoSystem</title>
+    <title>{% block title %}VideoSystem{% endblock %}</title>
+    
+    <!-- CSS Dependencies -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/base.css">
-{% block extra_css %}{% endblock %}
+    
+    <!-- Block for additional CSS -->
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Inline critical CSS -->
+    <style>
+        :root {
+            --sidebar-width: 250px;
+            --primary: #007bff;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #17a2b8;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: linear-gradient(135deg, #343a40, #495057);
+            color: white;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .sidebar.hidden {
+            transform: translateX(-100%);
+        }
+
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 4px 12px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .sidebar .nav-link:hover {
+            color: white;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .sidebar .nav-link.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .sidebar-toggle {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1001;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 45px;
+            height: 45px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-toggle:hover {
+            background: #0056b3;
+            transform: scale(1.05);
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            padding: 20px;
+            transition: margin-left 0.3s ease;
+        }
+
+        .main-content.expanded {
+            margin-left: 0;
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, var(--primary), #0056b3);
+            color: white;
+            border-radius: 12px 12px 0 0 !important;
+            border: none;
+        }
+
+        .btn {
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                transform: translateX(-100%);
+            }
+            
+            .sidebar:not(.hidden) {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                padding: 15px;
+            }
+            
+            .d-mobile-none {
+                display: none !important;
+            }
+        }
+
+        /* Loading state */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+        }
+    </style>
 </head>
 <body>
-    <!-- Sidebar Toggle -->
-    <button class="sidebar-toggle" id="sidebarToggle">
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
         <i class="fas fa-bars" id="sidebarToggleIcon"></i>
     </button>
 
-    <!-- Sidebar -->
-    <nav class="sidebar" id="sidebar">
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
         <div class="position-sticky pt-3">
+            <!-- Header -->
             <div class="text-center text-white mb-4">
-                <h4><i class="fas fa-video"></i> VideoSystem</h4>
-                <small>Bienvenido, Usuario</small>
+                <h4 class="mb-1">
+                    <i class="fas fa-video"></i> VideoSystem
+                </h4>
+                <small class="text-muted">
+                    {% if current_user %}
+                        Bienvenido, {{ current_user.username }}
+                    {% else %}
+                        Bienvenido, Usuario
+                    {% endif %}
+                </small>
             </div>
             
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link" href="/ui/dashboard">
-                        <i class="fas fa-tachometer-alt"></i> Dashboard
+            <!-- Navigation Menu -->
+            <ul class="nav flex-column" role="menubar">
+                <li class="nav-item" role="none">
+                    <a class="nav-link {% if current_page == 'dashboard' %}active{% endif %}" 
+                       href="/ui/dashboard" role="menuitem">
+                        <i class="fas fa-tachometer-alt me-2"></i> Dashboard
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/ui/devices">
-                        <i class="fas fa-tv"></i> Dispositivos
+                <li class="nav-item" role="none">
+                    <a class="nav-link {% if current_page == 'devices' %}active{% endif %}" 
+                       href="/ui/devices" role="menuitem">
+                        <i class="fas fa-tv me-2"></i> Dispositivos
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/ui/videos">
-                        <i class="fas fa-film"></i> Videos
+                <li class="nav-item" role="none">
+                    <a class="nav-link {% if current_page == 'videos' %}active{% endif %}" 
+                       href="/ui/videos" role="menuitem">
+                        <i class="fas fa-film me-2"></i> Videos
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link active" href="/ui/playlists">
-                        <i class="fas fa-list"></i> Listas de Reproducción
+                <li class="nav-item" role="none">
+                    <a class="nav-link {% if current_page == 'playlists' %}active{% endif %}" 
+                       href="/ui/playlists" role="menuitem">
+                        <i class="fas fa-list me-2"></i> Listas de Reproducción
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/ui/users">
-                        <i class="fas fa-users"></i> Usuarios
+                <li class="nav-item" role="none">
+                    <a class="nav-link {% if current_page == 'users' %}active{% endif %}" 
+                       href="/ui/users" role="menuitem">
+                        <i class="fas fa-users me-2"></i> Usuarios
                     </a>
                 </li>
-                <li class="nav-item mt-3">
-                    <a class="nav-link text-danger" href="/ui/logout">
-                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                
+                <!-- Separator -->
+                <hr class="sidebar-divider my-3">
+                
+                <!-- Logout -->
+                <li class="nav-item" role="none">
+                    <a class="nav-link text-danger" href="/ui/logout" role="menuitem">
+                        <i class="fas fa-sign-out-alt me-2"></i> Cerrar Sesión
                     </a>
                 </li>
             </ul>
         </div>
     </nav>
 
-{% block content %} 
+    <!-- Main Content Area -->
+    <main class="main-content" id="mainContent" role="main">
+        <!-- Content Block -->
+        {% block content %}
+        <div class="container-fluid">
+            <div class="alert alert-info">
+                <h4>¡Bienvenido a VideoSystem!</h4>
+                <p>Selecciona una opción del menú lateral para comenzar.</p>
+            </div>
+        </div>
+        {% endblock %}
+    </main>
 
-{% endblock %}
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Base JavaScript -->
+    <script>
+        // Global variables
+        let sidebarHidden = false;
+        
+        // DOM Content Loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSidebar();
+            initializeTooltips();
+            initializePageSpecific();
+        });
 
-{% block scripts %} {% endblock %}
+        // Initialize sidebar functionality
+        function initializeSidebar() {
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const toggleIcon = document.getElementById('sidebarToggleIcon');
 
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function() {
+                    toggleSidebar();
+                });
+            }
+
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                handleResize();
+            });
+
+            // Set initial state based on screen size
+            handleResize();
+        }
+
+        // Toggle sidebar function
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const toggleIcon = document.getElementById('sidebarToggleIcon');
+
+            if (!sidebar || !mainContent || !toggleIcon) return;
+
+            sidebarHidden = !sidebarHidden;
+
+            if (sidebarHidden) {
+                sidebar.classList.add('hidden');
+                mainContent.classList.add('expanded');
+                toggleIcon.className = 'fas fa-bars';
+            } else {
+                sidebar.classList.remove('hidden');
+                mainContent.classList.remove('expanded');
+                toggleIcon.className = 'fas fa-times';
+            }
+
+            // Store preference
+            localStorage.setItem('sidebarHidden', sidebarHidden);
+        }
+
+        // Handle window resize
+        function handleResize() {
+            const width = window.innerWidth;
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+
+            if (width <= 768) {
+                // Mobile: always hide sidebar initially
+                if (sidebar && mainContent) {
+                    sidebar.classList.add('hidden');
+                    mainContent.classList.add('expanded');
+                    sidebarHidden = true;
+                }
+            } else {
+                // Desktop: restore previous state
+                const savedState = localStorage.getItem('sidebarHidden');
+                if (savedState !== null) {
+                    sidebarHidden = savedState === 'true';
+                    if (sidebarHidden) {
+                        sidebar.classList.add('hidden');
+                        mainContent.classList.add('expanded');
+                    } else {
+                        sidebar.classList.remove('hidden');
+                        mainContent.classList.remove('expanded');
+                    }
+                }
+            }
+        }
+
+        // Initialize tooltips
+        function initializeTooltips() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+
+        // Initialize page-specific functionality
+        function initializePageSpecific() {
+            // This can be overridden in individual pages
+        }
+
+        // Utility functions
+        function showToast(message, type = 'info', duration = 5000) {
+            const toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) return;
+
+            const toastId = 'toast_' + Date.now();
+            const bgClass = type === 'success' ? 'bg-success' : 
+                           type === 'error' ? 'bg-danger' : 
+                           type === 'warning' ? 'bg-warning' : 'bg-info';
+
+            const toastHTML = `
+                <div class="toast ${bgClass} text-white" id="${toastId}" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header ${bgClass} text-white">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong class="me-auto">VideoSystem</strong>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                </div>
+            `;
+
+            toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+            const toastElement = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastElement, { delay: duration });
+            toast.show();
+
+            // Remove toast element after it's hidden
+            toastElement.addEventListener('hidden.bs.toast', function() {
+                toastElement.remove();
+            });
+        }
+
+        // Loading state utility
+        function showLoading(element) {
+            if (element) {
+                element.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <span class="ms-2">Cargando...</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Error handling
+        window.addEventListener('error', function(e) {
+            console.error('JavaScript Error:', e.error);
+            showToast('Ha ocurrido un error inesperado', 'error');
+        });
+
+        // Unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Unhandled Promise Rejection:', e.reason);
+            showToast('Error de conexión', 'error');
+        });
+    </script>
+
+    <!-- Block for additional scripts -->
+    {% block extra_scripts %}{% endblock %}
 </body>
 </html>

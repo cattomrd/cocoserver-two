@@ -2,226 +2,317 @@
 
 {% block content %}
 <div class="container-fluid">
-        <!-- Campo oculto para el ID del dispositivo -->
-        <input type="hidden" id="device-id" value="{{ device.device_id }}">
+    <!-- Campo oculto para el ID del dispositivo -->
+    <input type="hidden" id="device-id" value="{{ device.device_id }}">
 
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Dispositivo {{device.tienda}} - {{ device.location if device.location else 'No especificada' }}</h1>
-            <a href="/ui/devices" class="btn btn-outline-secondary">Volver a la lista</a>
-        </div>
-        
-        <!-- Botones principales de acción -->
-        <div class="row mb-3">
-            <div class="col-12">
-                <div class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#editDeviceModal">
-                        <i class="bi bi-pencil"></i> Editar Información
-                    </button>
-                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteDeviceModal">
-                        <i class="bi bi-trash"></i> Eliminar Dispositivo
-                    </button>
-                    <a href="/api/devices/{{ device.device_id }}/ping" class="btn btn-info" id="pingButton">
-                        <i class="bi bi-arrow-repeat"></i> Verificar Estado (Ping)
-                    </a>
-                    <button type="button" class="btn btn-primary" id="screenshotButton">
-                        <i class="bi bi-camera"></i> Capturar Pantalla
-                    </button>
-                    <button type="button" class="btn btn-warning" id="restartButton" data-bs-toggle="modal" data-bs-target="#restartDeviceModal">
-                        <i class="bi bi-power"></i> Reiniciar
-                    </button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 1. Estado del Sistema -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="card-title mb-0">Estado del Sistema</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="card text-center mb-3">
-                                    <div class="card-body">
-                                        <h5 class="card-title">CPU Temperatura</h5>
-                                        <h2 class="{% if device.cpu_temp and device.cpu_temp > 70 %}text-danger{% elif device.cpu_temp and device.cpu_temp > 60 %}text-warning{% else %}text-success{% endif %}">
-                                            {% if device.cpu_temp %}{{ device.cpu_temp }}°C{% else %}--{% endif %}
-                                        </h2>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card text-center mb-3">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Memoria RAM</h5>
-                                        <h2 class="{% if device.memory_usage and device.memory_usage > 85 %}text-danger{% elif device.memory_usage and device.memory_usage > 70 %}text-warning{% else %}text-success{% endif %}">
-                                            {% if device.memory_usage %}{{ device.memory_usage }}%{% else %}--{% endif %}
-                                        </h2>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card text-center mb-3">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Uso de Disco</h5>
-                                        <h2 class="{% if device.disk_usage and device.disk_usage > 90 %}text-danger{% elif device.disk_usage and device.disk_usage > 75 %}text-warning{% else %}text-success{% endif %}">
-                                            {% if device.disk_usage %}{{ device.disk_usage }}%{% else %}--{% endif %}
-                                        </h2>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 2. Información del Dispositivo -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="card-title mb-0">Información del Dispositivo</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <table class="table">
-                                    <tr>
-                                        <th style="width: 30%">Nombre:</th>
-                                        <td>{{ device.name }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>ID del Dispositivo:</th>
-                                        <td>{{ device.device_id }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Modelo:</th>
-                                        <td>{{ device.model }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>IP LAN (eth0):</th>
-                                        <td>
-                                            {% if device.ip_address_lan %}
-                                                {{ device.ip_address_lan }}
-                                            {% else %}
-                                                <span class="text-muted">No disponible</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>IP WiFi (wlan0):</th>
-                                        <td>
-                                            {% if device.ip_address_wifi %}
-                                                {{ device.ip_address_wifi }}
-                                            {% else %}
-                                                <span class="text-muted">No disponible</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>Estado:</th>
-                                        <td>
-                                            <span id="deviceStatusBadge" class="badge {% if device.is_active %}bg-success{% else %}bg-danger{% endif %}">
-                                                {% if device.is_active %}Activo{% else %}Inactivo{% endif %}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-                            <div class="col-md-6">
-                                <table class="table">
-                                    <tr>
-                                        <th style="width: 30%">MAC (eth0):</th>
-                                        <td>{{ device.mac_address }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>MAC WiFi (wlan0):</th>
-                                        <td>
-                                            {% if device.wlan0_mac %}
-                                                {{ device.wlan0_mac }}
-                                            {% else %}
-                                                <span class="text-muted">No disponible</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>Ubicación:</th>
-                                        <td>{{ device.location if device.location else 'No especificada' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Tienda:</th>
-                                        <td>{{ device.tienda if device.tienda else 'No especificada' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Registrado:</th>
-                                        <td>{{ device.registered_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Última Actividad:</th>
-                                        <td>{{ device.last_seen.strftime('%Y-%m-%d %H:%M') }}</td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <input type="hidden" id="device_id" value="{{ device.device_id }}">
-
-        <!-- 3. Gestión de Servicios -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Dispositivo {{device.tienda}} - {{ device.location if device.location else 'No especificada' }}</h1>
+        <a href="/ui/devices" class="btn btn-outline-secondary">Volver a la lista</a>
+    </div>
+    
+  <!-- Botones principales de acción -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0">Gestión de Servicios</h5>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#editDeviceModal">
+                            <i class="fas fa-edit me-1"></i> Editar Información
+                        </button>
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteDeviceModal">
+                            <i class="fas fa-trash me-1"></i> Eliminar Dispositivo
+                        </button>
+                        <a href="/api/devices/{{ device.device_id }}/ping" class="btn btn-info" id="pingButton">
+                            <i class="fas fa-sync me-1"></i> Verificar Estado (Ping)
+                        </a>
+                        <button type="button" class="btn btn-primary" id="screenshotButton">
+                            <i class="fas fa-camera me-1"></i> Capturar Pantalla
+                        </button>
+                        <button type="button" class="btn btn-warning" id="restartButton" data-bs-toggle="modal" data-bs-target="#restartDeviceModal">
+                            <i class="fas fa-power-off me-1"></i> Reiniciar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+   <!-- 1. Estado del Sistema -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Estado del Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card text-center mb-3 border-0 bg-light">
+                                <div class="card-body">
+                                    <i class="fas fa-thermometer-half fa-2x mb-2 text-info"></i>
+                                    <h5 class="card-title">CPU Temperatura</h5>
+                                    <h2 class="{% if device.cpu_temp and device.cpu_temp > 70 %}text-danger{% elif device.cpu_temp and device.cpu_temp > 60 %}text-warning{% else %}text-success{% endif %}">
+                                        {% if device.cpu_temp %}{{ device.cpu_temp }}°C{% else %}--{% endif %}
+                                    </h2>
+                                    {% if device.cpu_temp %}
+                                        {% if device.cpu_temp > 70 %}
+                                            <small class="text-danger">⚠️ Temperatura alta</small>
+                                        {% elif device.cpu_temp > 60 %}
+                                            <small class="text-warning">⚠️ Temperatura elevada</small>
+                                        {% else %}
+                                            <small class="text-success">✓ Temperatura normal</small>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card text-center mb-3 border-0 bg-light">
+                                <div class="card-body">
+                                    <i class="fas fa-memory fa-2x mb-2 text-warning"></i>
+                                    <h5 class="card-title">Memoria RAM</h5>
+                                    <h2 class="{% if device.memory_usage and device.memory_usage > 85 %}text-danger{% elif device.memory_usage and device.memory_usage > 70 %}text-warning{% else %}text-success{% endif %}">
+                                        {% if device.memory_usage %}{{ device.memory_usage }}%{% else %}--{% endif %}
+                                    </h2>
+                                    {% if device.memory_usage %}
+                                        {% if device.memory_usage > 85 %}
+                                            <small class="text-danger">⚠️ Uso crítico</small>
+                                        {% elif device.memory_usage > 70 %}
+                                            <small class="text-warning">⚠️ Uso alto</small>
+                                        {% else %}
+                                            <small class="text-success">✓ Uso normal</small>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card text-center mb-3 border-0 bg-light">
+                                <div class="card-body">
+                                    <i class="fas fa-hdd fa-2x mb-2 text-secondary"></i>
+                                    <h5 class="card-title">Uso de Disco</h5>
+                                    <h2 class="{% if device.disk_usage and device.disk_usage > 90 %}text-danger{% elif device.disk_usage and device.disk_usage > 75 %}text-warning{% else %}text-success{% endif %}">
+                                        {% if device.disk_usage %}{{ device.disk_usage }}%{% else %}--{% endif %}
+                                    </h2>
+                                    {% if device.disk_usage %}
+                                        {% if device.disk_usage > 90 %}
+                                            <small class="text-danger">⚠️ Espacio crítico</small>
+                                        {% elif device.disk_usage > 75 %}
+                                            <small class="text-warning">⚠️ Espacio bajo</small>
+                                        {% else %}
+                                            <small class="text-success">✓ Espacio suficiente</small>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    
+      <!-- 2. Información del Dispositivo -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Información del Dispositivo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 35%">
+                                            <i class="fas fa-tag me-1 text-muted"></i>Nombre:
+                                        </th>
+                                        <td>{{ device.name }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-hashtag me-1 text-muted"></i>ID del Dispositivo:
+                                        </th>
+                                        <td><code>{{ device.device_id }}</code></td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-laptop me-1 text-muted"></i>Modelo:
+                                        </th>
+                                        <td>{{ device.model }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-ethernet me-1 text-muted"></i>IP LAN (eth0):
+                                        </th>
+                                        <td>
+                                            {% if device.ip_address_lan %}
+                                                <code>{{ device.ip_address_lan }}</code>
+                                            {% else %}
+                                                <span class="text-muted">No disponible</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-wifi me-1 text-muted"></i>IP WiFi (wlan0):
+                                        </th>
+                                        <td>
+                                            {% if device.ip_address_wifi %}
+                                                <code>{{ device.ip_address_wifi }}</code>
+                                            {% else %}
+                                                <span class="text-muted">No disponible</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-power-off me-1 text-muted"></i>Estado:
+                                        </th>
+                                        <td>
+                                            <span id="deviceStatusBadge" class="badge fs-6 {% if device.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                                {% if device.is_active %}
+                                                    <i class="fas fa-check me-1"></i>Activo
+                                                {% else %}
+                                                    <i class="fas fa-times me-1"></i>Inactivo
+                                                {% endif %}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 35%">
+                                            <i class="fas fa-network-wired me-1 text-muted"></i>MAC (eth0):
+                                        </th>
+                                        <td><code>{{ device.mac_address }}</code></td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-wifi me-1 text-muted"></i>MAC WiFi (wlan0):
+                                        </th>
+                                        <td>
+                                            {% if device.wlan0_mac %}
+                                                <code>{{ device.wlan0_mac }}</code>
+                                            {% else %}
+                                                <span class="text-muted">No disponible</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-map-marker-alt me-1 text-muted"></i>Ubicación:
+                                        </th>
+                                        <td>{{ device.location if device.location else 'No especificada' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-store me-1 text-muted"></i>Tienda:
+                                        </th>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ device.tienda if device.tienda else 'No especificada' }}</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-calendar-plus me-1 text-muted"></i>Registrado:
+                                        </th>
+                                        <td>{{ device.registered_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-clock me-1 text-muted"></i>Última Actividad:
+                                        </th>
+                                        <td>
+                                            <span class="{% if device.last_seen_status == 'warning' %}text-warning{% elif device.last_seen_status == 'danger' %}text-danger{% else %}text-success{% endif %}">
+                                                {{ device.last_seen.strftime('%Y-%m-%d %H:%M') }}
+                                                {% if device.last_seen_status == 'warning' %}
+                                                    <i class="fas fa-exclamation-triangle ms-1" title="Dispositivo inactivo por más de 5 minutos"></i>
+                                                {% elif device.last_seen_status == 'danger' %}
+                                                    <i class="fas fa-times-circle ms-1" title="Dispositivo inactivo por más de 30 minutos"></i>
+                                                {% else %}
+                                                    <i class="fas fa-check-circle ms-1" title="Dispositivo activo recientemente"></i>
+                                                {% endif %}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+ <!-- 3. Gestión de Servicios -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cogs me-2"></i>Gestión de Servicios
+                    </h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-hover">
-                            <thead>
+                            <thead class="table-light">
                                 <tr>
-                                    <th>Servicio</th>
-                                    <th>Estado</th>
-                                    <th>Acciones</th>
-                                    <th>Auto-inicio</th>
+                                    <th><i class="fas fa-service me-1"></i>Servicio</th>
+                                    <th><i class="fas fa-info-circle me-1"></i>Estado</th>
+                                    <th><i class="fas fa-tools me-1"></i>Acciones</th>
+                                    <th><i class="fas fa-toggle-on me-1"></i>Auto-inicio</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <!-- Servicio Videoloop -->
                                 <tr id="service-videoloop">
-                                    <td><strong>Videoloop</strong></td>
                                     <td>
-                                        <span id="videoloop-status-badge" class="badge {% if device.videoloop_status == 'running' %}bg-success{% elif device.videoloop_status == 'stopped' %}bg-danger{% else %}bg-secondary{% endif %}">
-                                            {% if device.videoloop_status == 'running' %}En ejecución{% elif device.videoloop_status == 'stopped' %}Detenido{% else %}Desconocido{% endif %}
+                                        <strong><i class="fas fa-video me-2 text-primary"></i>Videoloop</strong>
+                                        <br><small class="text-muted">Servicio de reproducción de videos</small>
+                                    </td>
+                                    <td>
+                                        <span id="videoloop-status-badge" class="badge fs-6 {% if device.videoloop_status == 'running' %}bg-success{% elif device.videoloop_status == 'stopped' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                            {% if device.videoloop_status == 'running' %}
+                                                <i class="fas fa-play me-1"></i>En ejecución
+                                            {% elif device.videoloop_status == 'stopped' %}
+                                                <i class="fas fa-stop me-1"></i>Detenido
+                                            {% else %}
+                                                <i class="fas fa-question me-1"></i>Desconocido
+                                            {% endif %}
                                         </span>
                                     </td>
                                     <td>
                                         {% if device.is_active %}
-                                            <div class="btn-group btn-group-sm" id="videoloop-actions">
+                                            <div class="btn-group btn-group-sm" id="videoloop-actions" role="group" aria-label="Acciones de Videoloop">
                                                 {% if device.videoloop_status == 'running' %}
                                                     <button type="button" class="btn btn-sm btn-danger service-action" data-service="videoloop" data-action="stop">
-                                                        <i class="bi bi-stop-fill me-1"></i>Detener
+                                                        <i class="fas fa-stop me-1"></i>Detener
                                                     </button>
                                                     <button type="button" class="btn btn-sm btn-warning service-action" data-service="videoloop" data-action="restart">
-                                                        <i class="bi bi-arrow-repeat me-1"></i>Reiniciar
+                                                        <i class="fas fa-sync me-1"></i>Reiniciar
                                                     </button>
                                                 {% elif device.videoloop_status == 'stopped' %}
                                                     <button type="button" class="btn btn-sm btn-success service-action" data-service="videoloop" data-action="start">
-                                                        <i class="bi bi-play-fill me-1"></i>Iniciar
+                                                        <i class="fas fa-play me-1"></i>Iniciar
                                                     </button>
                                                 {% else %}
                                                     <button type="button" class="btn btn-sm btn-info service-action" data-service="videoloop" data-action="status">
-                                                        <i class="bi bi-info-circle me-1"></i>Verificar
+                                                        <i class="fas fa-search me-1"></i>Verificar
                                                     </button>
                                                 {% endif %}
                                             </div>
                                         {% else %}
-                                            <span class="text-muted">Dispositivo inactivo</span>
+                                            <span class="text-muted"><i class="fas fa-ban me-1"></i>Dispositivo inactivo</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -243,34 +334,43 @@
                                 
                                 <!-- Servicio Kiosk -->
                                 <tr id="service-kiosk">
-                                    <td><strong>Kiosk</strong></td>
                                     <td>
-                                        <span id="kiosk-status-badge" class="badge {% if device.kiosk_status == 'running' %}bg-success{% elif device.kiosk_status == 'stopped' %}bg-danger{% else %}bg-secondary{% endif %}">
-                                            {% if device.kiosk_status == 'running' %}En ejecución{% elif device.kiosk_status == 'stopped' %}Detenido{% else %}Desconocido{% endif %}
+                                        <strong><i class="fas fa-desktop me-2 text-info"></i>Kiosk</strong>
+                                        <br><small class="text-muted">Modo kiosco del sistema</small>
+                                    </td>
+                                    <td>
+                                        <span id="kiosk-status-badge" class="badge fs-6 {% if device.kiosk_status == 'running' %}bg-success{% elif device.kiosk_status == 'stopped' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                            {% if device.kiosk_status == 'running' %}
+                                                <i class="fas fa-play me-1"></i>En ejecución
+                                            {% elif device.kiosk_status == 'stopped' %}
+                                                <i class="fas fa-stop me-1"></i>Detenido
+                                            {% else %}
+                                                <i class="fas fa-question me-1"></i>Desconocido
+                                            {% endif %}
                                         </span>
                                     </td>
                                     <td>
                                         {% if device.is_active %}
-                                            <div class="btn-group btn-group-sm" id="kiosk-actions">
+                                            <div class="btn-group btn-group-sm" id="kiosk-actions" role="group" aria-label="Acciones de Kiosk">
                                                 {% if device.kiosk_status == 'running' %}
                                                     <button type="button" class="btn btn-sm btn-danger service-action" data-service="kiosk" data-action="stop">
-                                                        <i class="bi bi-stop-fill me-1"></i>Detener
+                                                        <i class="fas fa-stop me-1"></i>Detener
                                                     </button>
                                                     <button type="button" class="btn btn-sm btn-warning service-action" data-service="kiosk" data-action="restart">
-                                                        <i class="bi bi-arrow-repeat me-1"></i>Reiniciar
+                                                        <i class="fas fa-sync me-1"></i>Reiniciar
                                                     </button>
                                                 {% elif device.kiosk_status == 'stopped' %}
                                                     <button type="button" class="btn btn-sm btn-success service-action" data-service="kiosk" data-action="start">
-                                                        <i class="bi bi-play-fill me-1"></i>Iniciar
+                                                        <i class="fas fa-play me-1"></i>Iniciar
                                                     </button>
                                                 {% else %}
                                                     <button type="button" class="btn btn-sm btn-info service-action" data-service="kiosk" data-action="status">
-                                                        <i class="bi bi-info-circle me-1"></i>Verificar
+                                                        <i class="fas fa-search me-1"></i>Verificar
                                                     </button>
                                                 {% endif %}
                                             </div>
                                         {% else %}
-                                            <span class="text-muted">Dispositivo inactivo</span>
+                                            <span class="text-muted"><i class="fas fa-ban me-1"></i>Dispositivo inactivo</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -295,8 +395,8 @@
                     
                     <!-- Sección de resultado de acción -->
                     <div id="service-action-result" class="mt-3 d-none">
-                        <div class="alert alert-info">
-                            <h6 class="alert-heading">Resultado de la operación</h6>
+                        <div class="alert alert-info" role="alert">
+                            <h6 class="alert-heading"><i class="fas fa-info-circle me-1"></i>Resultado de la operación</h6>
                             <div id="service-action-message"></div>
                         </div>
                     </div>
@@ -304,353 +404,381 @@
             </div>
         </div>
     </div>
-        
-        <!-- 4. Listas Asignadas -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Listas de Reproducción Asignadas</h5>
-                        <button class="btn btn-sm btn-light" id="btnShowAssignPlaylist" data-bs-toggle="modal" data-bs-target="#assignPlaylistModal">
-                            <i class="bi bi-plus-circle"></i> Asignar Lista
-                        </button>
-                    </div>
-                    <div class="card-body">
-                        <div id="playlistsContainer">
-                            <!-- Contenido dinámico cargado con JavaScript -->
-                            <div class="text-center">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Cargando...</span>
-                                </div>
-                                <p class="mt-2">Cargando listas de reproducción...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 5. Logs del Dispositivo -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Logs del Dispositivo</h5>
-                        <div>
-                            <button class="btn btn-sm btn-outline-light" id="refreshLogsBtn" title="Actualizar logs">
-                                <i class="bi bi-arrow-clockwise"></i> Actualizar
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="log-container" style="max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px; background-color: #1e1e1e; color: #f0f0f0;">
-                            <pre id="deviceLogContent" class="m-0 p-3">Cargando logs...</pre>
-                        </div>
-                    </div>
-                    <div class="card-footer bg-light d-flex justify-content-between">
-                        <span class="small text-muted">Última actualización: <span id="lastLogUpdate">-</span></span>
-                        <div>
-                            <div class="form-check form-switch d-inline-block me-3">
-                                <input class="form-check-input" type="checkbox" id="autoRefreshLogs">
-                                <label class="form-check-label small" for="autoRefreshLogs">Auto-actualizar</label>
-                            </div>
-                            <select id="logLinesCount" class="form-select form-select-sm d-inline-block" style="width: auto;">
-                                <option value="100">100 líneas</option>
-                                <option value="300" selected>300 líneas</option>
-                                <option value="500">500 líneas</option>
-                                <option value="1000">1000 líneas</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal para asignar playlists -->
-    <div class="modal fade" id="assignPlaylistModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Asignar Lista de Reproducción</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="showOnlyActivePlaylistsCheck" checked>
-                        <label class="form-check-label" for="showOnlyActivePlaylistsCheck">Mostrar solo listas activas</label>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="availablePlaylistsSelect" class="form-label">Seleccione una lista:</label>
-                        <select class="form-select" id="availablePlaylistsSelect">
-                            <option value="">Cargando listas...</option>
-                        </select>
-                    </div>
-                    
-                    <div id="playlistPreview" class="d-none">
-                        <div class="card">
-                            <div class="card-header bg-info text-white">
-                                <h6 class="mb-0" id="previewPlaylistTitle">Información de la Lista</h6>
-                            </div>
-                            <div class="card-body">
-                                <p id="previewPlaylistDescription"></p>
-                                <div class="mb-2">
-                                    <span class="badge" id="previewPlaylistStatus"></span>
-                                    <span class="badge" id="previewPlaylistExpiration"></span>
-                                </div>
-                                <div>
-                                    <span class="badge bg-secondary" id="previewPlaylistVideos"></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="confirmAssignPlaylistBtn">Asignar Lista</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de confirmación para quitar playlist -->
-    <div class="modal fade" id="removePlaylistModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Confirmar Eliminación</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p id="removePlaylistMessage">¿Está seguro que desea quitar esta lista de reproducción del dispositivo?</p>
-                    <input type="hidden" id="removePlaylistId">
-                    <input type="hidden" id="removeDeviceId">
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-danger" id="confirmRemovePlaylistBtn">Eliminar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de confirmación de acción de servicio -->
-    <div class="modal fade" id="serviceActionModal" tabindex="-1" aria-labelledby="serviceActionModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="serviceActionModalLabel">Confirmar acción</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p id="serviceActionConfirmMessage">¿Está seguro que desea realizar esta acción?</p>
-                    <div class="d-flex justify-content-center mt-3">
-                        <div class="spinner-border text-primary d-none" id="serviceActionSpinner" role="status">
-                            <span class="visually-hidden">Procesando...</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="confirmServiceAction">Confirmar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de edición de dispositivo -->
-    <div class="modal fade" id="editDeviceModal" tabindex="-1" aria-labelledby="editDeviceModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editDeviceModalLabel">Editar Dispositivo</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <!-- Pestañas de navegación -->
-                    <ul class="nav nav-tabs mb-3" id="editTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic" type="button" role="tab" aria-controls="basic" aria-selected="true">Información Básica</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="hostname-tab" data-bs-toggle="tab" data-bs-target="#hostname" type="button" role="tab" aria-controls="hostname" aria-selected="false">Cambiar Hostname</button>
-                        </li>
-                    </ul>
-                    
-                    <!-- Contenido de las pestañas -->
-                    <div class="tab-content" id="editTabsContent">
-                        <!-- Pestaña de información básica -->
-                        <div class="tab-pane fade show active" id="basic" role="tabpanel" aria-labelledby="basic-tab">
-                            <form id="basicInfoForm" action="/ui/devices/{{ device.device_id }}/update" method="post">
-                                <div class="mb-3">
-                                    <label for="tienda" class="form-label">Tienda</label>
-                                    <select class="form-control" id="tienda" name="tienda">
-                                        <option value="">Seleccionar tienda...</option>
-                                        <option value="SDQ" {% if device.tienda == 'SDQ' %}selected{% endif %}>SDQ</option>
-                                        <option value="STI" {% if device.tienda == 'STI' %}selected{% endif %}>STI</option>
-                                        <option value="PUJ" {% if device.tienda == 'PUJ' %}selected{% endif %}>PUJ</option>
-                                        <option value="LRM" {% if device.tienda == 'LRM' %}selected{% endif %}>LRM</option>
-                                        <option value="BAY" {% if device.tienda == 'BAY' %}selected{% endif %}>BAY</option>
-                                        <option value="PON" {% if device.tienda == 'PON' %}selected{% endif %}>PON</option>
-                                        <option value="CAR" {% if device.tienda == 'CAR' %}selected{% endif %}>CAR</option>
-                                        <option value="ESC" {% if device.tienda == 'ESC' %}selected{% endif %}>ESC</option>
-                                    </select>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="location" class="form-label">Ubicación</label>
-                                    <input type="text" class="form-control" id="location" name="location" value="{{ device.location or '' }}">
-                                </div>
-                                <div class="mb-3 form-check">
-                                    <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if device.is_active %}checked{% endif %}>
-                                    <label class="form-check-label" for="is_active">Dispositivo activo</label>
-                                </div>
-                                <div class="d-flex justify-content-end">
-                                    <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                                    <button type="submit" class="btn btn-success">Guardar cambios</button>
-                                </div>
-                            </form>
-                        </div>
-                        
-                        <!-- Pestaña de cambio de hostname -->
-                        <div class="tab-pane fade" id="hostname" role="tabpanel" aria-labelledby="hostname-tab">
-                            <div class="alert alert-warning">
-                                <strong>¡Atención!</strong> Cambiar el hostname requiere acceso SSH al dispositivo con permisos sudo.
-                                El dispositivo se reiniciará automáticamente para aplicar los cambios.
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="new_hostname" class="form-label">Nuevo Hostname</label>
-                                <input type="text" class="form-control" id="new_hostname" 
-                                    placeholder="nuevo-hostname" pattern="[a-zA-Z0-9\-]+">
-                                <div class="form-text">Solo se permiten letras, números y guiones. Sin espacios ni caracteres especiales.</div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="confirm_hostname" class="form-label">Confirmar Hostname</label>
-                                <input type="text" class="form-control" id="confirm_hostname" 
-                                    placeholder="nuevo-hostname" pattern="[a-zA-Z0-9\-]+">
-                                <div id="hostnameMatchError" class="invalid-feedback">
-                                    Los hostnames no coinciden
-                                </div>
-                            </div>
-                            
-                            <div id="sshStatusContainer" class="mb-3 d-none">
-                                <label class="form-label">Estado de la conexión SSH:</label>
-                                <div id="sshStatus" class="alert alert-info">
-                                    Verificando conexión SSH...
-                                </div>
-                            </div>
-                            
-                            <div class="d-flex justify-content-end">
-                                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="button" class="btn btn-info me-2" id="validateSshBtn">Verificar SSH</button>
-                                <button type="button" class="btn btn-primary" id="submitHostnameBtn" disabled>Cambiar Hostname</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de confirmación de eliminación -->
-    <div class="modal fade" id="deleteDeviceModal" tabindex="-1" aria-labelledby="deleteDeviceModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deleteDeviceModalLabel">Confirmar eliminación</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>¿Estás seguro de que deseas eliminar el dispositivo <strong>{{ device.name }}</strong>?</p>
-                    <p class="text-danger">Esta acción no se puede deshacer.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <form action="/ui/devices/{{ device.device_id }}/delete" method="post">
-                        <button type="submit" class="btn btn-danger">Eliminar dispositivo</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de captura de pantalla -->
-    <div class="modal fade" id="screenshotModal" tabindex="-1" aria-labelledby="screenshotModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="screenshotModalLabel">Captura de Pantalla - {{ device.name }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body text-center">
-                    <div class="d-flex justify-content-center align-items-center mb-3">
-                        <div class="spinner-border text-primary" id="screenshotSpinner" role="status">
-                            <span class="visually-hidden">Cargando captura...</span>
-                        </div>
-                    </div>
-                    <img id="screenshotImage" class="img-fluid d-none" alt="Captura de pantalla del dispositivo">
-                    <div id="screenshotError" class="alert alert-danger d-none">
-                        No se pudo obtener la captura de pantalla.
-                        <div class="mt-3">
-                            <button type="button" class="btn btn-outline-info" id="manualScreenshotBtn">
-                                <i class="bi bi-tools"></i> Intentar método alternativo
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Formulario para método alternativo de captura -->
-                    <div id="manualScreenshotForm" class="mt-3 d-none">
-                        <div class="alert alert-info">
-                            <p><strong>Método alternativo de captura</strong></p>
-                            <p>Introduce la URL directa del endpoint de captura de pantalla:</p>
-                        </div>
-                        <div class="input-group mb-3">
-                            <span class="input-group-text">URL</span>
-                            <input type="text" class="form-control" id="manualScreenshotUrl" 
-                                    value="http://{{ device.ip_address_lan or device.ip_address_wifi }}:8000/api/screenshot">
-                            <button class="btn btn-primary" type="button" id="tryManualScreenshotBtn">Probar</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <a id="downloadScreenshotBtn" href="#" class="btn btn-success d-none" download="screenshot-{{ device.name }}.png">
-                        <i class="bi bi-download"></i> Descargar
-                    </a>
-                    <button type="button" class="btn btn-primary" id="refreshScreenshotBtn">
-                        <i class="bi bi-arrow-clockwise"></i> Actualizar
+    <!-- 4. Listas Asignadas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Listas de Reproducción Asignadas
+                    </h5>
+                    <button class="btn btn-sm btn-primary" id="btnShowAssignPlaylist" data-bs-toggle="modal" data-bs-target="#assignPlaylistModal">
+                        <i class="fas fa-plus me-1"></i> Asignar Lista
                     </button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de confirmación para reinicio -->
-    <div class="modal fade" id="restartDeviceModal" tabindex="-1" aria-labelledby="restartDeviceModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="restartDeviceModalLabel">Confirmar Reinicio</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>¿Está seguro que desea reiniciar el dispositivo <strong>{{ device.name }}</strong>?</p>
-                    <p class="text-warning">El dispositivo no estará disponible durante el proceso de reinicio.</p>
-                    <div class="d-flex justify-content-center mt-3">
-                        <div class="spinner-border text-primary d-none" id="restartSpinner" role="status">
-                            <span class="visually-hidden">Reiniciando...</span>
+                <div class="card-body">
+                    <div id="playlistsContainer">
+                        <!-- Contenido dinámico cargado con JavaScript -->
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status" aria-hidden="true">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p class="mt-2">Cargando listas de reproducción...</p>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-warning" id="confirmRestartBtn">Reiniciar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 5. Logs del Dispositivo -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-file-alt me-2"></i>Logs del Dispositivo
+                    </h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-light" id="refreshLogsBtn" title="Actualizar logs">
+                            <i class="fas fa-sync me-1"></i> Actualizar
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="log-container" style="max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; background-color: #1e1e1e; color: #f0f0f0;">
+                        <pre id="deviceLogContent" class="m-0 p-3" aria-live="polite">Cargando logs...</pre>
+                    </div>
+                </div>
+                <div class="card-footer bg-light d-flex justify-content-between align-items-center">
+                    <span class="small text-muted">
+                        <i class="fas fa-clock me-1"></i>Última actualización: <span id="lastLogUpdate">-</span>
+                    </span>
+                    <div class="d-flex align-items-center gap-3">
+                        <select id="logLinesCount" class="form-select form-select-sm" style="width: auto;">
+                            <option value="100"selected>100 líneas</option>
+                            <option value="300" >300 líneas</option>
+                            <option value="500">500 líneas</option>
+                            <option value="1000">1000 líneas</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+<!-- Modal para asignar playlists -->
+<div class="modal fade" id="assignPlaylistModal" tabindex="-1" aria-labelledby="assignPlaylistModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignPlaylistModalLabel">
+                    <i class="fas fa-list me-2"></i>Asignar Lista de Reproducción
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="showOnlyActivePlaylistsCheck" checked>
+                    <label class="form-check-label" for="showOnlyActivePlaylistsCheck">
+                        <i class="fas fa-filter me-1"></i>Mostrar solo listas activas
+                    </label>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="availablePlaylistsSelect" class="form-label">Seleccione una lista:</label>
+                    <select class="form-select" id="availablePlaylistsSelect" aria-describedby="playlistSelectHelp">
+                        <option value="">Cargando listas...</option>
+                    </select>
+                    <div id="playlistSelectHelp" class="form-text">Seleccione una lista de reproducción para asignar al dispositivo.</div>
+                </div>
+                
+                <div id="playlistPreview" class="d-none">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0" id="previewPlaylistTitle">
+                                <i class="fas fa-info-circle me-1"></i>Información de la Lista
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p id="previewPlaylistDescription"></p>
+                            <div class="mb-2">
+                                <span class="badge" id="previewPlaylistStatus"></span>
+                                <span class="badge" id="previewPlaylistExpiration"></span>
+                            </div>
+                            <div>
+                                <span class="badge bg-secondary" id="previewPlaylistVideos"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="confirmAssignPlaylistBtn">
+                    <i class="fas fa-check me-1"></i>Asignar Lista
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación para quitar playlist -->
+<div class="modal fade" id="removePlaylistModal" tabindex="-1" aria-labelledby="removePlaylistModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="removePlaylistModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2 text-warning"></i>Confirmar Eliminación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="removePlaylistMessage">¿Está seguro que desea quitar esta lista de reproducción del dispositivo?</p>
+                <input type="hidden" id="removePlaylistId">
+                <input type="hidden" id="removeDeviceId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmRemovePlaylistBtn">
+                    <i class="fas fa-trash me-1"></i>Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de edición de dispositivo -->
+<div class="modal fade" id="editDeviceModal" tabindex="-1" aria-labelledby="editDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editDeviceModalLabel">
+                    <i class="fas fa-edit me-2"></i>Editar Dispositivo
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Pestañas de navegación -->
+                <ul class="nav nav-tabs mb-3" id="editTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic" type="button" role="tab" aria-controls="basic" aria-selected="true">Información Básica</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="hostname-tab" data-bs-toggle="tab" data-bs-target="#hostname" type="button" role="tab" aria-controls="hostname" aria-selected="false">Cambiar Hostname</button>
+                    </li>
+                </ul>
+                
+                <!-- Contenido de las pestañas -->
+                <div class="tab-content" id="editTabsContent">
+                    <!-- Pestaña de información básica -->
+                    <div class="tab-pane fade show active" id="basic" role="tabpanel" aria-labelledby="basic-tab">
+                        <form id="basicInfoForm" action="/ui/devices/{{ device.device_id }}/update" method="post">
+                            <div class="mb-3">
+                                <label for="tienda" class="form-label">Tienda</label>
+                                <select class="form-select" id="tienda" name="tienda">
+                                    <option value="">Seleccionar tienda...</option>
+                                    <option value="SDQ" {% if device.tienda == 'SDQ' %}selected{% endif %}>SDQ</option>
+                                    <option value="STI" {% if device.tienda == 'STI' %}selected{% endif %}>STI</option>
+                                    <option value="PUJ" {% if device.tienda == 'PUJ' %}selected{% endif %}>PUJ</option>
+                                    <option value="LRM" {% if device.tienda == 'LRM' %}selected{% endif %}>LRM</option>
+                                    <option value="BAY" {% if device.tienda == 'BAY' %}selected{% endif %}>BAY</option>
+                                    <option value="PON" {% if device.tienda == 'PON' %}selected{% endif %}>PON</option>
+                                    <option value="CAR" {% if device.tienda == 'CAR' %}selected{% endif %}>CAR</option>
+                                    <option value="ESC" {% if device.tienda == 'ESC' %}selected{% endif %}>ESC</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="location" class="form-label">Ubicación</label>
+                                <input type="text" class="form-control" id="location" name="location" value="{{ device.location or '' }}">
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if device.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="is_active">Dispositivo activo</label>
+                            </div>
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-save me-1"></i>Guardar cambios
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Pestaña de cambio de hostname -->
+                    <div class="tab-pane fade" id="hostname" role="tabpanel" aria-labelledby="hostname-tab">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            <strong>¡Atención!</strong> Cambiar el hostname requiere acceso SSH al dispositivo con permisos sudo.
+                            El dispositivo se reiniciará automáticamente para aplicar los cambios.
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="new_hostname" class="form-label">Nuevo Hostname</label>
+                            <input type="text" class="form-control" id="new_hostname" 
+                                placeholder="nuevo-hostname" pattern="[a-zA-Z0-9\-]+">
+                            <div class="form-text">Solo se permiten letras, números y guiones. Sin espacios ni caracteres especiales.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confirm_hostname" class="form-label">Confirmar Hostname</label>
+                            <input type="text" class="form-control" id="confirm_hostname" 
+                                placeholder="nuevo-hostname" pattern="[a-zA-Z0-9\-]+">
+                            <div id="hostnameMatchError" class="invalid-feedback">
+                                Los hostnames no coinciden
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end">
+                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-info me-2" id="validateSshBtn">
+                                <i class="fas fa-search me-1"></i>Verificar SSH
+                            </button>
+                            <button type="button" class="btn btn-primary" id="submitHostnameBtn" disabled>
+                                <i class="fas fa-exchange-alt me-1"></i>Cambiar Hostname
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación de eliminación -->
+<div class="modal fade" id="deleteDeviceModal" tabindex="-1" aria-labelledby="deleteDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteDeviceModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2 text-danger"></i>Confirmar eliminación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-1"></i>
+                    <strong>¡Advertencia!</strong> Esta acción no se puede deshacer.
+                </div>
+                <p>¿Estás seguro de que deseas eliminar el dispositivo <strong>{{ device.name }}</strong>?</p>
+                <p class="text-muted">Se eliminarán:</p>
+                <ul class="text-muted">
+                    <li>Toda la información del dispositivo</li>
+                    <li>Historial de actividad</li>
+                    <li>Asignaciones de listas de reproducción</li>
+                    <li>Configuraciones específicas</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <form action="/ui/devices/{{ device.device_id }}/delete" method="post" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>Eliminar dispositivo
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de captura de pantalla -->
+<div class="modal fade" id="screenshotModal" tabindex="-1" aria-labelledby="screenshotModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="screenshotModalLabel">
+                    <i class="fas fa-camera me-2"></i>Captura de Pantalla - {{ device.name }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="d-flex justify-content-center align-items-center mb-3" id="screenshotSpinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando captura...</span>
+                    </div>
+                    <span class="ms-2">Capturando pantalla...</span>
+                </div>
+                <img id="screenshotImage" class="img-fluid d-none" alt="Captura de pantalla del dispositivo" style="max-height: 400px; border: 1px solid #ddd; border-radius: 8px;">
+                <div id="screenshotError" class="alert alert-danger d-none">
+                    <i class="fas fa-exclamation-circle me-1"></i>
+                    No se pudo obtener la captura de pantalla.
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-outline-info" id="manualScreenshotBtn">
+                            <i class="fas fa-tools me-1"></i> Intentar método alternativo
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Formulario para método alternativo de captura -->
+                <div id="manualScreenshotForm" class="mt-3 d-none">
+                    <div class="alert alert-info">
+                        <p><strong>Método alternativo de captura</strong></p>
+                        <p>Introduce la URL directa del endpoint de captura de pantalla:</p>
+                    </div>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text">URL</span>
+                        <input type="text" class="form-control" id="manualScreenshotUrl" 
+                                value="http://{{ device.ip_address_lan or device.ip_address_wifi }}:8000/api/screenshot">
+                        <button class="btn btn-primary" type="button" id="tryManualScreenshotBtn">Probar</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cerrar
+                </button>
+                <a id="downloadScreenshotBtn" href="#" class="btn btn-success d-none" download="screenshot-{{ device.name }}.png">
+                    <i class="fas fa-download me-1"></i> Descargar
+                </a>
+                <button type="button" class="btn btn-primary" id="refreshScreenshotBtn">
+                    <i class="fas fa-sync me-1"></i> Actualizar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación para reinicio -->
+<div class="modal fade" id="restartDeviceModal" tabindex="-1" aria-labelledby="restartDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="restartDeviceModalLabel">
+                    <i class="fas fa-power-off me-2 text-warning"></i>Confirmar Reinicio
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>Atención:</strong> El dispositivo no estará disponible durante el proceso de reinicio.
+                </div>
+                <p>¿Está seguro que desea reiniciar el dispositivo <strong>{{ device.name }}</strong>?</p>
+                <p class="text-muted">El reinicio puede tomar entre 1-3 minutos en completarse.</p>
+                <div class="d-flex justify-content-center mt-3">
+                    <div class="spinner-border text-primary d-none" id="restartSpinner" role="status">
+                        <span class="visually-hidden">Reiniciando...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-warning" id="confirmRestartBtn">
+                    <i class="fas fa-power-off me-1"></i>Reiniciar Dispositivo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -658,7 +786,7 @@
 <!-- Cargar nuestro archivo JavaScript separado -->
 <script src="/static/js/detail.js"></script>
 <script src="/static/js/service_manager.js"></script>
-<script src="/static/js/restart_buttomn.js"></script>
+<script src="/static/js/restart_button.js"></script>
 
 
 {% endblock %}

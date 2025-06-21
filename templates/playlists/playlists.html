@@ -1,237 +1,802 @@
 {% extends "base.html" %}
 
-{% block content %} 
-<!-- Main Content -->
-    <main class="main-content" id="mainContent">
+{% block content %}
+<main class="main-content" id="mainContent">
+    <div class="container-fluid py-4">
         <!-- Header -->
-        <div class="card">
-            <div class="card-body">
-                <h1><i class="fas fa-list"></i> Gestión de Listas de Reproducción</h1>
-                <p class="mb-0 text-muted">Crea, edita y gestiona tus listas de reproducción</p>
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+            <h1 class="h2">
+                <i class="fas fa-list text-primary"></i>
+                Listas de Reproducción
+            </h1>
+            <div class="btn-toolbar mb-2 mb-md-0">
+                <a href="/ui/edi-playlists" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nueva Lista
+                </a>
             </div>
         </div>
-        <!-- Action Buttons -->
-        <div class="card">
-            <div class="card-body">
-                <div class="d-flex flex-wrap gap-3 justify-content-between">
-                    <div class="d-flex flex-wrap gap-2">
-                        <button class="btn btn-primary" onclick="showCreatePlaylist()">
-                            <i class="fas fa-plus"></i> Nueva Lista
-                        </button>
-                        <button class="btn btn-success" onclick="showPlaylistEditor()">
-                            <i class="fas fa-edit"></i> Editor Avanzado
-                        </button>
-                        <button class="btn btn-outline-primary" onclick="refreshPlaylists()">
-                            <i class="fas fa-sync-alt"></i> <span class="d-mobile-none">Actualizar</span>
+                            
+        <!-- Formulario para crear nueva playlist -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Crear Nueva Lista de Reproducción</h5>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#playlistForm">
+                            <i class="fas fa-plus"></i> Mostrar/Ocultar
                         </button>
                     </div>
-                    <span class="badge bg-info fs-6" id="playlistCountBadge">0 listas</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Search and Filters -->
-        <div class="card">
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <div class="input-group">
-                            <input type="text" id="playlistSearchInput" class="form-control" placeholder="Buscar listas...">
-                            <button class="btn btn-outline-primary" id="clearPlaylistSearch">
-                                <i class="fas fa-times"></i>
-                            </button>
+                    <div id="playlistForm" class="collapse">
+                        <div class="card-body">
+                            <form id="playlistCreateForm">
+                                <div class="mb-3">
+                                    <label for="playlistTitle" class="form-label">Título</label>
+                                    <input type="text" class="form-control" id="playlistTitle" name="title" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="playlistDescription" class="form-label">Descripción</label>
+                                    <textarea class="form-control" id="playlistDescription" name="description" rows="3"></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="playlistStartDate" class="form-label">Fecha de Inicio (opcional)</label>
+                                    <input type="datetime-local" class="form-control" id="playlistStartDate" name="start_date">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="playlistExpiration" class="form-label">Fecha de Expiración (opcional)</label>
+                                    <input type="datetime-local" class="form-control" id="playlistExpiration" name="expiration_date">
+                                </div>
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" id="playlistActive" name="is_active" checked>
+                                    <label class="form-check-label" for="playlistActive">Lista Activa</label>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-lg">Crear Lista de Reproducción</button>
+                            </form>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3">
-                        <select class="form-select" id="playlistFilterStatus">
-                            <option value="all">Todas las listas</option>
-                            <option value="active">Listas activas</option>
-                            <option value="inactive">Listas inactivas</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-outline-secondary w-100" onclick="toggleView()">
-                            <i class="fas fa-th" id="viewToggleIcon"></i>
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Table View -->
-        <div class="card" id="tableView">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-table"></i> Listas de Reproducción</h5>
+        <!-- Controles de búsqueda y filtros para playlists -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="text" id="playlistSearchInput" class="form-control" placeholder="Buscar listas por título o descripción...">
+                    <button class="btn btn-outline-primary" type="button" id="clearPlaylistSearch">
+                        <i class="fas fa-times"></i> Limpiar
+                    </button>
+                </div>
             </div>
-            <div class="card-body p-0">
+            <div class="col-md-3">
+                <select class="form-select" id="playlistFilterStatus">
+                    <option value="all">Todas las listas</option>
+                    <option value="active">Listas activas</option>
+                    <option value="inactive">Listas inactivas</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="playlistPageSizeSelect">
+                    <option value="25">25 por página</option>
+                    <option value="50">50 por página</option>
+                    <option value="100" selected>100 por página</option>
+                    <option value="200">200 por página</option>
+                    <option value="500">Todas las listas</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Información de resultados y paginación -->
+        <div class="row mb-2">
+            <div class="col-md-6">
+                <span id="playlistCountBadge" class="badge bg-info fs-6">0 listas</span>
+            </div>
+            <div class="col-md-6 text-end">
+                <small class="text-muted" id="playlistPaginationInfo">
+                    Mostrando 0 - 0 de 0 resultados
+                </small>
+            </div>
+        </div>
+
+        <!-- Tabla de listas de reproducción -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-video me-2"></i>Listas de Reproducción
+                </h5>
+                <div class="d-flex align-items-center">
+                    <div class="btn-group" role="group" aria-label="Navegación de páginas">
+                        <button class="btn btn-sm btn-outline-secondary me-2"  
+                                id="firstPlaylistPageBtn" onclick="goToFirstPlaylistPage()" 
+                                title="Primera página">
+                            <i class="fas fa-angle-double-left"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary me-2" 
+                                id="prevPlaylistPageBtn" onclick="goToPrevPlaylistPage()" 
+                                title="Página anterior">
+                            <i class="fas fa-angle-left"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary me-2" 
+                                id="nextPlaylistPageBtn" onclick="goToNextPlaylistPage()" 
+                                title="Página siguiente">
+                            <i class="fas fa-angle-right"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary me-2" 
+                                id="lastPlaylistPageBtn" onclick="goToLastPlaylistPage()" 
+                                title="Última página">
+                            <i class="fas fa-angle-double-right"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="d-flex align-items-center">
+                        <small class="text-muted me-2">Página</small>
+                        <input type="number" id="playlistPageInput" class="form-control form-control-sm text-center" 
+                            style="width: 60px;" min="1" value="1" 
+                            onchange="goToPlaylistPage(parseInt(this.value))">
+                        <small class="text-muted ms-2">de <span id="playlistTotalPages">1</span></small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-hover mb-0">
+                    <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>Título</th>
-                                <th class="d-mobile-none">Descripción</th>
+                                <th>
+                                    <button class="btn btn-link text-decoration-none text-dark p-0" 
+                                            onclick="sortPlaylists('title')">
+                                        Título <i class="fas fa-sort ms-1"></i>
+                                    </button>
+                                </th>
+                                <th>Descripción</th>
                                 <th>Videos</th>
-                                <th class="d-mobile-none">Fecha</th>
+                                <th>
+                                    <button class="btn btn-link text-decoration-none text-dark p-0" 
+                                            onclick="sortPlaylists('start_date')">
+                                        Inicio <i class="fas fa-sort ms-1"></i>
+                                    </button>
+                                </th>
+                                <th>
+                                    <button class="btn btn-link text-decoration-none text-dark p-0" 
+                                            onclick="sortPlaylists('expiration_date')">
+                                        Expiración <i class="fas fa-sort ms-1"></i>
+                                    </button>
+                                </th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="playlistsList">
                             <tr>
-                                <td colspan="6" class="text-center py-5">
-                                    <div class="spinner-border text-primary"></div>
-                                    <p class="mt-2">Cargando...</p>
+                                <td colspan="7" class="text-center py-3" id="playlistsLoading">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Cargando...</span>
+                                    </div>
+                                    <p class="mt-2">Cargando listas de reproducción...</p>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
-
-        <!-- Card View -->
-        <div id="cardView" style="display: none;">
-            <div class="row" id="playlistCards"></div>
-        </div>
-    </main>
-
-    <!-- Modal Crear/Editar Playlist -->
-    <div class="modal fade" id="createPlaylistModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="createPlaylistModalTitle">
-                        <i class="fas fa-plus"></i> Crear Nueva Lista
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="createPlaylistForm">
-                        <input type="hidden" id="editPlaylistId">
-                        <div class="row">
-                            <div class="col-md-8 mb-3">
-                                <label class="form-label">Título *</label>
-                                <input type="text" class="form-control" id="playlistTitle" required>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Estado</label>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="playlistActive" checked>
-                                    <label class="form-check-label">Activa</label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Descripción</label>
-                            <textarea class="form-control" id="playlistDescription" rows="3"></textarea>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Fecha de Inicio</label>
-                                <input type="datetime-local" class="form-control" id="playlistStartDate">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Fecha de Expiración</label>
-                                <input type="datetime-local" class="form-control" id="playlistExpiration">
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="savePlaylistBtn">Guardar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Editor Avanzado -->
-    <div class="modal fade" id="playlistEditorModal" tabindex="-1">
-        <div class="modal-dialog modal-fullscreen">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="fas fa-edit"></i> Editor Avanzado
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-0">
-                    <!-- Header del editor -->
-                    <div class="p-3 bg-light border-bottom">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <input type="text" class="form-control" id="editorPlaylistTitle" placeholder="Nombre de la lista">
-                            </div>
-                            <div class="col-md-6 text-end">
-                                <span class="badge bg-info me-2" id="editorVideoCount">0 videos</span>
-                                <span class="badge bg-secondary me-2" id="editorTotalDuration">0:00</span>
-                                <button class="btn btn-outline-danger btn-sm me-2" onclick="clearEditorPlaylist()">
-                                    <i class="fas fa-trash"></i> Limpiar
-                                </button>
-                                <button class="btn btn-success btn-sm" id="saveEditorPlaylistBtn">
-                                    <i class="fas fa-save"></i> Guardar
-                                </button>
-                            </div>
-                        </div>
+            
+            <div class="card-footer bg-light">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            Tip: Usa los filtros y búsqueda para encontrar listas específicas
+                        </small>
                     </div>
-
-                    <!-- Editor principal -->
-                    <div class="playlist-editor">
-                        <!-- Panel de Videos (Izquierda) -->
-                        <div class="video-search-panel">
-                            <div class="panel-header">
-                                <div class="d-flex justify-content-between mb-3">
-                                    <h6><i class="fas fa-film"></i> Biblioteca de Videos</h6>
-                                    <div>
-                                        <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllVisibleVideos()">
-                                            <i class="fas fa-check-double"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-primary" onclick="addSelectedVideos()" id="addSelectedVideosBtn" disabled>
-                                            <i class="fas fa-plus"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <input type="text" class="form-control mb-3" id="editorVideoSearch" placeholder="Buscar videos...">
-                                <div id="editorSelectionInfo" style="display: none;">
-                                    <small class="text-muted">
-                                        <span id="editorSelectedCount">0</span> video(s) seleccionado(s)
-                                        <button class="btn btn-sm btn-link p-0 ms-2" onclick="clearVideoSelection()">Limpiar</button>
-                                    </small>
-                                </div>
-                            </div>
-                            <div class="panel-content">
-                                <div id="editorVideoLibrary"></div>
-                            </div>
-                        </div>
-
-                        <!-- Panel de Lista (Derecha) -->
-                        <div class="playlist-builder-panel">
-                            <div class="panel-header">
-                                <h6><i class="fas fa-list"></i> Lista de Reproducción</h6>
-                            </div>
-                            <div class="panel-content">
-                                <div class="drop-zone" id="editorDropZone">
-                                    <div>
-                                        <i class="fas fa-cloud-upload-alt fa-3x mb-3 opacity-50"></i>
-                                        <h5>Arrastra videos aquí</h5>
-                                        <p>O selecciona y usa "Agregar"</p>
-                                    </div>
-                                    <div id="editorPlaylistItems"></div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="col-md-6 text-end">
+                        <small class="text-muted" id="playlistPaginationFooter">
+                            <!-- Información adicional de paginación -->
+                        </small>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</main>
 
-    <!-- Toast Container -->
-    <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
-{% endblock %}
-{% block scripts %} 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/playlists.js"></script>
+<!-- Modal para editar playlist -->
+<div class="modal fade" id="editPlaylistModal" tabindex="-1" aria-labelledby="editPlaylistModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editPlaylistModalLabel">Editar Lista de Reproducción</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editPlaylistForm">
+                    <input type="hidden" id="editPlaylistId">
+                    <div class="mb-3">
+                        <label for="editPlaylistTitle" class="form-label">Título</label>
+                        <input type="text" class="form-control" id="editPlaylistTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPlaylistDescription" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="editPlaylistDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPlaylistStartDate" class="form-label">Fecha de Inicio</label>
+                        <input type="datetime-local" class="form-control" id="editPlaylistStartDate">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPlaylistExpiration" class="form-label">Fecha de Expiración</label>
+                        <input type="datetime-local" class="form-control" id="editPlaylistExpiration">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="editPlaylistActive">
+                        <label class="form-check-label" for="editPlaylistActive">Lista Activa</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="updatePlaylist()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
+{% block extra_scripts %}
+    <script>
+        // Variables globales para paginación - Compatible con main.js
+        let currentPlaylistPage = 1;
+        let playlistPageSize = 100;
+        let totalPlaylistItems = 0;
+        let totalPlaylistPages = 1;
+        let allPlaylists = [];
+        let filteredPlaylists = [];
+        let currentPlaylistFilter = 'all';
+        let currentPlaylistSearchTerm = '';
+        let playlistSortField = '';
+        let playlistSortDirection = 'asc';
+
+        // Hacer variables compatibles con main.js
+        window.allPlaylists = allPlaylists;
+        window.currentPlaylistPage = currentPlaylistPage;
+
+        // Inicializar cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Playlist template - Inicializando...');
+            
+            // Esperar a main.js si está disponible
+            setTimeout(() => {
+                // Si main.js tiene loadPlaylists, usarlo, si no usar el local
+                if (typeof window.loadPlaylists === 'function' && window.loadPlaylists.toString().includes('loadPlaylistsWithPagination')) {
+                    console.log('Usando loadPlaylists de main.js');
+                    window.loadPlaylists('all');
+                } else {
+                    console.log('Usando loadPlaylists local');
+                    loadPlaylists();
+                }
+                
+                setupEventListeners();
+            }, 200);
+        });
+
+        function setupEventListeners() {
+            // Formulario de creación
+            const createForm = document.getElementById('playlistCreateForm');
+            if (createForm) {
+                createForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    // Usar función de main.js si está disponible
+                    if (typeof window.createPlaylist === 'function') {
+                        await window.createPlaylist();
+                    } else {
+                        await createPlaylist();
+                    }
+                });
+            }
+
+            // Búsqueda
+            const searchInput = document.getElementById('playlistSearchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', function(e) {
+                    currentPlaylistSearchTerm = e.target.value.toLowerCase();
+                    filterAndDisplayPlaylists();
+                });
+            }
+
+            // Limpiar búsqueda
+            const clearBtn = document.getElementById('clearPlaylistSearch');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function() {
+                    if (searchInput) {
+                        searchInput.value = '';
+                        currentPlaylistSearchTerm = '';
+                        filterAndDisplayPlaylists();
+                    }
+                });
+            }
+
+            // Filtro de estado
+            const filterSelect = document.getElementById('playlistFilterStatus');
+            if (filterSelect) {
+                filterSelect.addEventListener('change', function(e) {
+                    currentPlaylistFilter = e.target.value;
+                    filterAndDisplayPlaylists();
+                });
+            }
+
+            // Tamaño de página
+            const pageSizeSelect = document.getElementById('playlistPageSizeSelect');
+            if (pageSizeSelect) {
+                pageSizeSelect.addEventListener('change', function(e) {
+                    playlistPageSize = parseInt(e.target.value);
+                    currentPlaylistPage = 1;
+                    filterAndDisplayPlaylists();
+                });
+            }
+
+            console.log('Event listeners configurados');
+        }
+
+        async function loadPlaylists() {
+            console.log('Cargando playlists...');
+            
+            try {
+                const response = await fetch('/api/playlists/?limit=10000');
+                if (!response.ok) throw new Error('Error al cargar las playlists');
+                
+                allPlaylists = await response.json();
+                window.allPlaylists = allPlaylists;
+                
+                console.log(`Playlists cargadas: ${allPlaylists.length}`);
+                filterAndDisplayPlaylists();
+            } catch (error) {
+                console.error('Error:', error);
+                const playlistsList = document.getElementById('playlistsList');
+                if (playlistsList) {
+                    playlistsList.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center text-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Error al cargar las listas de reproducción
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+        }
+
+        function filterAndDisplayPlaylists() {
+            // Usar allPlaylists global de main.js si está disponible
+            const sourceData = window.allPlaylists && window.allPlaylists.length > 0 ? window.allPlaylists : allPlaylists;
+            
+            // Aplicar filtros
+            filteredPlaylists = sourceData.filter(playlist => {
+                // Filtro de búsqueda
+                if (currentPlaylistSearchTerm) {
+                    const searchMatch = 
+                        (playlist.title && playlist.title.toLowerCase().includes(currentPlaylistSearchTerm)) ||
+                        (playlist.description && playlist.description.toLowerCase().includes(currentPlaylistSearchTerm));
+                    if (!searchMatch) return false;
+                }
+
+                // Filtro de estado
+                if (currentPlaylistFilter !== 'all') {
+                    const isActive = isPlaylistActive(playlist);
+                    if (currentPlaylistFilter === 'active' && !isActive) return false;
+                    if (currentPlaylistFilter === 'inactive' && isActive) return false;
+                }
+
+                return true;
+            });
+
+            // Ordenar si es necesario
+            if (playlistSortField) {
+                filteredPlaylists.sort((a, b) => {
+                    let aVal = a[playlistSortField];
+                    let bVal = b[playlistSortField];
+                    
+                    if (playlistSortField.includes('date')) {
+                        aVal = aVal ? new Date(aVal) : new Date(0);
+                        bVal = bVal ? new Date(bVal) : new Date(0);
+                    }
+                    
+                    if (aVal < bVal) return playlistSortDirection === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return playlistSortDirection === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            // Calcular paginación
+            totalPlaylistItems = filteredPlaylists.length;
+            totalPlaylistPages = Math.ceil(totalPlaylistItems / playlistPageSize);
+            
+            // Ajustar página actual si es necesario
+            if (currentPlaylistPage > totalPlaylistPages) {
+                currentPlaylistPage = totalPlaylistPages || 1;
+            }
+
+            // Mostrar resultados
+            displayPlaylists();
+            updatePaginationControls();
+        }
+
+        function displayPlaylists() {
+            const startIndex = (currentPlaylistPage - 1) * playlistPageSize;
+            const endIndex = Math.min(startIndex + playlistPageSize, totalPlaylistItems);
+            const pageItems = filteredPlaylists.slice(startIndex, endIndex);
+
+            const tbody = document.getElementById('playlistsList');
+            if (!tbody) return;
+            
+            if (pageItems.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-4">
+                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No se encontraron listas de reproducción</p>
+                            ${currentPlaylistSearchTerm ? '<p class="small text-muted">Intenta con otros términos de búsqueda</p>' : ''}
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = pageItems.map(playlist => {
+                const isActive = isPlaylistActive(playlist);
+                const statusBadge = isActive 
+                    ? '<span class="badge bg-success">Activa</span>'
+                    : '<span class="badge bg-secondary">Inactiva</span>';
+                
+                const videoCount = playlist.videos ? playlist.videos.length : 0;
+                
+                return `
+                    <tr>
+                        <td><strong>${escapeHtml(playlist.title)}</strong></td>
+                        <td>${escapeHtml(playlist.description || '-')}</td>
+                        <td><span class="badge bg-info">${videoCount} videos</span></td>
+                        <td>${formatDate(playlist.start_date)}</td>
+                        <td>${formatDate(playlist.expiration_date)}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-primary" onclick="editPlaylist(${playlist.id})" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <a href="/ui/edi-playlists?id=${playlist.id}" class="btn btn-outline-info" title="Editar Videos">
+                                    <i class="fas fa-video"></i>
+                                </a>
+                                <button class="btn btn-outline-danger" onclick="deletePlaylist(${playlist.id})" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Actualizar contador
+            const countBadge = document.getElementById('playlistCountBadge');
+            if (countBadge) {
+                countBadge.textContent = `${totalPlaylistItems} listas`;
+            }
+            
+            // Actualizar info de paginación
+            const paginationInfo = document.getElementById('playlistPaginationInfo');
+            if (paginationInfo) {
+                paginationInfo.textContent = `Mostrando ${startIndex + 1} - ${endIndex} de ${totalPlaylistItems} resultados`;
+            }
+        }
+
+        function updatePaginationControls() {
+            // Actualizar botones
+            const firstBtn = document.getElementById('firstPlaylistPageBtn');
+            const prevBtn = document.getElementById('prevPlaylistPageBtn');
+            const nextBtn = document.getElementById('nextPlaylistPageBtn');
+            const lastBtn = document.getElementById('lastPlaylistPageBtn');
+            
+            if (firstBtn) firstBtn.disabled = currentPlaylistPage === 1;
+            if (prevBtn) prevBtn.disabled = currentPlaylistPage === 1;
+            if (nextBtn) nextBtn.disabled = currentPlaylistPage === totalPlaylistPages;
+            if (lastBtn) lastBtn.disabled = currentPlaylistPage === totalPlaylistPages;
+            
+            // Actualizar input de página
+            const pageInput = document.getElementById('playlistPageInput');
+            const totalPagesSpan = document.getElementById('playlistTotalPages');
+            
+            if (pageInput) {
+                pageInput.value = currentPlaylistPage;
+                pageInput.max = totalPlaylistPages;
+            }
+            if (totalPagesSpan) {
+                totalPagesSpan.textContent = totalPlaylistPages;
+            }
+        }
+
+        // Funciones de navegación - Compatible con main.js
+        function goToFirstPlaylistPage() {
+            currentPlaylistPage = 1;
+            displayPlaylists();
+            updatePaginationControls();
+        }
+
+        function goToPrevPlaylistPage() {
+            if (currentPlaylistPage > 1) {
+                currentPlaylistPage--;
+                displayPlaylists();
+                updatePaginationControls();
+            }
+        }
+
+        function goToNextPlaylistPage() {
+            if (currentPlaylistPage < totalPlaylistPages) {
+                currentPlaylistPage++;
+                displayPlaylists();
+                updatePaginationControls();
+            }
+        }
+
+        function goToLastPlaylistPage() {
+            currentPlaylistPage = totalPlaylistPages;
+            displayPlaylists();
+            updatePaginationControls();
+        }
+
+        function goToPlaylistPage(page) {
+            if (page >= 1 && page <= totalPlaylistPages) {
+                currentPlaylistPage = page;
+                displayPlaylists();
+                updatePaginationControls();
+            }
+        }
+
+        // Función de ordenamiento
+        function sortPlaylists(field) {
+            if (playlistSortField === field) {
+                playlistSortDirection = playlistSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                playlistSortField = field;
+                playlistSortDirection = 'asc';
+            }
+            filterAndDisplayPlaylists();
+            
+            // Actualizar iconos de ordenamiento
+            document.querySelectorAll('th .fas').forEach(icon => {
+                icon.className = 'fas fa-sort ms-1';
+            });
+            
+            const currentButton = document.querySelector(`button[onclick="sortPlaylists('${field}')"] .fas`);
+            if (currentButton) {
+                currentButton.className = `fas fa-sort-${playlistSortDirection === 'asc' ? 'up' : 'down'} ms-1`;
+            }
+        }
+
+        // Funciones CRUD
+        async function createPlaylist() {
+            const formData = new FormData(document.getElementById('playlistCreateForm'));
+            const data = {
+                title: formData.get('title'),
+                description: formData.get('description'),
+                start_date: formData.get('start_date') || null,
+                expiration_date: formData.get('expiration_date') || null,
+                is_active: formData.has('is_active')
+            };
+
+            try {
+                const response = await fetch('/api/playlists/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    // Usar showToast si está disponible
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('Lista de reproducción creada exitosamente', 'success');
+                    } else {
+                        alert('Lista de reproducción creada exitosamente');
+                    }
+                    
+                    document.getElementById('playlistCreateForm').reset();
+                    
+                    // Cerrar formulario colapsable
+                    const formCollapse = document.getElementById('playlistForm');
+                    if (formCollapse && window.bootstrap) {
+                        bootstrap.Collapse.getInstance(formCollapse)?.hide();
+                    }
+                    
+                    // Recargar listas
+                    await loadPlaylists();
+                } else {
+                    const error = await response.json();
+                    const message = 'Error al crear la lista: ' + (error.detail || 'Error desconocido');
+                    
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(message, 'error');
+                    } else {
+                        alert(message);
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                const message = 'Error al crear la lista de reproducción';
+                
+                if (typeof window.showToast === 'function') {
+                    window.showToast(message, 'error');
+                } else {
+                    alert(message);
+                }
+            }
+        }
+
+        async function editPlaylist(id) {
+            const playlist = (window.allPlaylists || allPlaylists).find(p => p.id === id);
+            if (!playlist) return;
+
+            // Llenar el modal con los datos
+            document.getElementById('editPlaylistId').value = playlist.id;
+            document.getElementById('editPlaylistTitle').value = playlist.title;
+            document.getElementById('editPlaylistDescription').value = playlist.description || '';
+            document.getElementById('editPlaylistStartDate').value = formatDateTimeForInput(playlist.start_date);
+            document.getElementById('editPlaylistExpiration').value = formatDateTimeForInput(playlist.expiration_date);
+            document.getElementById('editPlaylistActive').checked = playlist.is_active;
+
+            // Mostrar el modal
+            const modal = new bootstrap.Modal(document.getElementById('editPlaylistModal'));
+            modal.show();
+        }
+
+        async function updatePlaylist() {
+            const id = document.getElementById('editPlaylistId').value;
+            const data = {
+                title: document.getElementById('editPlaylistTitle').value,
+                description: document.getElementById('editPlaylistDescription').value,
+                start_date: document.getElementById('editPlaylistStartDate').value || null,
+                expiration_date: document.getElementById('editPlaylistExpiration').value || null,
+                is_active: document.getElementById('editPlaylistActive').checked
+            };
+
+            try {
+                const response = await fetch(`/api/playlists/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('Lista actualizada exitosamente', 'success');
+                    } else {
+                        alert('Lista actualizada exitosamente');
+                    }
+                    
+                    bootstrap.Modal.getInstance(document.getElementById('editPlaylistModal')).hide();
+                    await loadPlaylists();
+                } else {
+                    const error = await response.json();
+                    const message = 'Error al actualizar: ' + (error.detail || 'Error desconocido');
+                    
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(message, 'error');
+                    } else {
+                        alert(message);
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                const message = 'Error al actualizar la lista';
+                
+                if (typeof window.showToast === 'function') {
+                    window.showToast(message, 'error');
+                } else {
+                    alert(message);
+                }
+            }
+        }
+
+        async function deletePlaylist(id) {
+            if (!confirm('¿Estás seguro de que deseas eliminar esta lista de reproducción?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/playlists/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('Lista eliminada exitosamente', 'success');
+                    } else {
+                        alert('Lista eliminada exitosamente');
+                    }
+                    
+                    await loadPlaylists();
+                } else {
+                    const error = await response.json();
+                    const message = 'Error al eliminar: ' + (error.detail || 'Error desconocido');
+                    
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(message, 'error');
+                    } else {
+                        alert(message);
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                const message = 'Error al eliminar la lista';
+                
+                if (typeof window.showToast === 'function') {
+                    window.showToast(message, 'error');
+                } else {
+                    alert(message);
+                }
+            }
+        }
+
+        // Funciones auxiliares
+        function isPlaylistActive(playlist) {
+            const now = new Date();
+            const startDate = playlist.start_date ? new Date(playlist.start_date) : null;
+            const expDate = playlist.expiration_date ? new Date(playlist.expiration_date) : null;
+            
+            if (!playlist.is_active) return false;
+            if (startDate && now < startDate) return false;
+            if (expDate && now > expDate) return false;
+            
+            return true;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatDateTimeForInput(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
+        }
+
+        // Hacer funciones disponibles globalmente para compatibilidad
+        window.goToFirstPlaylistPage = goToFirstPlaylistPage;
+        window.goToPrevPlaylistPage = goToPrevPlaylistPage;
+        window.goToNextPlaylistPage = goToNextPlaylistPage;
+        window.goToLastPlaylistPage = goToLastPlaylistPage;
+        window.goToPlaylistPage = goToPlaylistPage;
+        window.sortPlaylists = sortPlaylists;
+        window.editPlaylist = editPlaylist;
+        window.updatePlaylist = updatePlaylist;
+        window.deletePlaylist = deletePlaylist;
+        window.createPlaylist = createPlaylist;
+        window.loadPlaylists = loadPlaylists;
+
+        console.log('Playlist template cargado - Funciones disponibles globalmente');
+    </script>
+{% endblock %}
