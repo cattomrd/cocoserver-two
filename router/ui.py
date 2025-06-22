@@ -226,158 +226,65 @@ async def get_edit_playlists_page(
     db: Session = Depends(get_db)
 ):
     """
-    Página de edición de playlists - VERSION CORREGIDA
+    Página de edición de playlists existentes
     """
-    print(f"🎵 GET /edit-playlists - Playlist ID: {id}")
+    context = {
+        "request": request, 
+        "title": "Editor de Listas de Reproducción",
+        "playlist": None
+    }
     
-    playlist_data = None
-    
-    # Si se proporciona un ID, cargar la playlist específica
     if id:
         try:
-            print(f"📋 Cargando playlist ID: {id}")
-            
-            # Cargar playlist básica
+            # Obtener la playlist
             playlist = db.query(models.Playlist).filter(models.Playlist.id == id).first()
             
-            if not playlist:
-                print(f"❌ Playlist {id} no encontrada")
-                raise HTTPException(status_code=404, detail="Lista de reproducción no encontrada")
-            
-            print(f"✅ Playlist encontrada: {playlist.title}")
-            
-            # Verificar estructura de PlaylistVideo
-            print("🔍 Verificando estructura de PlaylistVideo...")
-            inspector = db.get_bind().dialect.get_columns(db.get_bind(), 'playlist_videos')
-            columns = [col['name'] for col in inspector]
-            print(f"📊 Columnas en playlist_videos: {columns}")
-            
-            # Cargar videos usando el campo correcto
-            formatted_videos = []
-            try:
-                print("📡 Cargando videos de la playlist...")
+            if playlist:
+                # Obtener videos asociados a esta playlist utilizando join
+                playlist_videos = db.query(
+                    models.Video, models.PlaylistVideo.position
+                ).join(
+                    models.PlaylistVideo, 
+                    models.Video.id == models.PlaylistVideo.video_id
+                ).filter(
+                    models.PlaylistVideo.playlist_id == id
+                ).order_by(models.PlaylistVideo.position).all()
                 
-                # Verificar qué campo existe: 'position' o 'order'
-                if 'position' in columns:
-                    print("✅ Usando campo 'position'")
-                    playlist_videos = db.query(
-                        models.Video, models.PlaylistVideo.position
-                    ).join(
-                        models.PlaylistVideo, models.Video.id == models.PlaylistVideo.video_id
-                    ).filter(
-                        models.PlaylistVideo.playlist_id == id
-                    ).order_by(models.PlaylistVideo.position).all()
-                    
-                    for video, position in playlist_videos:
-                        formatted_videos.append({
-                            "id": video.id,
-                            "title": video.title,
-                            "description": video.description or "",
-                            "duration": video.duration or 0,
-                            "thumbnail": getattr(video, 'thumbnail', None),
-                            "thumbnail_url": getattr(video, 'thumbnail', None),
-                            "file_path": video.file_path,
-                            "filename": getattr(video, 'filename', f"video_{video.id}.mp4"),
-                            "tags": getattr(video, 'tags', None),
-                            "is_active": getattr(video, 'is_active', True),
-                            "expiration_date": video.expiration_date,
-                            "order": position,  # Mapear position a order para frontend
-                            "position": position
-                        })
+                # Asignar videos a la playlist
+                videos = []
+                for video, position in playlist_videos:
+                    video_data = {
+                        "id": video.id,
+                        "title": video.title,
+                        "description": video.description,
+                        "thumbnail": video.thumbnail,
+                        "duration": video.duration,
+                        "position": position
+                    }
+                    videos.append(video_data)
                 
-                elif 'order' in columns:
-                    print("✅ Usando campo 'order'")
-                    playlist_videos = db.query(
-                        models.Video, models.PlaylistVideo.order
-                    ).join(
-                        models.PlaylistVideo, models.Video.id == models.PlaylistVideo.video_id
-                    ).filter(
-                        models.PlaylistVideo.playlist_id == id
-                    ).order_by(models.PlaylistVideo.order).all()
-                    
-                    for video, order in playlist_videos:
-                        formatted_videos.append({
-                            "id": video.id,
-                            "title": video.title,
-                            "description": video.description or "",
-                            "duration": video.duration or 0,
-                            "thumbnail": getattr(video, 'thumbnail', None),
-                            "thumbnail_url": getattr(video, 'thumbnail', None),
-                            "file_path": video.file_path,
-                            "filename": getattr(video, 'filename', f"video_{video.id}.mp4"),
-                            "tags": getattr(video, 'tags', None),
-                            "is_active": getattr(video, 'is_active', True),
-                            "expiration_date": video.expiration_date,
-                            "order": order,
-                            "position": order  # Mapear order a position para consistencia
-                        })
+                # Agregar videos a la playlist
+                playlist.videos = videos
                 
-                else:
-                    print("❌ No se encontró campo 'position' ni 'order'")
-                    # Cargar videos sin orden específico
-                    playlist_videos = db.query(models.Video).join(
-                        models.PlaylistVideo, models.Video.id == models.PlaylistVideo.video_id
-                    ).filter(
-                        models.PlaylistVideo.playlist_id == id
-                    ).all()
-                    
-                    for index, video in enumerate(playlist_videos):
-                        formatted_videos.append({
-                            "id": video.id,
-                            "title": video.title,
-                            "description": video.description or "",
-                            "duration": video.duration or 0,
-                            "thumbnail": getattr(video, 'thumbnail', None),
-                            "thumbnail_url": getattr(video, 'thumbnail', None),
-                            "file_path": video.file_path,
-                            "filename": getattr(video, 'filename', f"video_{video.id}.mp4"),
-                            "tags": getattr(video, 'tags', None),
-                            "is_active": getattr(video, 'is_active', True),
-                            "expiration_date": video.expiration_date,
-                            "order": index + 1,
-                            "position": index + 1
-                        })
+                # Actualizar contexto
+                context["playlist"] = playlist
+                context["title"] = f"Editar Lista: {playlist.title}"
                 
-                print(f"✅ Videos cargados: {len(formatted_videos)}")
-                
-            except Exception as video_error:
-                print(f"❌ Error cargando videos: {str(video_error)}")
-                formatted_videos = []
-            
-            # Crear objeto playlist_data
-            playlist_data = {
-                "id": playlist.id,
-                "title": playlist.title,
-                "description": playlist.description or "",
-                "is_active": playlist.is_active,
-                "start_date": playlist.start_date,
-                "expiration_date": playlist.expiration_date,
-                "created_at": playlist.creation_date,
-                "updated_at": getattr(playlist, 'updated_at', playlist.creation_date),
-                "videos": formatted_videos
-            }
-            
-            print(f"✅ Playlist data creada: {playlist.title} con {len(formatted_videos)} videos")
-            
-        except HTTPException:
-            raise
-            
+                print(f"📋 Cargando playlist ID: {id}")
+                print(f"✅ Playlist encontrada: {playlist.title}")
+                print(f"🔍 Verificando estructura de PlaylistVideo...")
+                print(f"✅ Cargados {len(videos)} videos para la playlist")
+            else:
+                print(f"❌ Playlist ID {id} no encontrada")
+        
         except Exception as e:
             print(f"❌ Error general cargando playlist {id}: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            # No lanzar excepción, continuar sin datos
-            playlist_data = None
+            # No propagamos el error, simplemente mostramos la plantilla sin la playlist
     
-    print(f"🎨 Renderizando template con playlist: {playlist_data['title'] if playlist_data else 'None'}")
-    
+    # Devolver la plantilla
     return templates.TemplateResponse(
         "/playlists/playlist_detail.html", 
-        {
-            "request": request, 
-            "title": f"Editar Lista: {playlist_data['title']}" if playlist_data else "Nueva Lista de Reproducción",
-            "playlist": playlist_data
-        }
+        context
     )
 @router.get("/edit-playlists", response_class=HTMLResponse)
 async def get_playlist_edit_page(request: Request):

@@ -612,8 +612,12 @@
         </div>
     </div>
 </div>
-
+{% endblock %}
 <!-- SCRIPTS -->
+{% block extra_scripts %}
+
+
+
 <script>
 // Constants
 const API_URL = window.location.origin + '/api';
@@ -1793,6 +1797,7 @@ document.addEventListener('DOMContentLoaded', function() {
     calculateTotalDuration();
     initializeDragAndDrop();
 });
+
 </script>
 
 {% endblock %}
