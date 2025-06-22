@@ -232,6 +232,88 @@ def get_playlist_status(
     
     return result
 
+@router.post("/{playlist_id}/videos")
+def add_video_to_playlist_simple(
+    playlist_id: int,
+    video_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Agregar video a playlist - VERSIÓN SIMPLE
+    """
+    print(f"➕ Agregando video a playlist {playlist_id}: {video_data}")
+    
+    try:
+        # Verificar que la playlist existe
+        playlist = db.query(Playlist).filter(Playlist.id == playlist_id).first()
+        if not playlist:
+            print(f"❌ Playlist {playlist_id} no encontrada")
+            raise HTTPException(status_code=404, detail="Lista de reproducción no encontrada")
+        
+        video_id = video_data.get("video_id")
+        if not video_id:
+            print(f"❌ video_id faltante en request: {video_data}")
+            raise HTTPException(status_code=400, detail="ID de video requerido")
+        
+        # Verificar que el video existe
+        video = db.query(Video).filter(Video.id == video_id).first()
+        if not video:
+            print(f"❌ Video {video_id} no encontrado")
+            raise HTTPException(status_code=404, detail="Video no encontrado")
+        
+        # Verificar si ya está en la playlist
+        existing = db.query(PlaylistVideo).filter(
+            PlaylistVideo.playlist_id == playlist_id,
+            PlaylistVideo.video_id == video_id
+        ).first()
+        
+        if existing:
+            print(f"⚠️ Video {video_id} ya está en playlist {playlist_id}")
+            raise HTTPException(status_code=400, detail="El video ya está en la lista")
+        
+        # Obtener la siguiente posición/orden
+        try:
+            # Intentar con 'position' primero
+            max_position = db.query(
+                db.func.max(PlaylistVideo.position)
+            ).filter(
+                PlaylistVideo.playlist_id == playlist_id
+            ).scalar() or 0
+            
+            print(f"✅ Usando campo 'position', max actual: {max_position}")
+            
+            # Crear nueva relación
+            playlist_video = PlaylistVideo(
+                playlist_id=playlist_id,
+                video_id=video_id,
+                position=max_position + 1
+            )
+            
+        except Exception as pos_error:
+            print(f"❌ Error con campo 'position': {pos_error}")
+            # Si 'position' no existe, crear sin orden específico
+            playlist_video = PlaylistVideo(
+                playlist_id=playlist_id,
+                video_id=video_id
+            )
+        
+        db.add(playlist_video)
+        db.commit()
+        db.refresh(playlist_video)
+        
+        print(f"✅ Video {video_id} agregado a playlist {playlist_id}")
+        return {"message": "Video agregado correctamente", "video_id": video_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error agregando video: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+
 # Resto de las funciones permanecen igual...
 @router.delete("/{playlist_id}")
 def delete_playlist(
@@ -301,48 +383,184 @@ def add_video_to_playlist(
     return {"message": "Video añadido a la lista de reproducción correctamente"}
 
 @router.delete("/{playlist_id}/videos/{video_id}")
-def remove_video_from_playlist(
-    playlist_id: int, 
-    video_id: int, 
+def remove_video_from_playlist_simple(
+    playlist_id: int,
+    video_id: int,
     db: Session = Depends(get_db)
 ):
-    # Verificar que la playlist exista
-    db_playlist = db.query(Playlist).filter(Playlist.id == playlist_id).first()
-    if db_playlist is None:
-        raise HTTPException(status_code=404, detail="Lista de reproducción no encontrada")
+    """
+    Quitar video de playlist - VERSIÓN SIMPLE
+    """
+    print(f"➖ Quitando video {video_id} de playlist {playlist_id}")
     
-    # Verificar que el video exista
-    db_video = db.query(Video).filter(Video.id == video_id).first()
-    if db_video is None:
-        raise HTTPException(status_code=404, detail="Video no encontrado")
+    try:
+        # Verificar que la playlist existe
+        playlist = db.query(Playlist).filter(Playlist.id == playlist_id).first()
+        if not playlist:
+            print(f"❌ Playlist {playlist_id} no encontrada")
+            raise HTTPException(status_code=404, detail="Lista de reproducción no encontrada")
+        
+        # Buscar la relación
+        playlist_video = db.query(PlaylistVideo).filter(
+            PlaylistVideo.playlist_id == playlist_id,
+            PlaylistVideo.video_id == video_id
+        ).first()
+        
+        if not playlist_video:
+            print(f"❌ Video {video_id} no está en playlist {playlist_id}")
+            raise HTTPException(status_code=404, detail="Video no encontrado en la lista")
+        
+        # Eliminar la relación
+        db.delete(playlist_video)
+        db.commit()
+        
+        print(f"✅ Video {video_id} quitado de playlist {playlist_id}")
+        return {"message": "Video quitado correctamente"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error quitando video: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+
+# @router.delete("/{playlist_id}/videos/{video_id}")
+# def remove_video_from_playlist(
+#     playlist_id: int, 
+#     video_id: int, 
+#     db: Session = Depends(get_db)
+# ):
+#     # Verificar que la playlist exista
+#     db_playlist = db.query(Playlist).filter(Playlist.id == playlist_id).first()
+#     if db_playlist is None:
+#         raise HTTPException(status_code=404, detail="Lista de reproducción no encontrada")
     
-    # Buscar la relación específica
-    playlist_video = db.query(PlaylistVideo).filter(
-        PlaylistVideo.playlist_id == playlist_id,
-        PlaylistVideo.video_id == video_id
-    ).first()
+#     # Verificar que el video exista
+#     db_video = db.query(Video).filter(Video.id == video_id).first()
+#     if db_video is None:
+#         raise HTTPException(status_code=404, detail="Video no encontrado")
     
-    if not playlist_video:
-        raise HTTPException(
-            status_code=404, 
-            detail="El video no se encuentra en esta lista de reproducción"
-        )
+#     # Buscar la relación específica
+#     playlist_video = db.query(PlaylistVideo).filter(
+#         PlaylistVideo.playlist_id == playlist_id,
+#         PlaylistVideo.video_id == video_id
+#     ).first()
     
-    # Eliminar la relación
-    db.delete(playlist_video)
-    db.commit()
+#     if not playlist_video:
+#         raise HTTPException(
+#             status_code=404, 
+#             detail="El video no se encuentra en esta lista de reproducción"
+#         )
     
-    # Reorganizar las posiciones de los videos restantes
-    remaining_videos = db.query(PlaylistVideo).filter(
-        PlaylistVideo.playlist_id == playlist_id
-    ).order_by(PlaylistVideo.position).all()
+#     # Eliminar la relación
+#     db.delete(playlist_video)
+#     db.commit()
     
-    for i, pv in enumerate(remaining_videos):
-        pv.position = i
+#     # Reorganizar las posiciones de los videos restantes
+#     remaining_videos = db.query(PlaylistVideo).filter(
+#         PlaylistVideo.playlist_id == playlist_id
+#     ).order_by(PlaylistVideo.position).all()
     
-    db.commit()
+#     for i, pv in enumerate(remaining_videos):
+#         pv.position = i
     
-    return {"message": "Video eliminado de la lista de reproducción correctamente"}
+#     db.commit()
+    
+#     return {"message": "Video eliminado de la lista de reproducción correctamente"}
+
+
+@router.get("/{playlist_id}/videos")
+def get_playlist_videos_simple(
+    playlist_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtener videos de una playlist - VERSIÓN SIMPLE
+    """
+    print(f"📋 Obteniendo videos de playlist {playlist_id}")
+    
+    try:
+        # Verificar que la playlist existe
+        playlist = db.query(Playlist).filter(Playlist.id == playlist_id).first()
+        if not playlist:
+            print(f"❌ Playlist {playlist_id} no encontrada")
+            raise HTTPException(status_code=404, detail="Lista de reproducción no encontrada")
+        
+        # Intentar obtener videos con campo order/position
+        try:
+            # Primero intentar con 'position'
+            playlist_videos = db.query(
+                Video, PlaylistVideo.position
+            ).join(
+                PlaylistVideo, Video.id == PlaylistVideo.video_id
+            ).filter(
+                PlaylistVideo.playlist_id == playlist_id
+            ).order_by(PlaylistVideo.position).all()
+            
+            print(f"✅ Videos obtenidos con campo 'position': {len(playlist_videos)}")
+            
+            videos = []
+            for video, position in playlist_videos:
+                videos.append({
+                    "id": video.id,
+                    "title": video.title,
+                    "description": video.description or "",
+                    "duration": video.duration or 0,
+                    "thumbnail": getattr(video, 'thumbnail', None),
+                    "thumbnail_url": getattr(video, 'thumbnail', None),
+                    "file_path": video.file_path,
+                    "filename": getattr(video, 'filename', f"video_{video.id}.mp4"),
+                    "tags": getattr(video, 'tags', None),
+                    "is_active": getattr(video, 'is_active', True),
+                    "expiration_date": video.expiration_date,
+                    "order": position,
+                    "position": position
+                })
+            
+        except Exception as pos_error:
+            print(f"⚠️ Error con campo 'position': {pos_error}")
+            
+            # Fallback: obtener videos sin orden específico
+            playlist_videos = db.query(Video).join(
+                PlaylistVideo, Video.id == PlaylistVideo.video_id
+            ).filter(
+                PlaylistVideo.playlist_id == playlist_id
+            ).all()
+            
+            print(f"✅ Videos obtenidos sin orden: {len(playlist_videos)}")
+            
+            videos = []
+            for index, video in enumerate(playlist_videos):
+                videos.append({
+                    "id": video.id,
+                    "title": video.title,
+                    "description": video.description or "",
+                    "duration": video.duration or 0,
+                    "thumbnail": getattr(video, 'thumbnail', None),
+                    "thumbnail_url": getattr(video, 'thumbnail', None),
+                    "file_path": video.file_path,
+                    "filename": getattr(video, 'filename', f"video_{video.id}.mp4"),
+                    "tags": getattr(video, 'tags', None),
+                    "is_active": getattr(video, 'is_active', True),
+                    "expiration_date": video.expiration_date,
+                    "order": index + 1,
+                    "position": index + 1
+                })
+        
+        print(f"✅ Retornando {len(videos)} videos")
+        return videos
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error obteniendo videos: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
 
 @router.get("/{playlist_id}/download")
 def download_playlist(
