@@ -1,6 +1,6 @@
 /**
  * PLAYLIST_DETAIL.JS - Gestor de Detalles de Playlist
- * Versión corregida con todas las soluciones implementadas
+ * Versión corregida y unificada
  */
 
 console.log('🎵 Cargando Editor de Playlist...');
@@ -13,6 +13,14 @@ let availableVideos = [];
 let playlistVideos = [];
 let hasChanges = false;
 let isLoading = false;
+
+// Variables de paginación para la biblioteca de videos
+const paginationState = {
+    currentPage: 1,
+    pageSize: 25,
+    totalPages: 1,
+    filteredVideos: []
+};
 
 // API URL base
 const API_URL = window.location.origin + '/api';
@@ -90,333 +98,6 @@ function getPlaylistId() {
 // ==========================================
 // FUNCIONES PRINCIPALES - CARGA DE DATOS
 // ==========================================
-
-function filterAvailableVideos(searchTerm) {
-    console.log(`🔍 Filtrando videos por: "${searchTerm}"`);
-    
-    const availableVideosList = document.getElementById('availableVideosList');
-    if (!availableVideosList) {
-        console.error('❌ Elemento availableVideosList no encontrado');
-        return;
-    }
-
-    // Si no hay videos disponibles, no hacer nada
-    if (!availableVideos || availableVideos.length === 0) {
-        return;
-    }
-
-    // Obtener todos los videos que no están en la playlist actual
-    const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
-    let videosDisponibles = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
-    
-    // Si hay un término de búsqueda, filtrar por título y descripción
-    if (searchTerm && searchTerm.trim() !== '') {
-        searchTerm = searchTerm.toLowerCase().trim();
-        
-        // Filtrar videos que contienen el término de búsqueda en el título o descripción
-        videosDisponibles = videosDisponibles.filter(video => {
-            const title = (video.title || '').toLowerCase();
-            const description = (video.description || '').toLowerCase();
-            const filename = (video.filename || '').toLowerCase();
-            
-            return title.includes(searchTerm) || 
-                   description.includes(searchTerm) || 
-                   filename.includes(searchTerm);
-        });
-        
-        console.log(`🔍 Resultados de búsqueda: ${videosDisponibles.length} videos encontrados`);
-    }
-
-    // Si no hay resultados, mostrar mensaje
-    if (videosDisponibles.length === 0) {
-        availableVideosList.innerHTML = `
-            <div class="text-center py-3">
-                <i class="fas fa-search text-muted mb-2"></i>
-                <p class="small text-muted mb-1">No se encontraron videos con "${searchTerm}"</p>
-                <button class="btn btn-sm btn-outline-secondary btn-xs" onclick="clearVideoSearch()">
-                    <i class="fas fa-times me-1"></i> Limpiar
-                </button>
-            </div>
-        `;
-        return;
-    }
-
-    // Generar HTML para cada video disponible - VERSIÓN SUPER COMPACTA
-    const videosHTML = videosDisponibles.map(video => {
-        const duration = formatDuration(video.duration || 0);
-        
-        // Determinar estado del video (reducimos a solo un indicador de color)
-        let statusColor = 'bg-success';
-        if (!video.is_active) {
-            statusColor = 'bg-secondary';
-        } else if (video.expiration_date && new Date() > new Date(video.expiration_date)) {
-            statusColor = 'bg-danger';
-        }
-
-        // Si hay búsqueda activa, resaltar las coincidencias en el título
-        let title = escapeHtml(video.title);
-        if (searchTerm && searchTerm.trim() !== '') {
-            // Resaltar coincidencia (solo para visualización, no afecta la funcionalidad)
-            const regex = new RegExp('(' + escapeHtml(searchTerm) + ')', 'gi');
-            title = title.replace(regex, '<span class="highlight-search">$1</span>');
-        }
-
-        return `
-        <div class="video-card" data-video-id="${video.id}">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center">
-                    <div class="status-indicator me-2" style="width:3px;height:20px;background-color:var(--bs-${statusColor.replace('bg-', '')})"></div>
-                    <div class="flex-grow-1 overflow-hidden">
-                        <h6 class="video-title">${title}</h6>
-                    </div>
-                    <div class="flex-shrink-0 ms-1">
-                        <button class="btn btn-primary btn-sm btn-xs p-1" 
-                                onclick="addVideoToPlaylist(${video.id})"
-                                title="Agregar a la lista">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        `;
-    }).join('');
-
-    availableVideosList.innerHTML = videosHTML;
-    
-    // Actualizar contador con filtro aplicado si hay búsqueda
-    if (searchTerm && searchTerm.trim() !== '') {
-        const countElement = document.getElementById('availableVideoCount');
-        if (countElement) {
-            countElement.innerHTML = `${videosDisponibles.length}/${availableVideos.length - playlistVideoIds.length}`;
-        }
-        
-        // Agregar clase para mostrar que hay un filtro activo
-        const searchInput = document.getElementById('videoSearch');
-        if (searchInput) {
-            searchInput.classList.add('active-filter');
-        }
-    } else {
-        // Actualizar contador normal
-        updateAvailableVideoCount(videosDisponibles.length);
-        
-        // Quitar clase de filtro activo
-        const searchInput = document.getElementById('videoSearch');
-        if (searchInput) {
-            searchInput.classList.remove('active-filter');
-        }
-    }
-}
-
-/**
- * Estilos adicionales para el formato compacto y la búsqueda
- */
-function applyCompactStyles() {
-    // Crear elemento de estilo
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-        /* Estilos para resaltar búsquedas */
-        .highlight-search {
-            background-color: rgba(255, 193, 7, 0.3);
-            font-weight: bold;
-        }
-        
-        /* Indicador de filtro activo */
-        #videoSearch.active-filter {
-            background-color: #fff8e1;
-            border-color: #ffc107;
-        }
-        
-        /* Animación de carga más sutil */
-        .spinner-border-sm {
-            width: 1rem;
-            height: 1rem;
-            border-width: 0.15em;
-        }
-        
-        /* Virtual scrolling para muchos elementos */
-        #availableVideosList {
-            contain: strict;
-        }
-        
-        /* Botones más compactos */
-        .btn-xs {
-            padding: 0.15rem 0.4rem;
-            font-size: 0.75rem;
-            line-height: 1.2;
-        }
-        
-        /* Tarjetas de video más eficientes */
-        .video-card .card-body {
-            padding: 0.35rem 0.5rem;
-        }
-        
-        /* Mostrar la barra de desplazamiento solo al hacer hover */
-        #availableVideosContainer::-webkit-scrollbar {
-            width: 5px;
-        }
-        
-        #availableVideosContainer::-webkit-scrollbar-thumb {
-            background-color: rgba(0,0,0,0.2);
-            border-radius: 5px;
-        }
-        
-        #availableVideosContainer::-webkit-scrollbar-track {
-            background-color: transparent;
-        }
-        
-        #availableVideosContainer {
-            scrollbar-width: thin;
-            scrollbar-color: rgba(0,0,0,0.2) transparent;
-        }
-    `;
-    
-    // Añadir al head del documento
-    document.head.appendChild(styleElement);
-    
-    console.log('✅ Estilos compactos aplicados');
-}
-
-/**
- * Inicialización optimizada 
- * Agregar esto a la función existente de inicialización
- */
-document.addEventListener('DOMContentLoaded', function() {
-    // Aplicar estilos compactos
-    applyCompactStyles();
-    
-    // Resto del código de inicialización...
-});
-/**
- * Función para limpiar la búsqueda de videos
- */
-function clearVideoSearch() {
-    const searchInput = document.getElementById('videoSearch');
-    if (searchInput) {
-        searchInput.value = '';
-        // Disparar un evento input para activar el filtrado
-        searchInput.dispatchEvent(new Event('input'));
-        searchInput.focus();
-    }
-    
-    // Mostrar todos los videos disponibles
-    filterAvailableVideos('');
-}
-
-function setupSearchEventListeners() {
-    // Búsqueda de videos
-    const searchInput = document.getElementById('videoSearch');
-    if (searchInput) {
-        // Eliminar event listeners anteriores (por si acaso)
-        searchInput.removeEventListener('input', handleSearchInput);
-        
-        // Agregar nuevo event listener con debounce
-        searchInput.addEventListener('input', debounce(function(e) {
-            const searchTerm = e.target.value.toLowerCase().trim();
-            filterAvailableVideos(searchTerm);
-        }, 300));
-    }
-    
-    // Botón para limpiar búsqueda
-    const clearSearchBtn = document.getElementById('clearVideoSearchBtn');
-    if (clearSearchBtn) {
-        clearSearchBtn.removeEventListener('click', clearVideoSearch);
-        clearSearchBtn.addEventListener('click', clearVideoSearch);
-    }
-}
-
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-/**
- * Función para manejar la entrada de búsqueda (referencia para removeEventListener)
- */
-function handleSearchInput(e) {
-    const searchTerm = e.target.value.toLowerCase().trim();
-    filterAvailableVideos(searchTerm);
-}
-
-/**
- * Estilos adicionales para la búsqueda
- */
-function applySearchStyles() {
-    // Añadir estilos para la búsqueda
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-        /* Estilos para la búsqueda */
-        .video-search-container {
-            position: relative;
-            margin-bottom: 1rem;
-        }
-        
-        .video-search-container.has-filter .form-control {
-            background-color: #fff3cd;
-            border-color: #ffc107;
-        }
-        
-        .video-search-container .form-control:focus {
-            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-        }
-        
-        .video-search-container.has-filter .form-control:focus {
-            box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
-        }
-        
-        #clearVideoSearchBtn {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #6c757d;
-            cursor: pointer;
-            z-index: 10;
-        }
-        
-        #clearVideoSearchBtn:hover {
-            color: #dc3545;
-        }
-        
-        /* Animación para resultados de búsqueda */
-        @keyframes highlightResult {
-            0% { transform: translateX(0); }
-            5% { transform: translateX(5px); }
-            10% { transform: translateX(0); }
-        }
-        
-        .video-search-container.has-filter + #availableVideosList .video-card {
-            animation: highlightResult 2s ease;
-            border-left: 3px solid #ffc107;
-        }
-    `;
-    
-    // Añadir al head del documento
-    document.head.appendChild(styleElement);
-}
-
-/**
- * Actualizar la inicialización para incluir la configuración de búsqueda
- * Añadir esto a la función de inicialización existente
- */
-document.addEventListener('DOMContentLoaded', function() {
-    // Aplicar estilos para la búsqueda
-    applySearchStyles();
-    
-    // Configurar event listeners para la búsqueda
-    setupSearchEventListeners();
-    
-    // Resto del código de inicialización...
-});
 
 /**
  * Cargar datos completos de la playlist para edición
@@ -510,6 +191,12 @@ async function loadAvailableVideos() {
         
         console.log('✅ Videos disponibles cargados:', availableVideos.length);
         
+        // Actualizar estado de paginación
+        const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
+        paginationState.filteredVideos = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
+        paginationState.totalPages = Math.ceil(paginationState.filteredVideos.length / paginationState.pageSize);
+        paginationState.currentPage = 1;
+        
         renderAvailableVideos();
         
         if (loadingElement) {
@@ -535,14 +222,14 @@ async function loadAvailableVideos() {
 }
 
 // ==========================================
-// FUNCIONES DE RENDERIZADO
+// FUNCIONES DE RENDERIZADO Y PAGINACIÓN
 // ==========================================
 
 /**
- * Renderizar videos disponibles
+ * Renderiza los videos disponibles con paginación
  */
 function renderAvailableVideos() {
-    console.log('🎨 Renderizando videos disponibles (versión compacta)...');
+    console.log('🎨 Renderizando videos disponibles (con paginación)...');
     
     const availableVideosList = document.getElementById('availableVideosList');
     if (!availableVideosList) {
@@ -560,12 +247,13 @@ function renderAvailableVideos() {
                 </button>
             </div>
         `;
+        updatePaginationControls(0);
         return;
     }
 
     // Filtrar videos que ya están en la playlist
     const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
-    const videosDisponibles = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
+    const videosDisponibles = paginationState.filteredVideos;
 
     if (videosDisponibles.length === 0) {
         availableVideosList.innerHTML = `
@@ -574,13 +262,17 @@ function renderAvailableVideos() {
                 <p class="small text-success mb-1">Todos los videos están en la lista</p>
             </div>
         `;
+        updatePaginationControls(0);
         return;
     }
 
-    // Generar HTML para cada video disponible - VERSIÓN SUPER COMPACTA
-    const videosHTML = videosDisponibles.map(video => {
-        const duration = formatDuration(video.duration || 0);
-        
+    // Obtener solo los videos de la página actual
+    const startIndex = (paginationState.currentPage - 1) * paginationState.pageSize;
+    const endIndex = Math.min(startIndex + paginationState.pageSize, videosDisponibles.length);
+    const videosEnPagina = videosDisponibles.slice(startIndex, endIndex);
+    
+    // Generar HTML para cada video de la página actual
+    const videosHTML = videosEnPagina.map(video => {
         // Determinar estado del video (reducimos a solo un indicador de color)
         let statusColor = 'bg-success';
         if (!video.is_active) {
@@ -612,22 +304,77 @@ function renderAvailableVideos() {
 
     availableVideosList.innerHTML = videosHTML;
     
+    // Actualizar los controles de paginación
+    updatePaginationControls(videosDisponibles.length);
+    
     // Actualizar contador
     updateAvailableVideoCount(videosDisponibles.length);
 }
 
 /**
- * Función de filtrado mejorada para la vista compacta
+ * Actualiza los controles de paginación
+ */
+function updatePaginationControls(totalItems) {
+    const currentPageEl = document.getElementById('currentPage');
+    const totalPagesEl = document.getElementById('totalPages');
+    const prevPageBtn = document.getElementById('prevPageBtn');
+    const nextPageBtn = document.getElementById('nextPageBtn');
+    const pageIndicator = document.getElementById('pageIndicator');
+    
+    // Calcular número total de páginas
+    paginationState.totalPages = Math.max(1, Math.ceil(totalItems / paginationState.pageSize));
+    
+    // Actualizar textos
+    if (currentPageEl) currentPageEl.textContent = paginationState.currentPage;
+    if (totalPagesEl) totalPagesEl.textContent = paginationState.totalPages;
+    if (pageIndicator) pageIndicator.textContent = paginationState.currentPage;
+    
+    // Habilitar/deshabilitar botones
+    if (prevPageBtn) prevPageBtn.disabled = paginationState.currentPage <= 1;
+    if (nextPageBtn) nextPageBtn.disabled = paginationState.currentPage >= paginationState.totalPages;
+    
+    // Si no hay elementos o solo hay una página, ocultar controles de paginación
+    const paginationContainer = document.querySelector('.pagination-container');
+    if (paginationContainer) {
+        paginationContainer.style.display = totalItems > 0 && paginationState.totalPages > 1 ? 'block' : 'none';
+    }
+}
+
+/**
+ * Cambia a la página anterior
+ */
+function goToPrevPage() {
+    if (paginationState.currentPage > 1) {
+        paginationState.currentPage--;
+        renderAvailableVideos();
+    }
+}
+
+/**
+ * Cambia a la página siguiente
+ */
+function goToNextPage() {
+    if (paginationState.currentPage < paginationState.totalPages) {
+        paginationState.currentPage++;
+        renderAvailableVideos();
+    }
+}
+
+/**
+ * Cambia el tamaño de página
+ */
+function changePageSize(newSize) {
+    paginationState.pageSize = parseInt(newSize);
+    paginationState.currentPage = 1; // Volver a la primera página
+    renderAvailableVideos();
+}
+
+/**
+ * Renderiza los videos filtrados según el término de búsqueda
  */
 function filterAvailableVideos(searchTerm) {
     console.log(`🔍 Filtrando videos por: "${searchTerm}"`);
     
-    const availableVideosList = document.getElementById('availableVideosList');
-    if (!availableVideosList) {
-        console.error('❌ Elemento availableVideosList no encontrado');
-        return;
-    }
-
     // Si no hay videos disponibles, no hacer nada
     if (!availableVideos || availableVideos.length === 0) {
         return;
@@ -637,11 +384,10 @@ function filterAvailableVideos(searchTerm) {
     const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
     let videosDisponibles = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
     
-    // Si hay un término de búsqueda, filtrar por título y descripción
+    // Si hay un término de búsqueda, filtrar por título, descripción y nombre de archivo
     if (searchTerm && searchTerm.trim() !== '') {
         searchTerm = searchTerm.toLowerCase().trim();
         
-        // Filtrar videos que contienen el término de búsqueda en el título o descripción
         videosDisponibles = videosDisponibles.filter(video => {
             const title = (video.title || '').toLowerCase();
             const description = (video.description || '').toLowerCase();
@@ -655,146 +401,105 @@ function filterAvailableVideos(searchTerm) {
         console.log(`🔍 Resultados de búsqueda: ${videosDisponibles.length} videos encontrados`);
     }
 
+    // Actualizar estado de paginación
+    paginationState.filteredVideos = videosDisponibles;
+    paginationState.totalPages = Math.ceil(videosDisponibles.length / paginationState.pageSize);
+    paginationState.currentPage = 1; // Volver a la primera página al filtrar
+    
     // Si no hay resultados, mostrar mensaje
     if (videosDisponibles.length === 0) {
-        availableVideosList.innerHTML = `
-            <div class="text-center py-3">
-                <i class="fas fa-search text-muted mb-2"></i>
-                <p class="small text-muted mb-1">No se encontraron videos con "${searchTerm}"</p>
-                <button class="btn btn-sm btn-outline-secondary btn-xs" onclick="clearVideoSearch()">
-                    <i class="fas fa-times me-1"></i> Limpiar
-                </button>
-            </div>
-        `;
+        const availableVideosList = document.getElementById('availableVideosList');
+        if (availableVideosList) {
+            availableVideosList.innerHTML = `
+                <div class="text-center py-3">
+                    <i class="fas fa-search text-muted mb-2"></i>
+                    <p class="small text-muted mb-1">No se encontraron videos${searchTerm ? ` con "${searchTerm}"` : ''}</p>
+                    <button class="btn btn-sm btn-outline-secondary btn-xs" onclick="clearVideoSearch()">
+                        <i class="fas fa-times me-1"></i> Limpiar
+                    </button>
+                </div>
+            `;
+        }
+        updatePaginationControls(0);
         return;
     }
-
-    // Generar HTML para cada video disponible - VERSIÓN SUPER COMPACTA
-    const videosHTML = videosDisponibles.map(video => {
-        const duration = formatDuration(video.duration || 0);
-        
-        // Determinar estado del video (reducimos a solo un indicador de color)
-        let statusColor = 'bg-success';
-        if (!video.is_active) {
-            statusColor = 'bg-secondary';
-        } else if (video.expiration_date && new Date() > new Date(video.expiration_date)) {
-            statusColor = 'bg-danger';
-        }
-
-        // Si hay búsqueda activa, resaltar las coincidencias en el título
-        let title = escapeHtml(video.title);
-        if (searchTerm && searchTerm.trim() !== '') {
-            // Resaltar coincidencia (solo para visualización, no afecta la funcionalidad)
-            const regex = new RegExp('(' + escapeHtml(searchTerm) + ')', 'gi');
-            title = title.replace(regex, '<span class="highlight-search">$1</span>');
-        }
-
-        return `
-        <div class="video-card" data-video-id="${video.id}">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center">
-                    <div class="status-indicator me-2" style="width:3px;height:20px;background-color:var(--bs-${statusColor.replace('bg-', '')})"></div>
-                    <div class="flex-grow-1 overflow-hidden">
-                        <h6 class="video-title">${title}</h6>
-                    </div>
-                    <div class="flex-shrink-0 ms-1">
-                        <button class="btn btn-primary btn-sm btn-xs p-1" 
-                                onclick="addVideoToPlaylist(${video.id})"
-                                title="Agregar a la lista">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        `;
-    }).join('');
-
-    availableVideosList.innerHTML = videosHTML;
     
-    // Actualizar contador con filtro aplicado si hay búsqueda
-    if (searchTerm && searchTerm.trim() !== '') {
-        const countElement = document.getElementById('availableVideoCount');
-        if (countElement) {
-            countElement.innerHTML = `${videosDisponibles.length}/${availableVideos.length - playlistVideoIds.length}`;
+    // Actualizar contador con información de filtro si es necesario
+    const countElement = document.getElementById('availableVideoCount');
+    if (countElement) {
+        if (searchTerm && searchTerm.trim() !== '') {
+            const totalVideos = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id))).length;
+            countElement.innerHTML = `${videosDisponibles.length}/${totalVideos}`;
+            
+            // Agregar clase para mostrar que hay un filtro activo
+            const searchInput = document.getElementById('videoSearch');
+            if (searchInput) {
+                searchInput.classList.add('active-filter');
+            }
+        } else {
+            countElement.textContent = `${videosDisponibles.length} videos`;
+            
+            // Quitar clase de filtro activo
+            const searchInput = document.getElementById('videoSearch');
+            if (searchInput) {
+                searchInput.classList.remove('active-filter');
+            }
         }
+    }
+    
+    // Renderizar los resultados
+    renderAvailableVideos();
+}
+
+/**
+ * Limpia la búsqueda y muestra todos los videos disponibles
+ */
+function clearVideoSearch() {
+    const searchInput = document.getElementById('videoSearch');
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.classList.remove('active-filter');
         
-        // Agregar clase para mostrar que hay un filtro activo
-        const searchInput = document.getElementById('videoSearch');
-        if (searchInput) {
-            searchInput.classList.add('active-filter');
-        }
-    } else {
-        // Actualizar contador normal
-        updateAvailableVideoCount(videosDisponibles.length);
+        // Restablecer la paginación
+        paginationState.currentPage = 1;
         
-        // Quitar clase de filtro activo
-        const searchInput = document.getElementById('videoSearch');
-        if (searchInput) {
-            searchInput.classList.remove('active-filter');
-        }
+        // Cargar todos los videos disponibles
+        const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
+        paginationState.filteredVideos = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
+        
+        filterAvailableVideos('');
     }
 }
 
-    // Filtrar videos que ya están en la playlist
-    const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
-    const videosDisponibles = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
-
-    if (videosDisponibles.length === 0) {
-        availableVideosList.innerHTML = `
-            <div class="text-center py-5">
-                <i class="fas fa-check-circle fa-2x text-success mb-3"></i>
-                <h6 class="text-success">Todos los videos están en la lista</h6>
-                <button class="btn btn-sm btn-outline-primary" onclick="loadAvailableVideos()">
-                    <i class="fas fa-sync me-1"></i> Actualizar
-                </button>
-            </div>
-        `;
-        return;
-    }
-
-    // Generar HTML para cada video disponible - VERSIÓN SIMPLIFICADA
-    const videosHTML = videosDisponibles.map(video => {
-        const duration = formatDuration(video.duration || 0);
-        const status = getVideoStatus(video);
-
-        return `
-        <div class="video-card mb-1" data-video-id="${video.id}">
-            <div class="card border-0 shadow-sm video-item-hover">
-                <div class="card-body p-2">
-                    <div class="row align-items-center">
-                        <div class="col">
-                            <h6 class="mb-0 fw-bold video-title">${escapeHtml(video.title)}</h6>
-                            <div class="d-flex align-items-center">
-                                <span class="badge ${status.class} me-2">${status.text}</span>
-                                <small class="text-muted">${duration}</small>
-                            </div>
-                        </div>
-                        <div class="col-auto">
-                            <button class="btn btn-sm btn-primary" 
-                                    onclick="addVideoToPlaylist(${video.id})"
-                                    title="Agregar a la lista">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        `;
-    }).join('');
-
-    availableVideosList.innerHTML = videosHTML;
+/**
+ * Configurar event listeners para la paginación
+ */
+function setupPaginationEventListeners() {
+    // Botones de paginación
+    const prevPageBtn = document.getElementById('prevPageBtn');
+    const nextPageBtn = document.getElementById('nextPageBtn');
+    const pageSizeSelector = document.getElementById('pageSizeSelector');
     
-    // Actualizar contador
-    updateAvailableVideoCount(videosDisponibles.length);
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener('click', goToPrevPage);
+    }
+    
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', goToNextPage);
+    }
+    
+    if (pageSizeSelector) {
+        pageSizeSelector.addEventListener('change', function() {
+            changePageSize(this.value);
+        });
+    }
 }
 
 /**
  * Renderizar videos de la playlist
  */
 function updatePlaylistVideosTable() {
-    console.log('🎬 Renderizando videos de la playlist (versión simplificada):', playlistVideos.length);
+    console.log('🎬 Renderizando videos de la playlist:', playlistVideos.length);
     
     const container = document.getElementById('playlistVideosList');
     const emptyMessage = document.getElementById('emptyPlaylistMessage');
@@ -821,7 +526,7 @@ function updatePlaylistVideosTable() {
         return (a.order || 0) - (b.order || 0);
     });
 
-    // VERSIÓN SIMPLIFICADA - Solo nombres de videos
+    // Versión compacta
     const videosHTML = sortedVideos.map((video, index) => {
         const order = video.order || (index + 1);
         const duration = formatDuration(video.duration || 0);
@@ -849,6 +554,11 @@ function updatePlaylistVideosTable() {
                         </div>
                         <div class="col-auto">
                             <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" 
+                                        onclick="previewVideo(${video.id})"
+                                        title="Vista previa">
+                                    <i class="fas fa-play"></i>
+                                </button>
                                 <button class="btn btn-outline-danger" 
                                         onclick="removeVideoFromPlaylist(${video.id})"
                                         title="Quitar de la lista">
@@ -872,74 +582,15 @@ function updatePlaylistVideosTable() {
     
     // Actualizar estadísticas
     updatePlaylistStats();
+    
+    // Actualizar videos disponibles para reflejar los cambios
+    const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
+    paginationState.filteredVideos = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
+    paginationState.totalPages = Math.ceil(paginationState.filteredVideos.length / paginationState.pageSize);
+    
+    // Renderizar videos disponibles nuevamente
+    renderAvailableVideos();
 }
-
-/**
- * Aplicar estilos CSS adicionales para la versión simplificada
- * Esta función se debe llamar cuando el DOM esté listo
- */
-function applySimplifiedStyles() {
-    // Crear elemento de estilo
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-        /* Estilos para la versión simplificada */
-        .video-card, .playlist-video-item {
-            transition: all 0.2s ease;
-        }
-        
-        .video-card:hover, .playlist-video-item:hover {
-            transform: translateX(5px);
-            background-color: rgba(0, 123, 255, 0.05);
-        }
-        
-        .video-card .card-body, .playlist-video-item .card-body {
-            padding: 0.5rem !important;
-        }
-        
-        /* Altura reducida para las filas */
-        .video-card .row, .playlist-video-item .row {
-            min-height: 40px;
-        }
-        
-        /* Ajustes de espacio */
-        .playlist-video-item .order-badge {
-            min-width: 24px;
-            text-align: center;
-        }
-        
-        /* Eliminar padding innecesario */
-        #availableVideosList, #playlistVideosList {
-            padding: 0.5rem !important;
-        }
-        
-        /* Mejorar la visualización en móviles */
-        @media (max-width: 768px) {
-            .video-title {
-                font-size: 0.9rem;
-            }
-            
-            .btn-group-sm > .btn {
-                padding: 0.25rem 0.5rem;
-                font-size: 0.75rem;
-            }
-        }
-    `;
-    
-    // Añadir al head del documento
-    document.head.appendChild(styleElement);
-    
-    console.log('✅ Estilos para versión simplificada aplicados');
-}
-
-/**
- * Añadir este código a la función de inicialización
- */
-document.addEventListener('DOMContentLoaded', function() {
-    // Aplicar estilos para la versión simplificada
-    applySimplifiedStyles();
-    
-    // Resto del código de inicialización...
-}); 
 
 // ==========================================
 // FUNCIONES DE GESTIÓN DE PLAYLIST
@@ -947,7 +598,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /**
  * Agregar video a la playlist
- * Usa la API correcta: POST /api/playlists/{playlistId}/videos/{videoId}
  */
 async function addVideoToPlaylist(videoId) {
     try {
@@ -970,7 +620,6 @@ async function addVideoToPlaylist(videoId) {
             headers: {
                 'Content-Type': 'application/json'
             }
-            // No incluye body porque los IDs están en la URL
         });
         
         if (!response.ok) {
@@ -1162,6 +811,53 @@ async function updateVideoOrder(videoId, newOrder) {
     } catch (error) {
         console.error('Error updating video order:', error);
         showToast(`Error al actualizar el orden: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Actualiza el orden de múltiples videos a la vez
+ */
+async function updateVideoOrderBatch(updates) {
+    try {
+        const playlistId = getPlaylistId();
+        if (!playlistId) {
+            throw new Error('No se pudo determinar el ID de la playlist');
+        }
+        
+        console.log(`🎬 Actualizando orden de ${updates.length} videos`);
+        
+        const url = `${API_URL}/playlists/${playlistId}/video-order`;
+        
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                videos: updates
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Error al actualizar el orden');
+        }
+        
+        // Actualizar los datos locales
+        updates.forEach(update => {
+            const video = playlistVideos.find(v => v.id === update.video_id);
+            if (video) {
+                video.order = update.order;
+            }
+        });
+        
+        // Ordenar la lista
+        playlistVideos.sort((a, b) => a.order - b.order);
+        
+        showToast('Orden actualizado', 'success');
+        
+    } catch (error) {
+        console.error('Error updating video order:', error);
+        showToast('Error al actualizar el orden', 'error');
     }
 }
 
@@ -1420,8 +1116,14 @@ function updatePlaylistStats() {
     
     // Mostrar/ocultar sección de estadísticas
     const statsSection = document.getElementById('playlistStats');
+    const emptyStatsMessage = document.getElementById('emptyStatsMessage');
+    
     if (statsSection) {
         statsSection.style.display = playlistVideos.length > 0 ? 'block' : 'none';
+    }
+    
+    if (emptyStatsMessage) {
+        emptyStatsMessage.style.display = playlistVideos.length > 0 ? 'none' : 'block';
     }
 }
 
@@ -1472,7 +1174,7 @@ function showLoadingState(message) {
             </div>
             <span>${message}</span>
         `;
-        loadingElement.style.display = 'block';
+        loadingElement.classList.remove('d-none');
     }
     isLoading = true;
 }
@@ -1484,7 +1186,7 @@ function hideLoadingState(message, type = 'success') {
     console.log(`📢 ${type.toUpperCase()}:`, message);
     const loadingElement = document.getElementById('loadingIndicator');
     if (loadingElement) {
-        loadingElement.style.display = 'none';
+        loadingElement.classList.add('d-none');
     }
     isLoading = false;
     
@@ -1651,6 +1353,49 @@ function showErrorState(message) {
     }
 }
 
+/**
+ * Aplicar estilos para la versión compacta
+ */
+function applyStyles() {
+    // Crear elemento de estilo
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        /* Estilos para la versión compacta */
+        .video-card, .playlist-video-item {
+            transition: all 0.2s ease;
+        }
+        
+        .video-card:hover, .playlist-video-item:hover {
+            transform: translateX(5px);
+            background-color: rgba(0, 123, 255, 0.05);
+        }
+        
+        /* Estilos para resaltar búsquedas */
+        .highlight-search {
+            background-color: rgba(255, 193, 7, 0.3);
+            font-weight: bold;
+        }
+        
+        /* Indicador de filtro activo */
+        #videoSearch.active-filter {
+            background-color: #fff8e1;
+            border-color: #ffc107;
+        }
+        
+        /* Botones más compactos */
+        .btn-xs {
+            padding: 0.15rem 0.4rem;
+            font-size: 0.75rem;
+            line-height: 1.2;
+        }
+    `;
+    
+    // Añadir al head del documento
+    document.head.appendChild(styleElement);
+    
+    console.log('✅ Estilos aplicados');
+}
+
 // ==========================================
 // FUNCIONES ADICIONALES
 // ==========================================
@@ -1660,7 +1405,64 @@ function showErrorState(message) {
  */
 function previewVideo(videoId) {
     console.log('▶️ Vista previa de video:', videoId);
-    showToast('Vista previa de video - Funcionalidad en desarrollo', 'info');
+    
+    const video = [...availableVideos, ...playlistVideos].find(v => v.id === videoId);
+    if (!video || !video.file_path) {
+        showToast('No se puede previsualizar este video', 'error');
+        return;
+    }
+    
+    const modal = document.getElementById('videoPreviewModal');
+    const modalTitle = document.getElementById('videoPreviewModalTitle');
+    const videoPlayer = document.getElementById('previewVideoPlayer');
+    
+    if (modal && videoPlayer) {
+        // Actualizar título
+        if (modalTitle) {
+            modalTitle.textContent = `Vista Previa: ${video.title || 'Video'}`;
+        }
+        
+        // Actualizar fuente del video
+        const videoUrl = video.file_path.startsWith('http') ? 
+            video.file_path : `/api/videos/${videoId}/stream`;
+        
+        videoPlayer.src = videoUrl;
+        videoPlayer.load();
+        
+        // Mostrar modal
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        // Reproducir automáticamente
+        videoPlayer.play().catch(e => console.log('Reproducción automática bloqueada por el navegador'));
+    } else {
+        showToast('No se pudo inicializar el reproductor de video', 'error');
+    }
+}
+
+/**
+ * Previsualiza la playlist completa
+ */
+function previewPlaylist() {
+    if (!playlistVideos || playlistVideos.length === 0) {
+        showToast('No hay videos en la playlist para previsualizar', 'warning');
+        return;
+    }
+    
+    const modal = document.getElementById('playlistPreviewModal');
+    if (!modal) {
+        showToast('El modal de vista previa no está disponible', 'error');
+        return;
+    }
+    
+    try {
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        showToast('Vista previa iniciada', 'success');
+    } catch (error) {
+        console.error('Error mostrando vista previa:', error);
+        showToast('Error al mostrar vista previa', 'error');
+    }
 }
 
 /**
@@ -1683,6 +1485,9 @@ function setupPlaylistIdElement() {
             hiddenInput.id = 'playlist-id';
             hiddenInput.value = playlistId;
             document.body.appendChild(hiddenInput);
+        } else {
+            // Asegurarse de que tenga el valor correcto
+            document.getElementById('playlist-id').value = playlistId;
         }
     } else {
         console.warn('⚠️ No se detectó ID de playlist en la URL');
@@ -1690,56 +1495,11 @@ function setupPlaylistIdElement() {
 }
 
 // ==========================================
-// INICIALIZACIÓN Y EVENT LISTENERS
+// CONFIGURACIÓN DE EVENT LISTENERS
 // ==========================================
 
 /**
- * Inicializar editor de playlist
- */
-function initializePlaylistEditor() {
-    console.log('🎵 Inicializando Editor de Playlist...');
-    
-    try {
-        // PRIMERO: Verificar si hay datos de playlist desde el template
-        if (currentPlaylistData && currentPlaylistData.id) {
-            console.log('📋 Usando datos del template para playlist:', currentPlaylistData.id);
-            
-            // Configurar interfaz con datos existentes
-            setupEditMode(currentPlaylistData.title);
-            updatePlaylistVideosTable();
-            
-            // Luego cargar videos disponibles
-            loadAvailableVideos();
-            
-        } else {
-            // SEGUNDO: Intentar detectar ID desde URL si no hay datos del template
-            const urlParams = new URLSearchParams(window.location.search);
-            const playlistId = urlParams.get('id');
-            
-            if (playlistId) {
-                console.log('🔄 No hay datos del template, cargando desde API - Playlist ID:', playlistId);
-                loadPlaylistData(playlistId);
-            } else {
-                console.log('🆕 Modo nueva playlist');
-                // Solo cargar videos disponibles para nueva playlist
-                loadAvailableVideos();
-            }
-        }
-        
-        // Configurar event listeners
-        setupEventListeners();
-        
-        // Arreglar imágenes faltantes
-        fixMissingImages();
-        
-    } catch (error) {
-        console.error('❌ Error inicializando editor:', error);
-        showToast('Error al inicializar el editor', 'error');
-    }
-}
-
-/**
- * Configurar event listeners
+ * Configurar todos los event listeners necesarios
  */
 function setupEventListeners() {
     console.log('⚙️ Configurando event listeners...');
@@ -1747,11 +1507,20 @@ function setupEventListeners() {
     // Búsqueda de videos
     const searchInput = document.getElementById('videoSearch');
     if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
+        searchInput.addEventListener('input', debounce(function(e) {
             const searchTerm = e.target.value.toLowerCase().trim();
-            filterVideos(searchTerm);
-        });
+            filterAvailableVideos(searchTerm);
+        }, 300));
     }
+    
+    // Botón para limpiar búsqueda
+    const clearSearchBtn = document.getElementById('clearVideoSearchBtn');
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', clearVideoSearch);
+    }
+    
+    // Paginación
+    setupPaginationEventListeners();
     
     // Formulario
     const form = document.getElementById('playlistForm');
@@ -1774,31 +1543,75 @@ function setupEventListeners() {
 }
 
 /**
- * Filtrar videos por término de búsqueda
+ * Función debounce para optimizar búsquedas
  */
-function filterVideos(searchTerm) {
-    // Implementación básica - en una versión completa filtrarías los videos mostrados
-    if (!searchTerm) {
-        showToast('Término de búsqueda borrado', 'info');
-    } else {
-        showToast(`Buscando: "${searchTerm}"`, 'info');
-    }
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
 // ==========================================
-// AUTO-INICIALIZACIÓN
+// INICIALIZACIÓN
 // ==========================================
 
+/**
+ * Inicializar editor de playlist
+ */
+function initializePlaylistEditor() {
+    console.log('🎵 Inicializando Editor de Playlist...');
+    
+    try {
+        // Verificar si hay un ID de playlist en la URL y configurarlo
+        setupPlaylistIdElement();
+        
+        // Aplicar estilos
+        applyStyles();
+        
+        // Configurar manejo de imágenes faltantes
+        fixMissingImages();
+        
+        // Configurar event listeners
+        setupEventListeners();
+        
+        // PRIMERO: Verificar si hay datos de playlist desde el template
+        if (currentPlaylistData && currentPlaylistData.id) {
+            console.log('📋 Usando datos del template para playlist:', currentPlaylistData.id);
+            
+            // Configurar interfaz con datos existentes
+            setupEditMode(currentPlaylistData.title);
+            updatePlaylistVideosTable();
+            
+            // Luego cargar videos disponibles
+            loadAvailableVideos();
+            
+        } else {
+            // SEGUNDO: Intentar detectar ID desde URL si no hay datos del template
+            const playlistId = getPlaylistId();
+            
+            if (playlistId) {
+                console.log('🔄 No hay datos del template, cargando desde API - Playlist ID:', playlistId);
+                loadPlaylistData(playlistId);
+            } else {
+                console.log('🆕 Modo nueva playlist');
+                // Solo cargar videos disponibles para nueva playlist
+                loadAvailableVideos();
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Error inicializando editor:', error);
+        showToast('Error al inicializar el editor: ' + error.message, 'error');
+    }
+}
+
 // Inicializar cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', function() {
-    // Configurar elemento de ID de playlist
-    setupPlaylistIdElement();
-    
-    // Configurar manejo de imágenes faltantes
-    fixMissingImages();
-    
-    // Inicializar editor
-    initializePlaylistEditor();
-});
+document.addEventListener('DOMContentLoaded', initializePlaylistEditor);
 
 console.log('✅ Editor de Playlist cargado correctamente');

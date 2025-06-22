@@ -1,28 +1,220 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% block extra_css %}
-<style src="/static/css/playlist_detail.css"></style>
-{% endblock %}
+<style>
+    /* Playlist Management Styles */
+    /* Drop Zone Styles */
+    .playlist-drop-zone {
+        border: 2px dashed #dee2e6;
+        border-radius: 0.25rem;
+        transition: all 0.3s ease;
+    }
 
-{% block title %}
-{% endblock %}
+    .playlist-drop-zone.highlight-drop-zone {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+
+    .available-videos-drop-zone {
+        border: 2px solid transparent;
+        border-radius: 0.25rem;
+        transition: all 0.3s ease;
+    }
+
+    /* Video Item Styles */
+    .playlist-video-item {
+        cursor: grab;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .playlist-video-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .playlist-video-item.dragging {
+        opacity: 0.7;
+        box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15);
+    }
+
+    .available-video-item {
+        cursor: grab;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .available-video-item:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .video-card {
+        transition: all 0.2s ease;
+    }
+
+    .video-card:hover {
+        border-color: #0d6efd;
+    }
+
+    /* Drag Handle */
+    .drag-handle {
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        padding: 0 0.5rem;
+    }
+
+    .drag-handle:hover {
+        color: #0d6efd;
+    }
+
+    /* Empty State */
+    #emptyPlaylistMessage {
+        transition: opacity 0.3s ease;
+    }
+
+    /* Video Thumbnail */
+    .video-thumbnail {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .video-thumbnail .img-thumbnail {
+        transition: all 0.2s ease;
+    }
+
+    .video-thumbnail:hover .img-thumbnail {
+        transform: scale(1.05);
+    }
+
+    /* Video Actions */
+    .video-actions {
+        opacity: 0.7;
+        transition: opacity 0.2s ease;
+    }
+
+    .video-card:hover .video-actions {
+        opacity: 1;
+    }
+
+    /* Card Hover Effects */
+    .card {
+        transition: all 0.2s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Modal Animation */
+    .modal.fade .modal-dialog {
+        transition: transform 0.3s ease-out;
+        transform: translate(0, -50px);
+    }
+
+    .modal.show .modal-dialog {
+        transform: none;
+    }
+
+    /* Badge Styles */
+    .badge {
+        font-weight: 500;
+        padding: 0.35em 0.65em;
+    }
+
+    /* Preview Player */
+    #videoElement {
+        background-color: #000;
+    }
+
+    #previewPlaylistItems .active {
+        border-left: 4px solid #0d6efd;
+    }
+
+    /* Video Progress Bar */
+    #videoProgressBar {
+        transition: width 0.2s linear;
+    }
+
+    /* Table Responsiveness */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Buttons and Icons */
+    .btn i {
+        pointer-events: none;
+    }
+
+    /* Device Item Hover */
+    .device-item:hover {
+        transform: translateY(-2px);
+    }
+
+    /* Animation for Loading */
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    /* Modal Content Transitions */
+    .modal-content {
+        transition: all 0.3s ease;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .card-title {
+            font-size: 1.1rem;
+        }
+        
+        .video-title {
+            font-size: 0.9rem;
+        }
+        
+        .video-thumbnail img,
+        .video-thumbnail div {
+            width: 50px !important;
+            height: 40px !important;
+        }
+    }
+</style>
 <div class="container-fluid">
     <!-- Campo oculto para el ID de la playlist -->
-    <input type="hidden" id="playlist-id" value="{{ playlist.title}}">
+    <input type="hidden" id="playlist-id" value="{{ playlist.id }}">
 
     <!-- HEADER -->
-    <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
-                <h1 class="h2">
-                    <i class="fas fa-list text-primary"></i>
-                    Editar Lista {{ playlist.title }}
-                </h1>
-            <div class="btn-toolbar mb-2 mb-md-0">
-                <a href="/ui/playlists" class="btn btn-outline-secondary">Volver a la lista</a>
-            </div>
-        </div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ playlist.title }}</h1>
+        <a href="/ui/playlists" class="btn btn-outline-secondary">Volver a la lista</a>
+    </div>
     
     <!-- BOTONES PRINCIPALES DE ACCIÓN -->
     <div class="row mb-4">
@@ -36,13 +228,124 @@
                         <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deletePlaylistModal">
                             <i class="fas fa-trash me-1"></i> Eliminar Lista
                         </button>
+                        <button type="button" class="btn btn-primary" onclick="previewPlaylist()">
+                            <i class="fas fa-play me-1"></i> Vista Previa
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="addVideosToPlaylist()">
+                            <i class="fas fa-plus me-1"></i> Agregar Videos
+                        </button>
+                        <button type="button" class="btn btn-info" onclick="exportPlaylist()">
+                            <i class="fas fa-download me-1"></i> Exportar
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    
+    <!-- INFORMACIÓN DE LA PLAYLIST -->
+    <!-- <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Información de la Lista
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 35%">
+                                            <i class="fas fa-tag me-1 text-muted"></i>Título:
+                                        </th>
+                                        <td>{{ playlist.title }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-hashtag me-1 text-muted"></i>ID:
+                                        </th>
+                                        <td><code>{{ playlist.id }}</code></td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-align-left me-1 text-muted"></i>Descripción:
+                                        </th>
+                                        <td>{{ playlist.description or 'Sin descripción' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-video me-1 text-muted"></i>Videos:
+                                        </th>
+                                        <td>
+                                            <span class="badge bg-info">{{ playlist.video_count }} videos</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 35%">
+                                            <i class="fas fa-clock me-1 text-muted"></i>Duración Total:
+                                        </th>
+                                        <td>
+                                            <span id="totalPlaylistDuration">0:00</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-toggle-on me-1 text-muted"></i>Estado:
+                                        </th>
+                                        <td>
+                                            {% if playlist.is_active %}
+                                                {% if playlist.expiration_date and playlist.expiration_date < now %}
+                                                    <span class="badge bg-warning">Expirada</span>
+                                                {% else %}
+                                                    <span class="badge bg-success">Activa</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inactiva</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-calendar me-1 text-muted"></i>Fecha Inicio:
+                                        </th>
+                                        <td>
+                                            {% if playlist.start_date %}
+                                                {{ playlist.start_date.strftime('%Y-%m-%d %H:%M') }}
+                                            {% else %}
+                                                <span class="text-muted">No especificada</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <i class="fas fa-calendar-times me-1 text-muted"></i>Fecha Expiración:
+                                        </th>
+                                        <td>
+                                            {% if playlist.expiration_date %}
+                                                {{ playlist.expiration_date.strftime('%Y-%m-%d %H:%M') }}
+                                            {% else %}
+                                                <span class="text-muted">Sin expiración</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div> -->
+
     <!-- CONTENEDOR PRINCIPAL CON DOS COLUMNAS -->
     <div class="row mb-4">
         <!-- PANEL IZQUIERDO: VIDEOS DE LA PLAYLIST -->
@@ -123,51 +426,52 @@
             </div>
         </div>
 
-        <!-- PANEL DERECHO: BIBLIOTECA DE VIDEOS OPTIMIZADA -->
-    <div class="col-lg-6">
-        <div class="card h-100"> <!-- Aseguramos que tenga la misma altura que el panel izquierdo -->
-            <div class="card-header bg-primary text-white py-2"> <!-- Reducimos el padding vertical -->
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 fs-6"> <!-- Reducimos el tamaño del título -->
-                        <i class="fas fa-video me-1"></i>Biblioteca de Videos
-                    </h5>
-                    <div class="d-flex align-items-center">
-                        <span class="badge bg-light text-dark me-2" id="availableVideoCount">0 videos</span>
-                        <button class="btn btn-outline-light btn-sm btn-xs" onclick="loadAvailableVideos()" title="Recargar videos">
-                            <i class="fas fa-sync-alt"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body p-0 d-flex flex-column"> <!-- Usamos flexbox para organizar el contenido -->
-                <!-- Barra de búsqueda compacta -->
-                <div class="px-2 py-2 border-bottom">
-                    <div class="input-group input-group-sm video-search-container">
-                        <input type="text" id="videoSearch" class="form-control form-control-sm" placeholder="Buscar videos...">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="clearVideoSearchBtn" title="Limpiar búsqueda">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Lista de Videos Disponibles - Ahora con altura flexible -->
-                <div id="availableVideosContainer" class="available-videos-drop-zone flex-grow-1 overflow-auto">
-                    <div id="loadingAvailableVideos" class="text-center py-3">
-                        <div class="spinner-border spinner-border-sm text-primary" role="status">
-                            <span class="visually-hidden">Cargando...</span>
+        <!-- PANEL DERECHO: BIBLIOTECA DE VIDEOS -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-video me-2"></i>Biblioteca de Videos
+                        </h5>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-light text-dark me-2" id="availableVideoCount">0 videos</span>
+                            <button class="btn btn-outline-light btn-sm" onclick="loadAvailableVideos()" title="Recargar videos">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
                         </div>
-                        <p class="mt-1 text-muted small">Cargando videos...</p>
-                    </div>
-                    <div id="availableVideosList" class="p-1">
-                        <!-- Aquí se cargan los videos -->
                     </div>
                 </div>
-            </div>
-            <div class="card-footer py-1"> <!-- Footer más compacto -->
-                <small class="text-muted fs-xs">
-                    <i class="fas fa-info-circle"></i>
-                    Arrastra videos hacia la lista o usa el botón <i class="fas fa-plus text-primary"></i>
-                </small>
+                <div class="card-body p-0">
+                    <!-- Búsqueda de Videos -->
+                    <div class="p-3 border-bottom">
+                        <div class="video-search-container">
+                            <input type="text" id="videoSearch" class="form-control" placeholder="Buscar videos...">
+                        </div>
+                        <div id="availableVideosList"></div>
+                        <div>Videos disponibles: <span id="availableVideoCount">0</span></div>
+                    </div>
+                    
+                    <!-- Lista de Videos Disponibles -->
+                    <div id="availableVideosContainer" class="available-videos-drop-zone" 
+                         style="height: 500px; overflow-y: auto;">
+                        <div id="availableVideosList" class="p-2">
+                            <!-- Videos disponibles se cargan aquí -->
+                            <div class="text-center py-5" id="loadingAvailableVideos">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Cargando videos disponibles...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        Arrastra videos hacia la lista de reproducción
+                    </small>
+                </div>
             </div>
         </div>
     </div>
