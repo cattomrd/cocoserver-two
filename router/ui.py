@@ -398,3 +398,17 @@ async def update_device_info(
     
     # Redirigir a la página de detalle
     return RedirectResponse(url=f"/ui/devices/{device_id}", status_code=303)
+
+
+@router.get("/detail", response_class=HTMLResponse)
+async def get_playlist_detail(request: Request, id: int):
+    # Lógica para obtener playlist
+    return templates.TemplateResponse(
+        "/playlists/playlist_detail.html", 
+        {
+            "request": request, 
+            "title": "Detalles de Lista de Reproducción",
+            "playlist": playlist
+        }
+    )
+

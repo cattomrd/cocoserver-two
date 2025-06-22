@@ -1080,6 +1080,8 @@
             return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
         }
 
+
+        
         // Hacer funciones disponibles globalmente para compatibilidad
         window.goToFirstPlaylistPage = goToFirstPlaylistPage;
         window.goToPrevPlaylistPage = goToPrevPlaylistPage;
@@ -1094,5 +1096,7 @@
         window.loadPlaylists = loadPlaylists;
 
         console.log('Playlist template cargado - Funciones disponibles globalmente');
+
+
     </script>
 {% endblock %}

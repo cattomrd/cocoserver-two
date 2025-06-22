@@ -1,0 +1,385 @@
+    /* Playlist Management Styles */
+    /* Drop Zone Styles */
+    .playlist-drop-zone {
+        border: 2px dashed #dee2e6;
+        border-radius: 0.25rem;
+        transition: all 0.3s ease;
+    }
+
+    .playlist-drop-zone.highlight-drop-zone {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+
+    .available-videos-drop-zone {
+        border: 2px solid transparent;
+        border-radius: 0.25rem;
+        transition: all 0.3s ease;
+    }
+
+    /* Video Item Styles */
+    .playlist-video-item {
+        cursor: grab;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .playlist-video-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .playlist-video-item.dragging {
+        opacity: 0.7;
+        box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15);
+    }
+
+    .available-video-item {
+        cursor: grab;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .available-video-item:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .video-card {
+        transition: all 0.2s ease;
+    }
+
+    .video-card:hover {
+        border-color: #0d6efd;
+    }
+
+    /* Drag Handle */
+    .drag-handle {
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        padding: 0 0.5rem;
+    }
+
+    .drag-handle:hover {
+        color: #0d6efd;
+    }
+
+    /* Empty State */
+    #emptyPlaylistMessage {
+        transition: opacity 0.3s ease;
+    }
+
+    /* Video Thumbnail */
+    .video-thumbnail {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .video-thumbnail .img-thumbnail {
+        transition: all 0.2s ease;
+    }
+
+    .video-thumbnail:hover .img-thumbnail {
+        transform: scale(1.05);
+    }
+
+    /* Video Actions */
+    .video-actions {
+        opacity: 0.7;
+        transition: opacity 0.2s ease;
+    }
+
+    .video-card:hover .video-actions {
+        opacity: 1;
+    }
+
+    /* Card Hover Effects */
+    .card {
+        transition: all 0.2s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Modal Animation */
+    .modal.fade .modal-dialog {
+        transition: transform 0.3s ease-out;
+        transform: translate(0, -50px);
+    }
+
+    .modal.show .modal-dialog {
+        transform: none;
+    }
+
+    /* Badge Styles */
+    .badge {
+        font-weight: 500;
+        padding: 0.35em 0.65em;
+    }
+
+    /* Preview Player */
+    #videoElement {
+        background-color: #000;
+    }
+
+    #previewPlaylistItems .active {
+        border-left: 4px solid #0d6efd;
+    }
+
+    /* Video Progress Bar */
+    #videoProgressBar {
+        transition: width 0.2s linear;
+    }
+
+    /* Table Responsiveness */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Buttons and Icons */
+    .btn i {
+        pointer-events: none;
+    }
+
+    /* Device Item Hover */
+    .device-item:hover {
+        transform: translateY(-2px);
+    }
+
+    /* Animation for Loading */
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    /* Modal Content Transitions */
+    .modal-content {
+        transition: all 0.3s ease;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .card-title {
+            font-size: 1.1rem;
+        }
+        
+        .video-title {
+            font-size: 0.9rem;
+        }
+        
+        .video-thumbnail img,
+        .video-thumbnail div {
+            width: 50px !important;
+            height: 40px !important;
+        }
+    }
+
+    /* Clases para hacer los elementos más compactos */
+    .btn-xs {
+        padding: 0.15rem 0.4rem;
+        font-size: 0.75rem;
+    }
+    
+    .fs-xs {
+        font-size: 0.75rem;
+    }
+    
+    /* Videos de la biblioteca - estilo compacto */
+    #availableVideosList .video-card {
+        margin-bottom: 0.25rem !important;
+    }
+    
+    #availableVideosList .video-card .card-body {
+        padding: 0.25rem 0.5rem !important;
+    }
+    
+    #availableVideosList .video-card .video-title {
+        font-size: 0.85rem;
+        line-height: 1.2;
+        margin-bottom: 0 !important;
+        max-height: 2.4em;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    
+    /* Estilo para las tarjetas de video */
+    .video-card {
+        transition: all 0.1s ease;
+        border-left: 3px solid transparent;
+    }
+    
+    .video-card:hover {
+        border-left-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    /* Ajuste de alturas para mantener el panel biblioteca a la misma altura que el panel lista */
+    .card.h-100 {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .card.h-100 .card-body {
+        flex: 1 1 auto;
+        overflow: hidden;
+    }
+    
+    /* Optimizamos el espacio vertical de los contenedores de scroll */
+    #playlistDropZone, #availableVideosContainer {
+        height: auto !important;
+        max-height: calc(100vh - 250px);
+    }
+    
+    /* Pequeña barra para indicar que hay más contenido al hacer scroll */
+    #availableVideosContainer::after {
+        content: '';
+        display: block;
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.1));
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    #availableVideosContainer:hover::after {
+        opacity: 1;
+    }
+    
+    /* Badges y etiquetas más compactas */
+    .badge {
+        padding: 0.25em 0.5em;
+        font-size: 0.75em;
+    }
+    
+    /* Barra de búsqueda */
+    .video-search-container {
+        position: relative;
+    }
+    
+    #clearVideoSearchBtn {
+        z-index: 10;
+    }
+
+    /* Clases para hacer los elementos más compactos */
+    .btn-xs {
+        padding: 0.15rem 0.4rem;
+        font-size: 0.75rem;
+    }
+    
+    .fs-xs {
+        font-size: 0.75rem;
+    }
+    
+    /* Videos de la biblioteca - estilo compacto */
+    #availableVideosList .video-card {
+        margin-bottom: 0.25rem !important;
+    }
+    
+    #availableVideosList .video-card .card-body {
+        padding: 0.25rem 0.5rem !important;
+    }
+    
+    #availableVideosList .video-card .video-title {
+        font-size: 0.85rem;
+        line-height: 1.2;
+        margin-bottom: 0 !important;
+        max-height: 2.4em;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    
+    /* Estilo para las tarjetas de video */
+    .video-card {
+        transition: all 0.1s ease;
+        border-left: 3px solid transparent;
+    }
+    
+    .video-card:hover {
+        border-left-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    /* Ajuste de alturas para mantener el panel biblioteca a la misma altura que el panel lista */
+    .card.h-100 {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .card.h-100 .card-body {
+        flex: 1 1 auto;
+        overflow: hidden;
+    }
+    
+    /* Optimizamos el espacio vertical de los contenedores de scroll */
+    #playlistDropZone, #availableVideosContainer {
+        height: auto !important;
+        max-height: calc(100vh - 250px);
+    }
+    
+    /* Pequeña barra para indicar que hay más contenido al hacer scroll */
+    #availableVideosContainer::after {
+        content: '';
+        display: block;
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.1));
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    #availableVideosContainer:hover::after {
+        opacity: 1;
+    }
+    
+    /* Badges y etiquetas más compactas */
+    .badge {
+        padding: 0.25em 0.5em;
+        font-size: 0.75em;
+    }
+    
+    /* Barra de búsqueda */
+    .video-search-container {
+        position: relative;
+    }
+    
+    #clearVideoSearchBtn {
+        z-index: 10;
+    }

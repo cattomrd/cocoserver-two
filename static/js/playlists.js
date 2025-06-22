@@ -8,48 +8,6 @@ let currentView = 'table';
 let playlistToDelete = null;
 let editingPlaylistId = null;
 
-// Datos de ejemplo
-const samplePlaylists = [
-    {
-        id: 1,
-        title: "Presentaciones Corporativas",
-        description: "Videos institucionales y presentaciones de la empresa",
-        is_active: true,
-        created_at: "2024-01-15T10:30:00",
-        expiration_date: null,
-        video_count: 5,
-        total_duration: 900
-    },
-    {
-        id: 2,
-        title: "Tutoriales de Producto",
-        description: "Guías paso a paso para el uso del producto",
-        is_active: true,
-        created_at: "2024-02-01T14:15:00",
-        expiration_date: "2024-12-31T23:59:00",
-        video_count: 8,
-        total_duration: 1800
-    },
-    {
-        id: 3,
-        title: "Campañas Publicitarias",
-        description: "Material promocional y publicitario",
-        is_active: false,
-        created_at: "2024-01-20T09:00:00",
-        expiration_date: "2024-06-30T23:59:00",
-        video_count: 3,
-        total_duration: 450
-    }
-];
-
-const sampleVideos = [
-    { id: 1, title: "Video Tutorial 1", description: "Tutorial básico", duration: 180, file_size: 15728640 },
-    { id: 2, title: "Presentación Corporativa", description: "Presentación empresa", duration: 300, file_size: 52428800 },
-    { id: 3, title: "Demo del Producto", description: "Demostración producto", duration: 240, file_size: 31457280 },
-    { id: 4, title: "Webinar Marketing", description: "Webinar de marketing", duration: 1800, file_size: 157286400 },
-    { id: 5, title: "Tutorial Avanzado", description: "Tutorial avanzado", duration: 420, file_size: 73400320 }
-];
-
 // Inicialización
 document.addEventListener('DOMContentLoaded', function() {
     initializeLayout();
