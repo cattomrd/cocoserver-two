@@ -613,7 +613,6 @@
                     <!-- Pestaña de cambio de hostname -->
                     <div class="tab-pane fade" id="hostname" role="tabpanel" aria-labelledby="hostname-tab">
                         <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle me-1"></i>
                             <strong>¡Atención!</strong> Cambiar el hostname requiere acceso SSH al dispositivo con permisos sudo.
                             El dispositivo se reiniciará automáticamente para aplicar los cambios.
                         </div>
@@ -634,14 +633,17 @@
                             </div>
                         </div>
                         
+                        <div id="sshStatusContainer" class="mb-3 d-none">
+                            <label class="form-label">Estado de la conexión SSH:</label>
+                            <div id="sshStatus" class="alert alert-info">
+                                Verificando conexión SSH...
+                            </div>
+                        </div>
+                        
                         <div class="d-flex justify-content-end">
                             <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-info me-2" id="validateSshBtn">
-                                <i class="fas fa-search me-1"></i>Verificar SSH
-                            </button>
-                            <button type="button" class="btn btn-primary" id="submitHostnameBtn" disabled>
-                                <i class="fas fa-exchange-alt me-1"></i>Cambiar Hostname
-                            </button>
+                            <button type="button" class="btn btn-info me-2" id="validateSshBtn">Verificar SSH</button>
+                            <button type="button" class="btn btn-primary" id="submitHostnameBtn" disabled>Cambiar Hostname</button>
                         </div>
                     </div>
                 </div>
