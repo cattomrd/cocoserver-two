@@ -427,6 +427,7 @@
         </div>
 
         <!-- PANEL DERECHO: BIBLIOTECA DE VIDEOS -->
+        <!-- PANEL DERECHO: BIBLIOTECA DE VIDEOS -->
         <div class="col-lg-6">
             <div class="card h-100">
                 <div class="card-header bg-primary text-white">
@@ -445,11 +446,13 @@
                 <div class="card-body p-0">
                     <!-- Búsqueda de Videos -->
                     <div class="p-3 border-bottom">
-                        <div class="video-search-container">
-                            <input type="text" id="videoSearch" class="form-control" placeholder="Buscar videos...">
+                        <div class="input-group">
+                            <input type="text" id="videoSearch" class="form-control" 
+                                   placeholder="Buscar videos...">
+                            <button class="btn btn-outline-secondary" type="button" id="clearVideoSearchBtn">
+                                <i class="fas fa-times"></i>
+                            </button>
                         </div>
-                        <div id="availableVideosList"></div>
-                        <div>Videos disponibles: <span id="availableVideoCount">0</span></div>
                     </div>
                     
                     <!-- Lista de Videos Disponibles -->
@@ -476,136 +479,114 @@
         </div>
     </div>
 
-    <!-- DISPOSITIVOS ASIGNADOS -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-tv me-2"></i>Dispositivos Asignados ({{ playlist.assigned_devices|length }})
-                    </h5>
-                    <button class="btn btn-sm btn-primary" onclick="assignDevices()">
-                        <i class="fas fa-plus me-1"></i>Asignar Dispositivo
+    <!-- SECCIÓN DE DISPOSITIVOS ASIGNADOS -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-tv me-2"></i>Dispositivos Asignados
+                </h5>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#assignDeviceModal">
+                    <i class="fas fa-plus-circle me-1"></i> Asignar Dispositivo
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div id="loadingAssignedDevices" class="text-center py-3 d-none">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-1 text-muted small">Cargando dispositivos asignados...</p>
+                </div>
+                
+                <div id="assignedDevicesEmpty" class="text-center py-4">
+                    <i class="fas fa-tv fa-2x text-muted mb-3"></i>
+                    <p class="text-muted mb-2">No hay dispositivos asignados a esta lista</p>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#assignDeviceModal">
+                        <i class="fas fa-plus-circle me-1"></i> Asignar Dispositivo
                     </button>
                 </div>
-                <div class="card-body">
-                    {% if playlist.assigned_devices %}
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Dispositivo</th>
-                                        <th>Ubicación</th>
-                                        <th>Estado</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for device in playlist.assigned_devices %}
-                                    <tr>
-                                        <td>
-                                            <div class="fw-bold">{{ device.name }}</div>
-                                            <small class="text-muted">{{ device.device_id }}</small>
-                                        </td>
-                                        <td>{{ device.location }} - {{ device.tienda }}</td>
-                                        <td>
-                                            {% if device.is_active %}
-                                                <span class="badge bg-success">Activo</span>
-                                            {% else %}
-                                                <span class="badge bg-danger">Inactivo</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm">
-                                                <a href="/ui/devices/{{ device.device_id }}" class="btn btn-outline-primary" title="Ver dispositivo">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
-                                                <button class="btn btn-outline-danger" onclick="unassignDevice('{{ device.device_id }}')" title="Desasignar">
-                                                    <i class="fas fa-unlink"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <div class="text-center py-4">
-                            <i class="fas fa-tv fa-2x text-muted mb-3"></i>
-                            <h6>No hay dispositivos asignados</h6>
-                            <p class="text-muted">Asigna dispositivos para reproducir esta lista</p>
-                            <button class="btn btn-primary" onclick="assignDevices()">
-                                <i class="fas fa-plus me-1"></i>Asignar Dispositivo
-                            </button>
-                        </div>
-                    {% endif %}
+                
+                <div id="assignedDevicesTable" class="table-responsive d-none">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Dispositivo</th>
+                                <th>Ubicación</th>
+                                <th>Estado</th>
+                                <th>Última Conexión</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="assignedDevicesList">
+                            <!-- Los dispositivos asignados se cargarán aquí -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
-
 </div>
 
-<!-- MODALES -->
-
-<!-- Modal para editar playlist -->
-<div class="modal fade" id="editPlaylistModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+<!-- MODAL PARA ASIGNAR DISPOSITIVOS -->
+<div class="modal fade" id="assignDeviceModal" tabindex="-1" aria-labelledby="assignDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Editar Lista de Reproducción</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="assignDeviceModalLabel">Asignar Dispositivos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <form id="editPlaylistForm">
-                    <div class="mb-3">
-                        <label for="editTitle" class="form-label">Título</label>
-                        <input type="text" class="form-control" id="editTitle" value="{{ playlist.title }}" required>
+                <!-- Buscador de dispositivos -->
+                <div class="mb-3">
+                    <div class="input-group">
+                        <input type="text" id="deviceSearchInput" class="form-control" placeholder="Buscar dispositivos...">
+                        <button class="btn btn-outline-secondary" type="button" id="clearDeviceSearch">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
-                    <div class="mb-3">
-                        <label for="editDescription" class="form-label">Descripción</label>
-                        <textarea class="form-control" id="editDescription" rows="3">{{ playlist.description or '' }}</textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editStartDate" class="form-label">Fecha de Inicio</label>
-                        <input type="datetime-local" class="form-control" id="editStartDate" 
-                               value="{% if playlist.start_date %}{{ playlist.start_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editExpirationDate" class="form-label">Fecha de Expiración</label>
-                        <input type="datetime-local" class="form-control" id="editExpirationDate" 
-                               value="{% if playlist.expiration_date %}{{ playlist.expiration_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
-                    </div>
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="editIsActive" {% if playlist.is_active %}checked{% endif %}>
-                        <label class="form-check-label" for="editIsActive">Lista Activa</label>
-                    </div>
-                </form>
+                </div>
+                
+                <!-- Selector de estado para filtrar -->
+                <div class="mb-3">
+                    <select class="form-select" id="deviceStatusFilter">
+                        <option value="all" selected>Todos los dispositivos</option>
+                        <option value="active">Solo activos</option>
+                        <option value="inactive">Solo inactivos</option>
+                        <option value="unassigned">No asignados a esta lista</option>
+                    </select>
+                </div>
+                
+                <!-- Tabla de dispositivos -->
+                <div id="availableDevicesTable" class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px;"></th>
+                                <th>Dispositivo</th>
+                                <th>Ubicación</th>
+                                <th>Estado</th>
+                                <th>Asignado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="availableDevicesList">
+                            <tr>
+                                <td colspan="5" class="text-center py-3">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Cargando...</span>
+                                    </div>
+                                    <p class="mt-1 text-muted small mb-0">Cargando dispositivos...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="savePlaylistChanges()">Guardar Cambios</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal para confirmar eliminación -->
-<div class="modal fade" id="deletePlaylistModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title text-danger">Eliminar Lista de Reproducción</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>¿Estás seguro de que deseas eliminar esta lista de reproducción?</p>
-                <p class="text-muted">Esta acción no se puede deshacer.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" onclick="confirmDeletePlaylist()">Eliminar</button>
+                <button type="button" class="btn btn-primary" id="saveDeviceAssignments">
+                    <i class="fas fa-save me-1"></i> Guardar Asignaciones
+                </button>
             </div>
         </div>
     </div>
@@ -613,8 +594,7 @@
 {% endblock %}
 <!-- SCRIPTS -->
 {% block extra_scripts %}
-<script src="/static/js/playlist_detail.js"></script>
-
+    <script src="/static/js/playlist_detail.js"></script>
 
 <script>
 // Constants

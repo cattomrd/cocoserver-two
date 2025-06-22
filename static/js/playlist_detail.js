@@ -13,6 +13,11 @@ let availableVideos = [];
 let playlistVideos = [];
 let hasChanges = false;
 let isLoading = false;
+// Variables para gestión de dispositivos
+let assignedDevices = [];
+let allDevices = [];
+let deviceAssignmentsChanged = false;
+let deviceAssignmentUpdates = new Set(); // Para mantener track de cambios en asignaciones
 
 // Variables de paginación para la biblioteca de videos
 const paginationState = {
@@ -37,6 +42,10 @@ const API_ENDPOINTS = {
     updateVideoOrder: (playlistId) => `${API_URL}/playlists/${playlistId}/video-order`,
     updatePlaylist: (id) => `${API_URL}/playlists/${id}`
 };
+
+
+
+
 
 // Detectar si hay datos de playlist pasados desde el template
 try {
