@@ -1046,7 +1046,10 @@ async function loadAssignedPlaylists() {
             
             html += `
                 <tr>
-                    <td>${playlist.title}</td>
+                    <td>
+                        <strong>${playlist.title}</strong>
+                        ${playlist.description ? `<br><small class="text-muted">${playlist.description}</small>` : ''}
+                    </td>
                     <td>
                         <span class="badge ${isActive ? 'bg-success' : 'bg-danger'}">
                             ${isActive ? 'Activa' : 'Inactiva'}
@@ -1060,13 +1063,22 @@ async function loadAssignedPlaylists() {
                             : '<span class="badge bg-secondary">Sin expiración</span>'
                         }
                     </td>
-                    <td>${playlist.videos ? playlist.videos.length : 0}</td>
                     <td>
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-info" onclick="viewPlaylistDetails(${playlist.id})">
+                        <span class="badge bg-info">${playlist.videos ? playlist.videos.length : 0}</span>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <!-- BOTÓN MODIFICADO: Enlace directo a la vista de detalle -->
+                            <a href="/ui/playlist_detail?id=${playlist.id}" 
+                               class="btn btn-outline-info" 
+                               title="Ver detalles de la playlist">
                                 <i class="bi bi-eye"></i> Ver
-                            </button>
-                            <button class="btn btn-outline-danger" onclick="confirmRemovePlaylist('${deviceId}', ${playlist.id}, '${playlist.title}')">
+                            </a>
+                            
+                            <!-- Botón para quitar (sin cambios) -->
+                            <button class="btn btn-outline-danger" 
+                                    onclick="confirmRemovePlaylist('${deviceId}', ${playlist.id}, '${playlist.title}')"
+                                    title="Quitar playlist del dispositivo">
                                 <i class="bi bi-x-circle"></i> Quitar
                             </button>
                         </div>
@@ -1083,13 +1095,35 @@ async function loadAssignedPlaylists() {
         
         playlistsContainer.innerHTML = html;
         
+        // Opcional: Añadir información adicional
+        const totalPlaylists = playlists.length;
+        const activePlaylists = playlists.filter(p => p.is_active && (!p.expiration_date || new Date(p.expiration_date) > now)).length;
+        
+        // Agregar estadísticas al final
+        html += `
+            <div class="mt-3 p-3 bg-light rounded">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    Total: ${totalPlaylists} listas | Activas: ${activePlaylists} | 
+                    Inactivas/Expiradas: ${totalPlaylists - activePlaylists}
+                </small>
+            </div>
+        `;
+        
+        playlistsContainer.innerHTML = html;
+        
     } catch (error) {
         console.error('Error al cargar playlists asignadas:', error);
         const playlistsContainer = document.getElementById('playlistsContainer');
         if (playlistsContainer) {
             playlistsContainer.innerHTML = `
                 <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle"></i> Error al cargar listas: ${error.message}
+                    <i class="bi bi-exclamation-triangle"></i> 
+                    <strong>Error al cargar listas:</strong> ${error.message}
+                    <br>
+                    <button class="btn btn-sm btn-outline-secondary mt-2" onclick="loadAssignedPlaylists()">
+                        <i class="bi bi-arrow-clockwise"></i> Reintentar
+                    </button>
                 </div>
             `;
         }

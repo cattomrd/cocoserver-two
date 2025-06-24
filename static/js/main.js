@@ -567,7 +567,7 @@ window.downloadVideo = async function(videoId) {
 
 // ===== FUNCIÓN DE SUBIDA CORREGIDA =====
 window.uploadVideo = async function(formData) {
-    console.log('=== INICIANDO SUBIDA DE VIDEO ===');
+    console.log('=== INICIANDO SUBIDA DE VIDEO CORREGIDA ===');
     
     const progressBar = document.querySelector('#uploadProgress .progress-bar');
     const progressContainer = document.getElementById('uploadProgress');
@@ -600,9 +600,43 @@ window.uploadVideo = async function(formData) {
         console.log('- Descripción:', formData.get('description') || 'Sin descripción');
         console.log('- Expiración:', formData.get('expiration_date') || 'Sin expiración');
         
+        // IMPORTANTE: Crear un nuevo FormData con SOLO los campos válidos según el modelo Video
+        const cleanFormData = new FormData();
+        
+        // Agregar solo los campos permitidos
+        cleanFormData.append('title', title);
+        cleanFormData.append('file', file);
+        
+        // Campos opcionales (solo si existen y no son vacíos)
+        if (formData.get('description')) {
+            cleanFormData.append('description', formData.get('description'));
+        }
+        
+        if (formData.get('expiration_date')) {
+            cleanFormData.append('expiration_date', formData.get('expiration_date'));
+        }
+        
+        // DEPURACIÓN: Verificar que no haya 'filename' u otros campos no válidos
+        console.log('=== VERIFICANDO CAMPOS DE FORMDATA LIMPIO ===');
+        for (const pair of cleanFormData.entries()) {
+            console.log(`Campo: ${pair[0]}, Tipo: ${typeof pair[1]}`);
+            if (pair[0] === 'filename') {
+                console.error('⚠️ ADVERTENCIA: Se detectó campo "filename" que no debería existir');
+                // Eliminar el campo problemático
+                cleanFormData.delete('filename');
+            }
+        }
+        
+        // IMPORTANTE: Verificar que no se incluyó el campo 'filename'
+        if (cleanFormData.has('filename')) {
+            console.error('⚠️ ERROR: Se ha detectado el campo "filename" que causa el error.');
+            cleanFormData.delete('filename');
+            console.log('Campo "filename" eliminado del FormData.');
+        }
+        
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', `${API_URL}/videos/`, true);
+            xhr.open('POST', `${window.location.origin}/api/videos/`, true);
             
             // Progreso de subida
             xhr.upload.onprogress = (e) => {
@@ -630,9 +664,9 @@ window.uploadVideo = async function(formData) {
                     showToast('Video subido correctamente', 'success');
                     
                     // Limpiar formulario
-                    safeElementOperation('videoUploadForm', form => {
-                        form.reset();
-                    });
+                    if (document.getElementById('videoUploadForm')) {
+                        document.getElementById('videoUploadForm').reset();
+                    }
                     
                     // Cerrar formulario colapsable
                     const uploadForm = document.getElementById('uploadForm');
@@ -649,21 +683,27 @@ window.uploadVideo = async function(formData) {
                     
                     // Recargar videos después de un breve delay
                     setTimeout(() => {
-                        loadVideos();
+                        if (typeof window.loadVideos === 'function') {
+                            window.loadVideos();
+                        }
                     }, 1000);
                     
                     resolve(responseData);
                 } else {
-                    let errorMessage = `Error ${xhr.status}: ${xhr.statusText}`;
+                    console.log('Respuesta del servidor:', xhr.status, xhr.statusText);
+                    console.log('Texto de respuesta:', xhr.responseText);
+                    
+                    let errorMessage = 'Error al crear video';
                     try {
-                        const errorResponse = JSON.parse(xhr.responseText);
-                        errorMessage = errorResponse.detail || errorResponse.message || errorMessage;
+                        const errorData = JSON.parse(xhr.responseText);
+                        errorMessage = errorData.detail || errorMessage;
                     } catch (e) {
-                        console.warn('No se pudo parsear mensaje de error');
+                        console.warn('No se pudo parsear respuesta de error');
                     }
                     
                     console.error('Error en la subida:', errorMessage);
                     showToast(errorMessage, 'error');
+                    
                     reject(new Error(errorMessage));
                 }
                 
@@ -676,40 +716,24 @@ window.uploadVideo = async function(formData) {
             };
             
             xhr.onerror = () => {
-                const errorMsg = 'Error de red al intentar subir el video';
-                console.error(errorMsg);
-                showToast(errorMsg, 'error');
+                console.error('Error de red al subir el video');
+                showToast('Error de red al subir el video', 'error');
                 
                 if (progressContainer) {
                     progressContainer.classList.add('d-none');
                 }
                 
-                reject(new Error(errorMsg));
+                reject(new Error('Error de red al subir el video'));
             };
             
-            xhr.ontimeout = () => {
-                const errorMsg = 'Tiempo de espera agotado al subir el video';
-                console.error(errorMsg);
-                showToast(errorMsg, 'error');
-                
-                if (progressContainer) {
-                    progressContainer.classList.add('d-none');
-                }
-                
-                reject(new Error(errorMsg));
-            };
-            
-            // Configurar timeout (30 minutos para videos grandes)
-            xhr.timeout = 30 * 60 * 1000;
-            
-            // Enviar petición
-            console.log('Enviando petición de subida...');
-            xhr.send(formData);
+            // IMPORTANTE: Usar el FormData limpio (sin campos no válidos)
+            console.log('Enviando petición de subida con FormData limpio...');
+            xhr.send(cleanFormData);
         });
         
     } catch (error) {
-        console.error('Error al configurar subida de video:', error);
-        showToast(`Error al subir el video: ${error.message}`, 'error');
+        console.error('Error al preparar la subida:', error);
+        showToast(`Error: ${error.message}`, 'error');
         
         if (progressContainer) {
             progressContainer.classList.add('d-none');

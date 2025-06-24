@@ -7,7 +7,7 @@ import logging
 from typing import List, Optional
 from datetime import datetime
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -67,7 +67,6 @@ async def create_video(
         video_db = Video(
             title=title,
             description=description,
-            filename=file.filename or unique_filename,
             file_path=file_path,
             file_size=file_size,
             upload_date=datetime.now(),
@@ -341,3 +340,124 @@ def list_upload_files():
     except Exception as e:
         logger.error(f"Error al listar archivos: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al listar archivos: {str(e)}")
+
+
+@router.get("/{video_id}/stream")
+async def stream_video(
+    video_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Endpoint para streaming de videos con soporte para rangos de bytes.
+    Permite la reproducción directa en el navegador con seeking.
+    """
+    # Buscar el video en la base de datos
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video no encontrado")
+    
+    # Verificar que el archivo existe
+    video_path = Path(video.file_path)
+    if not video_path.exists() or not video_path.is_file():
+        logger.error(f"Archivo de video no encontrado: {video.file_path}")
+        raise HTTPException(status_code=404, detail="Archivo de video no encontrado")
+    
+    # Obtener el tamaño del archivo
+    file_size = video_path.stat().st_size
+    
+    # Determinar el tipo de contenido basado en la extensión del archivo
+    content_type = get_content_type(video_path)
+    
+    # Implementar soporte para rangos de bytes (byte ranges)
+    # Esto permite la búsqueda (seeking) en el reproductor de video
+    range_header = request.headers.get("Range", "").strip()
+    
+    start_byte = 0
+    end_byte = file_size - 1
+    
+    # Procesar el header Range si existe
+    if range_header and range_header.startswith("bytes="):
+        range_data = range_header.replace("bytes=", "").split("-")
+        
+        if len(range_data) == 2:
+            if range_data[0]:
+                start_byte = int(range_data[0])
+            if range_data[1]:
+                end_byte = min(int(range_data[1]), file_size - 1)
+    
+    # Calcular el tamaño del contenido a enviar
+    content_length = end_byte - start_byte + 1
+    
+    # Definir la función para leer el archivo por partes
+    async def video_stream_generator():
+        """
+        Generador asíncrono para transmitir el archivo por partes.
+        """
+        with open(video.file_path, "rb") as video_file:
+            # Mover el puntero al byte inicial
+            video_file.seek(start_byte)
+            
+            # Tamaño del fragmento a leer cada vez
+            chunk_size = 1024 * 1024  # 1MB
+            bytes_sent = 0
+            
+            # Leer y enviar fragmentos hasta completar el rango solicitado
+            while bytes_sent < content_length:
+                # Leer el siguiente fragmento
+                remaining = content_length - bytes_sent
+                chunk = video_file.read(min(chunk_size, remaining))
+                
+                if not chunk:
+                    break
+                
+                bytes_sent += len(chunk)
+                yield chunk
+    
+    # Headers HTTP para la respuesta
+    headers = {
+        "Content-Type": content_type,
+        "Content-Length": str(content_length),
+        "Accept-Ranges": "bytes",
+    }
+    
+    # Si es una solicitud de rango, agregar el header Content-Range
+    if range_header:
+        headers["Content-Range"] = f"bytes {start_byte}-{end_byte}/{file_size}"
+        status_code = 206  # Partial Content
+    else:
+        status_code = 200  # OK
+    
+    # Registrar en el log el streaming
+    logger.info(f"Streaming video ID {video_id}: {start_byte}-{end_byte}/{file_size} ({content_type})")
+    
+    # Devolver la respuesta de streaming
+    return StreamingResponse(
+        video_stream_generator(),
+        status_code=status_code,
+        headers=headers
+    )
+
+def get_content_type(file_path: Path) -> str:
+    """
+    Determina el tipo MIME basado en la extensión del archivo.
+    """
+    extension = file_path.suffix.lower()
+    
+    # Mapeo de extensiones comunes de video a tipos MIME
+    mime_types = {
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+        ".ogg": "video/ogg",
+        ".mov": "video/quicktime",
+        ".avi": "video/x-msvideo",
+        ".wmv": "video/x-ms-wmv",
+        ".flv": "video/x-flv",
+        ".mkv": "video/x-matroska",
+        ".3gp": "video/3gpp",
+        ".ts": "video/mp2t",
+        ".m4v": "video/x-m4v",
+    }
+    
+    # Devolver el tipo MIME correspondiente o un tipo genérico si no se encuentra
+    return mime_types.get(extension, "application/octet-stream")

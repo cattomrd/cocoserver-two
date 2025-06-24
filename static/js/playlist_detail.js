@@ -1624,3 +1624,407 @@ function initializePlaylistEditor() {
 document.addEventListener('DOMContentLoaded', initializePlaylistEditor);
 
 console.log('✅ Editor de Playlist cargado correctamente');
+
+
+/**
+ * VIDEO MANAGER - Gestión avanzada de reproducción de videos
+ */
+
+// Objeto principal para gestión de videos
+const VideoManager = {
+    // Configuración
+    config: {
+        playerElementId: 'videoPlayer',
+        apiBasePath: '/api/videos',
+        defaultVolume: 0.8,
+        autoSavePosition: true,
+        autoSaveInterval: 5000, // milisegundos
+    },
+    
+    // Estado del reproductor
+    state: {
+        currentVideoId: null,
+        isPlaying: false,
+        isMuted: false,
+        currentPosition: 0,
+        duration: 0,
+        volume: 0.8,
+        playbackRate: 1.0,
+    },
+    
+    // Referencia al elemento de video
+    player: null,
+    
+    // Temporizador para guardar posición
+    savePositionTimer: null,
+    
+    /**
+     * Inicializar el reproductor de video
+     * @param {number} videoId - ID del video a reproducir
+     * @param {Object} options - Opciones adicionales
+     */
+    initialize: function(videoId, options = {}) {
+        console.log('🎬 Inicializando reproductor de video...');
+        
+        // Combinar opciones con configuración predeterminada
+        this.config = { ...this.config, ...options };
+        
+        // Guardar ID del video actual
+        this.state.currentVideoId = videoId;
+        
+        // Obtener referencia al reproductor
+        this.player = document.getElementById(this.config.playerElementId);
+        
+        if (!this.player) {
+            console.error('❌ No se encontró el elemento de video');
+            return false;
+        }
+        
+        // Configurar reproductor
+        this.setupPlayer();
+        
+        // Configurar eventos
+        this.setupEvents();
+        
+        console.log(`✅ Reproductor inicializado para video ID: ${videoId}`);
+        return true;
+    },
+    
+    /**
+     * Configurar el reproductor de video
+     */
+    setupPlayer: function() {
+        // Configurar URL de streaming
+        const streamUrl = `${this.config.apiBasePath}/${this.state.currentVideoId}/stream`;
+        
+        // Verificar si ya tiene source
+        if (this.player.querySelector('source')) {
+            this.player.querySelector('source').src = streamUrl;
+        } else {
+            const source = document.createElement('source');
+            source.src = streamUrl;
+            source.type = 'video/mp4'; // Tipo por defecto, se ajustará según el contenido
+            this.player.appendChild(source);
+        }
+        
+        // Configurar volumen
+        this.player.volume = this.config.defaultVolume;
+        
+        // Cargar video
+        this.player.load();
+        
+        // Restaurar posición guardada
+        this.restoreSavedPosition();
+    },
+    
+    /**
+     * Configurar eventos del reproductor
+     */
+    setupEvents: function() {
+        // Referencia para usar en event listeners
+        const self = this;
+        
+        // Evento de metadatos cargados
+        this.player.addEventListener('loadedmetadata', function() {
+            self.state.duration = self.player.duration;
+            console.log(`ℹ️ Duración del video: ${self.formatTime(self.state.duration)}`);
+        });
+        
+        // Evento de reproducción
+        this.player.addEventListener('play', function() {
+            self.state.isPlaying = true;
+            
+            // Iniciar guardado automático de posición
+            if (self.config.autoSavePosition) {
+                self.startAutoSavePosition();
+            }
+        });
+        
+        // Evento de pausa
+        this.player.addEventListener('pause', function() {
+            self.state.isPlaying = false;
+            
+            // Guardar posición actual
+            self.saveCurrentPosition();
+            
+            // Detener guardado automático
+            self.stopAutoSavePosition();
+        });
+        
+        // Evento de tiempo actualizado
+        this.player.addEventListener('timeupdate', function() {
+            self.state.currentPosition = self.player.currentTime;
+        });
+        
+        // Evento de cambio de volumen
+        this.player.addEventListener('volumechange', function() {
+            self.state.volume = self.player.volume;
+            self.state.isMuted = self.player.muted;
+        });
+        
+        // Evento de cambio de velocidad
+        this.player.addEventListener('ratechange', function() {
+            self.state.playbackRate = self.player.playbackRate;
+        });
+        
+        // Evento de finalización
+        this.player.addEventListener('ended', function() {
+            console.log('🏁 Video finalizado');
+            
+            // Limpiar posición guardada
+            self.clearSavedPosition();
+            
+            // Detener guardado automático
+            self.stopAutoSavePosition();
+        });
+        
+        // Evento de error
+        this.player.addEventListener('error', function() {
+            console.error('❌ Error al reproducir el video');
+            
+            // Mostrar mensaje de error
+            self.showErrorMessage();
+            
+            // Detener guardado automático
+            self.stopAutoSavePosition();
+        });
+    },
+    
+    /**
+     * Iniciar guardado automático de posición
+     */
+    startAutoSavePosition: function() {
+        // Limpiar temporizador anterior si existe
+        this.stopAutoSavePosition();
+        
+        // Crear nuevo temporizador
+        const self = this;
+        this.savePositionTimer = setInterval(function() {
+            self.saveCurrentPosition();
+        }, this.config.autoSaveInterval);
+    },
+    
+    /**
+     * Detener guardado automático de posición
+     */
+    stopAutoSavePosition: function() {
+        if (this.savePositionTimer) {
+            clearInterval(this.savePositionTimer);
+            this.savePositionTimer = null;
+        }
+    },
+    
+    /**
+     * Guardar posición actual del video
+     */
+    saveCurrentPosition: function() {
+        if (!this.state.currentVideoId) return;
+        
+        try {
+            localStorage.setItem(
+                `video_position_${this.state.currentVideoId}`,
+                this.state.currentPosition.toString()
+            );
+        } catch (error) {
+            console.warn('No se pudo guardar la posición:', error);
+        }
+    },
+    
+    /**
+     * Restaurar posición guardada
+     */
+    restoreSavedPosition: function() {
+        if (!this.state.currentVideoId) return;
+        
+        try {
+            const savedPosition = localStorage.getItem(`video_position_${this.state.currentVideoId}`);
+            
+            if (savedPosition) {
+                const position = parseFloat(savedPosition);
+                
+                // Escuchar evento de metadatos cargados para establecer posición
+                const self = this;
+                this.player.addEventListener('loadedmetadata', function onceLoaded() {
+                    // Asegurarse de que la posición es válida
+                    if (position > 0 && position < self.player.duration) {
+                        self.player.currentTime = position;
+                        console.log(`▶️ Reproducción restaurada en: ${self.formatTime(position)}`);
+                    }
+                    
+                    // Eliminar este listener después de usar
+                    self.player.removeEventListener('loadedmetadata', onceLoaded);
+                });
+            }
+        } catch (error) {
+            console.warn('No se pudo restaurar la posición:', error);
+        }
+    },
+    
+    /**
+     * Limpiar posición guardada
+     */
+    clearSavedPosition: function() {
+        if (!this.state.currentVideoId) return;
+        
+        try {
+            localStorage.removeItem(`video_position_${this.state.currentVideoId}`);
+        } catch (error) {
+            console.warn('No se pudo limpiar la posición guardada:', error);
+        }
+    },
+    
+    /**
+     * Mostrar mensaje de error en la interfaz
+     */
+    showErrorMessage: function() {
+        // Eliminar mensaje de error anterior si existe
+        const existingError = document.querySelector('.video-error-message');
+        if (existingError) {
+            existingError.remove();
+        }
+        
+        // Crear nuevo mensaje de error
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'alert alert-danger mt-3 video-error-message';
+        errorMessage.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Error al reproducir el video</strong><br>
+            <p class="mb-1">Posibles causas:</p>
+            <ul class="mb-0">
+                <li>El archivo de video no existe o ha sido eliminado</li>
+                <li>El formato del video no es compatible con su navegador</li>
+                <li>Problemas de conexión con el servidor</li>
+            </ul>
+            <button class="btn btn-sm btn-outline-danger mt-2" onclick="window.location.reload()">
+                <i class="fas fa-sync"></i> Intentar nuevamente
+            </button>
+        `;
+        
+        // Insertar mensaje después del reproductor
+        if (this.player && this.player.parentNode) {
+            this.player.parentNode.appendChild(errorMessage);
+        }
+    },
+    
+    /**
+     * Formatear tiempo en segundos a formato MM:SS o HH:MM:SS
+     * @param {number} seconds - Tiempo en segundos
+     * @return {string} Tiempo formateado
+     */
+    formatTime: function(seconds) {
+        if (isNaN(seconds)) return '00:00';
+        
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        
+        if (hours > 0) {
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        } else {
+            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+    },
+    
+    /**
+     * Métodos de control de reproducción
+     */
+    controls: {
+        play: function() {
+            if (VideoManager.player) VideoManager.player.play();
+        },
+        
+        pause: function() {
+            if (VideoManager.player) VideoManager.player.pause();
+        },
+        
+        toggle: function() {
+            if (VideoManager.player) {
+                if (VideoManager.state.isPlaying) {
+                    VideoManager.player.pause();
+                } else {
+                    VideoManager.player.play();
+                }
+            }
+        },
+        
+        seekTo: function(position) {
+            if (VideoManager.player) {
+                VideoManager.player.currentTime = position;
+            }
+        },
+        
+        seekRelative: function(offset) {
+            if (VideoManager.player) {
+                VideoManager.player.currentTime += offset;
+            }
+        },
+        
+        setVolume: function(volume) {
+            if (VideoManager.player) {
+                VideoManager.player.volume = Math.min(1, Math.max(0, volume));
+            }
+        },
+        
+        toggleMute: function() {
+            if (VideoManager.player) {
+                VideoManager.player.muted = !VideoManager.player.muted;
+            }
+        },
+        
+        setPlaybackRate: function(rate) {
+            if (VideoManager.player) {
+                VideoManager.player.playbackRate = rate;
+            }
+        },
+    }
+};
+
+// Hacer accesible globalmente
+window.VideoManager = VideoManager;
+
+// Función de inicialización automática
+function initializeVideoPlayer() {
+    console.log('Buscando reproductor de video para inicializar...');
+    
+    const videoElement = document.getElementById('videoPlayer');
+    if (!videoElement) {
+        console.log('No se encontró el elemento de video en la página');
+        return;
+    }
+    
+    // Buscar ID del video en diferentes fuentes
+    let videoId = null;
+    
+    // Opción 1: Buscar en atributos de datos
+    if (videoElement.dataset.videoId) {
+        videoId = parseInt(videoElement.dataset.videoId);
+    }
+    
+    // Opción 2: Buscar en la URL de la fuente
+    if (!videoId && videoElement.querySelector('source')) {
+        const sourceUrl = videoElement.querySelector('source').src;
+        const match = sourceUrl.match(/\/videos\/(\d+)\/stream/);
+        if (match && match[1]) {
+            videoId = parseInt(match[1]);
+        }
+    }
+    
+    // Opción 3: Buscar en la URL de la página
+    if (!videoId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('id')) {
+            videoId = parseInt(urlParams.get('id'));
+        }
+    }
+    
+    // Inicializar reproductor si se encontró un ID
+    if (videoId) {
+        console.log(`Inicializando reproductor para video ID: ${videoId}`);
+        VideoManager.initialize(videoId);
+    } else {
+        console.log('No se pudo determinar el ID del video');
+    }
+}
+
+// Inicializar cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', initializeVideoPlayer);
