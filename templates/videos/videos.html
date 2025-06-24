@@ -129,7 +129,6 @@
                     <small class="text-muted ms-2">de <span id="totalVideoPages">1</span></small>
                 </div>
             </div>
-        </div>    
             <div class="card-body p-0">
                 <div class="table-responsive" style="min-height: 300px;">
                     <table class="table table-striped table-hover mb-0" id="videosTable">
@@ -230,6 +229,62 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal para reproducir video -->
+    <div class="modal fade" id="playVideoModal" tabindex="-1" aria-labelledby="playVideoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="playVideoModalLabel">Reproduciendo: <span id="playingVideoTitle"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="ratio ratio-16x9">
+                        <video id="videoPlayer" class="w-100" controls autoplay controlsList="nodownload">
+                            <source src="" type="video/mp4" id="videoSource">
+                            Tu navegador no soporta la reproducción de videos HTML5.
+                        </video>
+                    </div>
+                    <div class="bg-light p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('videoPlayer').playbackRate = 0.5;">
+                                    <i class="fas fa-backward"></i> 0.5x
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('videoPlayer').playbackRate = 1;">
+                                    <i class="fas fa-sync"></i> 1x
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('videoPlayer').playbackRate = 1.5;">
+                                    <i class="fas fa-forward"></i> 1.5x
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('videoPlayer').playbackRate = 2;">
+                                    <i class="fas fa-fast-forward"></i> 2x
+                                </button>
+                            </div>
+                            <div id="videoInfo">
+                                <span class="badge bg-secondary" id="videoDuration">
+                                    <i class="fas fa-clock"></i> Duración: <span id="videoDurationValue">--:--</span>
+                                </span>
+                                <span class="badge bg-info" id="videoSize">
+                                    <i class="fas fa-hdd"></i> Tamaño: <span id="videoSizeValue">-- MB</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h6>Descripción:</h6>
+                            <p id="playingVideoDescription" class="mb-0 text-muted">Sin descripción</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <a id="downloadVideoBtn" href="#" class="btn btn-primary" download>
+                        <i class="fas fa-download"></i> Descargar Video
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -257,6 +312,174 @@
     <script src="/static/js/main.js"></script>
     
     <script>
+        // Función para abrir el modal y reproducir el video
+        function playVideo(videoId, videoTitle, videoDescription) {
+            // Actualizar datos en el modal
+            document.getElementById('playingVideoTitle').textContent = videoTitle || 'Sin título';
+            document.getElementById('playingVideoDescription').textContent = videoDescription || 'Sin descripción';
+            
+            // Configurar la fuente del video
+            const videoSource = document.getElementById('videoSource');
+            videoSource.src = `/api/videos/${videoId}/stream`;
+            
+            // Configurar el botón de descarga
+            const downloadBtn = document.getElementById('downloadVideoBtn');
+            downloadBtn.href = `/api/videos/${videoId}/download`;
+            downloadBtn.download = videoTitle || `video_${videoId}`;
+            
+            // Reiniciar el reproductor
+            const videoPlayer = document.getElementById('videoPlayer');
+            videoPlayer.load();
+            
+            // Cargar información adicional del video
+            fetchVideoInfo(videoId);
+            
+            // Abrir el modal
+            const modal = new bootstrap.Modal(document.getElementById('playVideoModal'));
+            modal.show();
+            
+            // Configurar evento de cierre del modal para detener el video
+            document.getElementById('playVideoModal').addEventListener('hidden.bs.modal', function () {
+                videoPlayer.pause();
+                videoSource.src = '';
+            });
+        }
+        
+        // Función para obtener información adicional del video
+        async function fetchVideoInfo(videoId) {
+            try {
+                const response = await fetch(`/api/videos/${videoId}`);
+                if (!response.ok) throw new Error('No se pudo obtener información del video');
+                
+                const videoData = await response.json();
+                
+                // Actualizar duración
+                if (videoData.duration) {
+                    const durationElement = document.getElementById('videoDurationValue');
+                    durationElement.textContent = formatDuration(videoData.duration);
+                }
+                
+                // Actualizar tamaño
+                if (videoData.file_size) {
+                    const sizeElement = document.getElementById('videoSizeValue');
+                    sizeElement.textContent = formatFileSize(videoData.file_size);
+                }
+            } catch (error) {
+                console.error('Error al obtener información del video:', error);
+            }
+        }
+        
+        // Función para formatear la duración
+        function formatDuration(seconds) {
+            if (!seconds) return '--:--';
+            
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) {
+                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+        
+        // Función para formatear el tamaño del archivo
+        function formatFileSize(bytes) {
+            if (!bytes) return '-- MB';
+            
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let size = bytes;
+            let unitIndex = 0;
+            
+            while (size >= 1024 && unitIndex < units.length - 1) {
+                size /= 1024;
+                unitIndex++;
+            }
+            
+            return `${size.toFixed(2)} ${units[unitIndex]}`;
+        }
+        
+        // Modificar la función original displayVideos para incluir el botón de reproducción
+        window.originalDisplayVideos = window.displayVideos || function() {
+            console.log('Función displayVideos original no encontrada');
+        };
+        
+        // Reemplazar con nuestra función mejorada que AÑADE el botón de reproducción
+        // sin quitar los botones existentes
+        window.displayVideos = function(videos) {
+            const videosList = document.getElementById('videosList');
+            if (!videosList) return;
+            
+            if (!videos || videos.length === 0) {
+                videosList.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <i class="fas fa-film fa-3x mb-3 text-muted"></i>
+                            <p>No se encontraron videos.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            const videosHTML = videos.map(video => {
+                const isExpired = video.expiration_date && new Date(video.expiration_date) < new Date();
+                
+                return `
+                    <tr ${isExpired ? 'class="table-warning"' : ''}>
+                        <td>${video.title || 'Sin título'}</td>
+                        <td>${video.description || '<span class="text-muted">Sin descripción</span>'}</td>
+                        <td><small>${formatDate(video.upload_date)}</small></td>
+                        <td>
+                            ${video.expiration_date ? 
+                                `<small class="text-${isExpired ? 'danger' : 'muted'}">${isExpired ? 'Expiró' : 'Expira'}: ${formatDate(video.expiration_date)}</small>` : 
+                                '<small class="text-muted">Sin expiración</small>'}
+                        </td>
+                        <td>
+                            <span class="badge ${isExpired ? 'bg-danger' : 'bg-success'}">
+                                ${isExpired ? 'Expirado' : 'Activo'}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <!-- NUEVO: Botón de reproducción -->
+                                <button class="btn btn-outline-primary" 
+                                        onclick="playVideo(${video.id}, '${video.title?.replace(/'/g, "\\'")}', '${video.description?.replace(/'/g, "\\'")}')">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <!-- Botones existentes (mantenidos tal cual) -->
+                                <a href="/api/videos/${video.id}/download" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="editVideo(${video.id})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteVideo(${video.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            videosList.innerHTML = videosHTML;
+        };
+        
+        // Función auxiliar para formatear fechas
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleString('es-ES', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
         // Inicializar funcionalidades de video al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Videos V2 - Inicializando...');
@@ -280,7 +503,6 @@
             }, 300);
         });
         
-        // Event listeners específicos del template se configuran en main.js
         console.log('Videos V2 template cargado - main.js manejará la funcionalidad');
     </script>
 {% endblock %}
