@@ -2,12 +2,12 @@
 
 {% block content %}
 <style>
-    /* Playlist Management Styles */
-    /* Drop Zone Styles */
+    /* Estilos optimizados para vista de playlist */
     .playlist-drop-zone {
         border: 2px dashed #dee2e6;
         border-radius: 0.25rem;
         transition: all 0.3s ease;
+        min-height: 100px;
     }
 
     .playlist-drop-zone.highlight-drop-zone {
@@ -15,13 +15,6 @@
         background-color: rgba(13, 110, 253, 0.05);
     }
 
-    .available-videos-drop-zone {
-        border: 2px solid transparent;
-        border-radius: 0.25rem;
-        transition: all 0.3s ease;
-    }
-
-    /* Video Item Styles */
     .playlist-video-item {
         cursor: grab;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -29,213 +22,242 @@
 
     .playlist-video-item:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
 
     .playlist-video-item.dragging {
         opacity: 0.7;
-        box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15);
+        transform: rotate(5deg);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
     }
 
     .available-video-item {
         cursor: grab;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition: transform 0.2s ease;
     }
 
     .available-video-item:hover {
         transform: translateX(5px);
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        background-color: rgba(0, 123, 255, 0.05);
     }
 
-    .video-card {
-        transition: all 0.2s ease;
-    }
-
-    .video-card:hover {
-        border-color: #0d6efd;
-    }
-
-    /* Drag Handle */
     .drag-handle {
         cursor: grab;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         color: #6c757d;
-        padding: 0 0.5rem;
-    }
-
-    .drag-handle:hover {
-        color: #0d6efd;
-    }
-
-    /* Empty State */
-    #emptyPlaylistMessage {
-        transition: opacity 0.3s ease;
-    }
-
-    /* Video Thumbnail */
-    .video-thumbnail {
-        position: relative;
-        flex-shrink: 0;
-    }
-
-    .video-thumbnail .img-thumbnail {
-        transition: all 0.2s ease;
-    }
-
-    .video-thumbnail:hover .img-thumbnail {
-        transform: scale(1.05);
-    }
-
-    /* Video Actions */
-    .video-actions {
         opacity: 0.7;
         transition: opacity 0.2s ease;
     }
 
-    .video-card:hover .video-actions {
+    .playlist-video-item:hover .drag-handle {
         opacity: 1;
+        color: #0d6efd;
     }
 
-    /* Card Hover Effects */
-    .card {
-        transition: all 0.2s ease;
+    .video-thumbnail {
+        position: relative;
+        overflow: hidden;
+        border-radius: 0.25rem;
     }
 
-    .card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    .video-thumbnail img {
+        transition: transform 0.2s ease;
     }
 
-    /* Modal Animation */
-    .modal.fade .modal-dialog {
-        transition: transform 0.3s ease-out;
-        transform: translate(0, -50px);
+    .video-thumbnail:hover img {
+        transform: scale(1.05);
     }
 
-    .modal.show .modal-dialog {
-        transform: none;
+    .playlist-stats .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        text-align: center;
     }
 
-    /* Badge Styles */
-    .badge {
-        font-weight: 500;
-        padding: 0.35em 0.65em;
+    .playlist-stats .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 0.25rem;
     }
 
-    /* Preview Player */
-    #videoElement {
-        background-color: #000;
+    .playlist-stats .stat-label {
+        font-size: 0.875rem;
+        opacity: 0.9;
     }
 
-    #previewPlaylistItems .active {
-        border-left: 4px solid #0d6efd;
+    /* Paginación compacta */
+    .pagination-container .pagination {
+        margin-bottom: 0;
     }
 
-    /* Video Progress Bar */
-    #videoProgressBar {
-        transition: width 0.2s linear;
+    .pagination-container .page-item .page-link {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
     }
 
-    /* Table Responsiveness */
-    .table-responsive {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+    /* Estado de videos */
+    .video-status-indicator {
+        width: 4px;
+        height: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        border-radius: 0.25rem 0 0 0.25rem;
     }
 
-    /* Buttons and Icons */
-    .btn i {
-        pointer-events: none;
+    .video-status-active { background-color: #28a745; }
+    .video-status-inactive { background-color: #6c757d; }
+    .video-status-expired { background-color: #dc3545; }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .video-thumbnail img {
+            width: 50px !important;
+            height: 40px !important;
+        }
+        
+        .playlist-stats .stat-card {
+            margin-bottom: 0.5rem;
+        }
     }
 
-    /* Device Item Hover */
-    .device-item:hover {
-        transform: translateY(-2px);
-    }
-
-    /* Animation for Loading */
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-
+    /* Animaciones */
     .fade-in {
         animation: fadeIn 0.5s ease-in-out;
     }
 
-    /* Modal Content Transitions */
-    .modal-content {
-        transition: all 0.3s ease;
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Scrollbar Styling */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: #555;
-    }
-
-    /* Responsive Adjustments */
-    @media (max-width: 768px) {
-        .card-title {
-            font-size: 1.1rem;
-        }
-        
-        .video-title {
-            font-size: 0.9rem;
-        }
-        
-        .video-thumbnail img,
-        .video-thumbnail div {
-            width: 50px !important;
-            height: 40px !important;
-        }
+    /* Toast container */
+    .toast-container {
+        z-index: 9999;
     }
 </style>
+
 <div class="container-fluid">
     <!-- Campo oculto para el ID de la playlist -->
     <input type="hidden" id="playlist-id" value="{{ playlist.id }}">
+    
+    <!-- JSON data para JavaScript -->
+    <script type="application/json" id="playlist-data">
+        {
+            "id": {{ playlist.id }},
+            "title": "{{ playlist.title|escape }}",
+            "description": "{{ playlist.description|escape if playlist.description else '' }}",
+            "is_active": {{ playlist.is_active|lower }},
+            "created_at": "{% if playlist.created_at or playlist.creation_date %}{{ (playlist.created_at or playlist.creation_date).isoformat() }}{% endif %}",
+            "start_date": "{% if playlist.start_date %}{{ playlist.start_date.isoformat() }}{% endif %}",
+            "expiration_date": "{% if playlist.expiration_date %}{{ playlist.expiration_date.isoformat() }}{% endif %}",
+            "videos": {{ playlist.videos|tojson if playlist.videos else '[]' }}
+        }
+    </script>
 
-    <!-- HEADER -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>{{ playlist.title }}</h1>
-        <a href="/ui/playlists" class="btn btn-outline-secondary">Volver a la lista</a>
+    <!-- HEADER CON INFORMACIÓN DE LA PLAYLIST -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-2">
+                                <h1 class="mb-0 me-3" id="pageTitle">{{ playlist.title }}</h1>
+                                {% if playlist.is_active %}
+                                    <span class="badge bg-success">Activa</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactiva</span>
+                                {% endif %}
+                            </div>
+                            {% if playlist.description %}
+                                <p class="text-muted mb-2">{{ playlist.description }}</p>
+                            {% endif %}
+                            <div class="d-flex flex-wrap gap-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar-plus me-1"></i>
+                                    Creada: 
+                                    {% if playlist.created_at or playlist.creation_date %}
+                                        {{ (playlist.created_at or playlist.creation_date).strftime('%d/%m/%Y %H:%M') }}
+                                    {% else %}
+                                        <span class="text-muted">No especificada</span>
+                                    {% endif %}
+                                </small>
+                                {% if playlist.start_date %}
+                                    <small class="text-muted">
+                                        <i class="fas fa-play-circle me-1"></i>
+                                        Inicio: {{ playlist.start_date.strftime('%d/%m/%Y %H:%M') }}
+                                    </small>
+                                {% endif %}
+                                {% if playlist.expiration_date %}
+                                    <small class="text-muted">
+                                        <i class="fas fa-stop-circle me-1"></i>
+                                        Expira: {{ playlist.expiration_date.strftime('%d/%m/%Y %H:%M') }}
+                                    </small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <a href="/ui/playlists" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>
+                                Volver
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- ESTADÍSTICAS RÁPIDAS -->
+                    <div class="row playlist-stats">
+                        <div class="col-md-3 col-6 mb-2">
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalVideos">{{ playlist.videos|length if playlist.videos else 0 }}</div>
+                                <div class="stat-label">Videos</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-2">
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalDuration">0m</div>
+                                <div class="stat-label">Duración Total</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-2">
+                            <div class="stat-card">
+                                <div class="stat-value" id="activeVideos">0</div>
+                                <div class="stat-label">Videos Activos</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-2">
+                            <div class="stat-card">
+                                <div class="stat-value" id="assignedDevices">0</div>
+                                <div class="stat-label">Dispositivos</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
-    <!-- BOTONES PRINCIPALES DE ACCIÓN -->
+    <!-- BOTONES DE ACCIÓN PRINCIPALES -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex flex-wrap gap-2">
-                        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#editPlaylistModal">
-                            <i class="fas fa-edit me-1"></i> Editar Información
-                        </button>
-                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deletePlaylistModal">
-                            <i class="fas fa-trash me-1"></i> Eliminar Lista
-                        </button>
-                        <button type="button" class="btn btn-primary" onclick="previewPlaylist()">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-2">
+                    <div class="d-flex flex-wrap gap-2 justify-content-center">
+                        <button type="button" class="btn btn-primary" onclick="previewPlaylist()" title="Ver lista completa">
                             <i class="fas fa-play me-1"></i> Vista Previa
                         </button>
-                        <button type="button" class="btn btn-success" onclick="addVideosToPlaylist()">
-                            <i class="fas fa-plus me-1"></i> Agregar Videos
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#assignDeviceModal" title="Asignar dispositivos">
+                            <i class="fas fa-tv me-1"></i> Asignar Dispositivos
                         </button>
-                        <button type="button" class="btn btn-info" onclick="exportPlaylist()">
+                        <button type="button" class="btn btn-info" onclick="exportPlaylist()" title="Exportar playlist">
                             <i class="fas fa-download me-1"></i> Exportar
+                        </button>
+                        <button type="button" class="btn btn-warning" onclick="editPlaylistInfo()" title="Editar información">
+                            <i class="fas fa-edit me-1"></i> Editar Info
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="confirmDeletePlaylist()" title="Eliminar playlist">
+                            <i class="fas fa-trash me-1"></i> Eliminar
                         </button>
                     </div>
                 </div>
@@ -243,140 +265,53 @@
         </div>
     </div>
 
-    <!-- INFORMACIÓN DE LA PLAYLIST -->
-    <!-- <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-info-circle me-2"></i>Información de la Lista
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <table class="table table-borderless">
-                                <tbody>
-                                    <tr>
-                                        <th style="width: 35%">
-                                            <i class="fas fa-tag me-1 text-muted"></i>Título:
-                                        </th>
-                                        <td>{{ playlist.title }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>
-                                            <i class="fas fa-hashtag me-1 text-muted"></i>ID:
-                                        </th>
-                                        <td><code>{{ playlist.id }}</code></td>
-                                    </tr>
-                                    <tr>
-                                        <th>
-                                            <i class="fas fa-align-left me-1 text-muted"></i>Descripción:
-                                        </th>
-                                        <td>{{ playlist.description or 'Sin descripción' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>
-                                            <i class="fas fa-video me-1 text-muted"></i>Videos:
-                                        </th>
-                                        <td>
-                                            <span class="badge bg-info">{{ playlist.video_count }} videos</span>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="col-md-6">
-                            <table class="table table-borderless">
-                                <tbody>
-                                    <tr>
-                                        <th style="width: 35%">
-                                            <i class="fas fa-clock me-1 text-muted"></i>Duración Total:
-                                        </th>
-                                        <td>
-                                            <span id="totalPlaylistDuration">0:00</span>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>
-                                            <i class="fas fa-toggle-on me-1 text-muted"></i>Estado:
-                                        </th>
-                                        <td>
-                                            {% if playlist.is_active %}
-                                                {% if playlist.expiration_date and playlist.expiration_date < now %}
-                                                    <span class="badge bg-warning">Expirada</span>
-                                                {% else %}
-                                                    <span class="badge bg-success">Activa</span>
-                                                {% endif %}
-                                            {% else %}
-                                                <span class="badge bg-secondary">Inactiva</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>
-                                            <i class="fas fa-calendar me-1 text-muted"></i>Fecha Inicio:
-                                        </th>
-                                        <td>
-                                            {% if playlist.start_date %}
-                                                {{ playlist.start_date.strftime('%Y-%m-%d %H:%M') }}
-                                            {% else %}
-                                                <span class="text-muted">No especificada</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>
-                                            <i class="fas fa-calendar-times me-1 text-muted"></i>Fecha Expiración:
-                                        </th>
-                                        <td>
-                                            {% if playlist.expiration_date %}
-                                                {{ playlist.expiration_date.strftime('%Y-%m-%d %H:%M') }}
-                                            {% else %}
-                                                <span class="text-muted">Sin expiración</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+    <!-- CONTENEDOR PRINCIPAL: VIDEOS Y BIBLIOTECA -->
+    <div class="row">
+        <!-- PANEL IZQUIERDO: VIDEOS DE LA PLAYLIST -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-gradient-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list-ol me-2"></i>Videos en la Lista
+                        </h5>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-light text-dark me-2" id="playlistVideoCount">
+                                {{ playlist.videos|length if playlist.videos else 0 }} videos
+                            </span>
+                            <button class="btn btn-outline-light btn-sm" onclick="loadPlaylistData()" title="Recargar">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div> -->
-
-    <!-- CONTENEDOR PRINCIPAL CON DOS COLUMNAS -->
-    <div class="row mb-4">
-        <!-- PANEL IZQUIERDO: VIDEOS DE LA PLAYLIST -->
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-list me-2"></i>Videos en la Lista
-                    </h5>
-                </div>
                 <div class="card-body p-0">
-                    <!-- Zona de Drop para Videos -->
+                    <!-- Zona de Drop y Lista de Videos -->
                     <div id="playlistDropZone" class="playlist-drop-zone" style="height: 560px; overflow-y: auto;">
-                        <!-- Mensaje de Drop Zone Vacía -->
+                        <!-- Mensaje cuando la lista está vacía -->
                         <div id="emptyPlaylistMessage" class="text-center py-5 m-3" 
-                             style="{{ 'display:none' if playlist and playlist.videos else 'display:block' }}">
+                             style="{{ 'display:none' if playlist.videos else 'display:block' }}">
                             <i class="fas fa-plus-circle fa-3x text-muted mb-3"></i>
                             <h5 class="text-muted">Lista Vacía</h5>
-                            <p class="text-muted">Arrastra videos desde la biblioteca para añadirlos a esta lista</p>
+                            <p class="text-muted mb-3">Arrastra videos desde la biblioteca o usa el botón + para añadir contenido</p>
+                            <button class="btn btn-outline-primary" onclick="showAddVideosModal()">
+                                <i class="fas fa-plus-circle me-1"></i> Agregar Videos
+                            </button>
                         </div>
                         
-                        <!-- Lista Ordenable de Videos -->
+                        <!-- Lista de Videos (cargada dinámicamente y desde template) -->
                         <div id="playlistVideosList" class="p-2">
-                            {% if playlist and playlist.videos %}
+                            {% if playlist.videos %}
                                 {% for video in playlist.videos %}
-                                <div class="playlist-video-item" data-video-id="{{ video.id }}" data-order="{{ loop.index }}">
-                                    <div class="card mb-2 video-card">
+                                <div class="playlist-video-item mb-2 fade-in" data-video-id="{{ video.id }}" data-order="{{ video.order or loop.index }}">
+                                    <div class="card border-0 shadow-sm position-relative">
+                                        <!-- Indicador de estado del video -->
+                                        <div class="video-status-indicator {{ 'video-status-active' if video.is_active else 'video-status-inactive' }}"></div>
+                                        
                                         <div class="card-body p-2">
                                             <div class="d-flex align-items-center">
-                                                <div class="drag-handle me-2">
-                                                    <i class="fas fa-grip-vertical text-muted"></i>
+                                                <div class="drag-handle me-2" title="Arrastrar para reordenar">
+                                                    <i class="fas fa-grip-vertical"></i>
                                                 </div>
                                                 <div class="video-thumbnail me-3">
                                                     {% if video.thumbnail %}
@@ -390,16 +325,26 @@
                                                     {% endif %}
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <h6 class="mb-1 video-title">{{ video.title }}</h6>
-                                                    <small class="text-muted video-duration">
-                                                        <span class="badge bg-secondary me-1">{{ loop.index }}</span>
-                                                        {{ video.duration|duration_format if video.duration else '0:00' }}
-                                                    </small>
+                                                    <h6 class="mb-1 video-title fw-bold">{{ video.title }}</h6>
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="badge bg-primary me-2">{{ video.order or loop.index }}</span>
+                                                        <small class="text-muted">
+                                                            {{ video.duration|duration_format if video.duration else '0:00' }}
+                                                        </small>
+                                                        {% if not video.is_active %}
+                                                            <span class="badge bg-warning ms-2">Inactivo</span>
+                                                        {% endif %}
+                                                    </div>
                                                 </div>
-                                                <div class="video-actions">
-                                                    <button class="btn btn-sm btn-outline-danger" 
-                                                            onclick="removeVideoFromPlaylist({{ video.id }})" 
-                                                            title="Eliminar de la lista">
+                                                <div class="btn-group btn-group-sm">
+                                                    <button class="btn btn-outline-primary" 
+                                                            onclick="previewVideo({{ video.id }})"
+                                                            title="Vista previa">
+                                                        <i class="fas fa-play"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-danger" 
+                                                            onclick="removeVideoFromPlaylist({{ video.id }})"
+                                                            title="Quitar de la lista">
                                                         <i class="fas fa-times"></i>
                                                     </button>
                                                 </div>
@@ -412,41 +357,45 @@
                         </div>
                     </div>
                 </div>
-                <div class="card-footer">
+                <div class="card-footer bg-light">
                     <div class="d-flex justify-content-between align-items-center">
                         <small class="text-muted">
-                            <i class="fas fa-sort"></i>
-                            Arrastra para reordenar • Duración: <span id="totalPlaylistDuration">0:00</span>
+                            <i class="fas fa-info-circle me-1"></i>
+                            Arrastra para reordenar • Total: <span id="totalPlaylistDuration">0:00</span>
                         </small>
-                        <button class="btn btn-sm btn-outline-danger" onclick="clearPlaylist()" title="Vaciar lista">
-                            <i class="fas fa-trash"></i> Vaciar
-                        </button>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-success" onclick="showAddVideosModal()" title="Agregar videos">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="clearPlaylist()" title="Vaciar lista">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- PANEL DERECHO: BIBLIOTECA DE VIDEOS -->
-        <!-- PANEL DERECHO: BIBLIOTECA DE VIDEOS -->
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header bg-primary text-white">
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-info text-white">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
-                            <i class="fas fa-video me-2"></i>Biblioteca de Videos
+                            <i class="fas fa-video me-2"></i>Biblioteca
                         </h5>
                         <div class="d-flex align-items-center">
                             <span class="badge bg-light text-dark me-2" id="availableVideoCount">0 videos</span>
-                            <button class="btn btn-outline-light btn-sm" onclick="loadAvailableVideos()" title="Recargar videos">
+                            <button class="btn btn-outline-light btn-sm" onclick="loadAvailableVideos()" title="Recargar">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                         </div>
                     </div>
                 </div>
                 <div class="card-body p-0">
-                    <!-- Búsqueda de Videos -->
-                    <div class="p-3 border-bottom">
-                        <div class="input-group">
+                    <!-- Controles de búsqueda y filtrado -->
+                    <div class="p-3 border-bottom bg-light">
+                        <div class="input-group input-group-sm">
                             <input type="text" id="videoSearch" class="form-control" 
                                    placeholder="Buscar videos...">
                             <button class="btn btn-outline-secondary" type="button" id="clearVideoSearchBtn">
@@ -456,11 +405,10 @@
                     </div>
                     
                     <!-- Lista de Videos Disponibles -->
-                    <div id="availableVideosContainer" class="available-videos-drop-zone" 
-                         style="height: 500px; overflow-y: auto;">
+                    <div id="availableVideosContainer" style="height: 450px; overflow-y: auto;">
                         <div id="availableVideosList" class="p-2">
-                            <!-- Videos disponibles se cargan aquí -->
-                            <div class="text-center py-5" id="loadingAvailableVideos">
+                            <!-- Loading inicial -->
+                            <div class="text-center py-4" id="loadingAvailableVideos">
                                 <div class="spinner-border text-primary" role="status">
                                     <span class="visually-hidden">Cargando...</span>
                                 </div>
@@ -469,10 +417,26 @@
                         </div>
                     </div>
                 </div>
-                <div class="card-footer">
+                <div class="card-footer bg-light">
+                    <!-- Controles de paginación -->
+                    <div class="pagination-container d-none">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                Página <span id="currentPage">1</span> de <span id="totalPages">1</span>
+                            </small>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" id="prevPageBtn" onclick="goToPrevPage()" disabled>
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary" id="nextPageBtn" onclick="goToNextPage()">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <small class="text-muted">
-                        <i class="fas fa-info-circle"></i>
-                        Arrastra videos hacia la lista de reproducción
+                        <i class="fas fa-hand-point-right me-1"></i>
+                        Arrastra videos hacia la lista o usa <i class="fas fa-plus"></i>
                     </small>
                 </div>
             </div>
@@ -480,48 +444,52 @@
     </div>
 
     <!-- SECCIÓN DE DISPOSITIVOS ASIGNADOS -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="fas fa-tv me-2"></i>Dispositivos Asignados
-                </h5>
-                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#assignDeviceModal">
-                    <i class="fas fa-plus-circle me-1"></i> Asignar Dispositivo
-                </button>
-            </div>
-            <div class="card-body p-0">
-                <div id="loadingAssignedDevices" class="text-center py-3 d-none">
-                    <div class="spinner-border spinner-border-sm text-primary" role="status">
-                        <span class="visually-hidden">Cargando...</span>
-                    </div>
-                    <p class="mt-1 text-muted small">Cargando dispositivos asignados...</p>
-                </div>
-                
-                <div id="assignedDevicesEmpty" class="text-center py-4">
-                    <i class="fas fa-tv fa-2x text-muted mb-3"></i>
-                    <p class="text-muted mb-2">No hay dispositivos asignados a esta lista</p>
-                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#assignDeviceModal">
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-gradient-secondary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tv me-2"></i>Dispositivos Asignados
+                    </h5>
+                    <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#assignDeviceModal">
                         <i class="fas fa-plus-circle me-1"></i> Asignar Dispositivo
                     </button>
                 </div>
-                
-                <div id="assignedDevicesTable" class="table-responsive d-none">
-                    <table class="table table-hover table-striped mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Dispositivo</th>
-                                <th>Ubicación</th>
-                                <th>Estado</th>
-                                <th>Última Conexión</th>
-                                <th class="text-end">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="assignedDevicesList">
-                            <!-- Los dispositivos asignados se cargarán aquí -->
-                        </tbody>
-                    </table>
+                <div class="card-body p-0">
+                    <!-- Loading de dispositivos asignados -->
+                    <div id="loadingAssignedDevices" class="text-center py-3 d-none">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-1 text-muted small">Cargando dispositivos asignados...</p>
+                    </div>
+                    
+                    <!-- Mensaje cuando no hay dispositivos -->
+                    <div id="assignedDevicesEmpty" class="text-center py-4">
+                        <i class="fas fa-tv fa-2x text-muted mb-3"></i>
+                        <p class="text-muted mb-2">No hay dispositivos asignados a esta lista</p>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#assignDeviceModal">
+                            <i class="fas fa-plus-circle me-1"></i> Asignar Dispositivo
+                        </button>
+                    </div>
+                    
+                    <!-- Tabla de dispositivos asignados -->
+                    <div id="assignedDevicesTable" class="table-responsive d-none">
+                        <table class="table table-hover table-striped mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Dispositivo</th>
+                                    <th>Ubicación</th>
+                                    <th>Estado</th>
+                                    <th>Última Conexión</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assignedDevicesList">
+                                <!-- Los dispositivos asignados se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -533,14 +501,16 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="assignDeviceModalLabel">Asignar Dispositivos</h5>
+                <h5 class="modal-title" id="assignDeviceModalLabel">
+                    <i class="fas fa-tv me-2"></i>Asignar Dispositivos
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 <!-- Buscador de dispositivos -->
                 <div class="mb-3">
                     <div class="input-group">
-                        <input type="text" id="deviceSearchInput" class="form-control" placeholder="Buscar dispositivos...">
+                        <input type="text" id="deviceSearchInput" class="form-control" placeholder="Buscar dispositivos por nombre, ubicación o MAC...">
                         <button class="btn btn-outline-secondary" type="button" id="clearDeviceSearch">
                             <i class="fas fa-times"></i>
                         </button>
@@ -558,9 +528,9 @@
                 </div>
                 
                 <!-- Tabla de dispositivos -->
-                <div id="availableDevicesTable" class="table-responsive">
-                    <table class="table table-hover table-sm">
-                        <thead class="table-light">
+                <div id="availableDevicesTable" class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead class="table-light sticky-top">
                             <tr>
                                 <th style="width: 50px;"></th>
                                 <th>Dispositivo</th>
@@ -583,1199 +553,258 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="saveDeviceAssignments">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="saveDeviceAssignments" disabled>
                     <i class="fas fa-save me-1"></i> Guardar Asignaciones
                 </button>
             </div>
         </div>
     </div>
 </div>
+
+<!-- MODAL PARA VISTA PREVIA DE VIDEO -->
+<div class="modal fade" id="videoPreviewModal" tabindex="-1" aria-labelledby="videoPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="videoPreviewModalTitle">Vista Previa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="ratio ratio-16x9">
+                    <video id="previewVideoPlayer" class="w-100" controls>
+                        Tu navegador no soporta el elemento video.
+                    </video>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Indicator -->
+<div id="loadingIndicator" class="position-fixed top-0 start-0 w-100 h-100 d-none" 
+     style="background-color: rgba(0,0,0,0.5); z-index: 9998;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="card shadow">
+            <div class="card-body text-center">
+                <div class="spinner-border text-primary mb-2" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mb-0">Procesando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
-<!-- SCRIPTS -->
+
 {% block extra_scripts %}
+    <!-- Script principal de playlist -->
     <script src="/static/js/playlist_detail.js"></script>
-
-<script>
-// Constants
-const API_URL = window.location.origin + '/api';
-const playlistId = document.getElementById('playlist-id')?.value;
-
-// DOM Elements
-const videoSearchInput = document.getElementById('videoSearch');
-const clearVideoSearchBtn = document.getElementById('clearVideoSearchBtn');
-const availableVideosList = document.getElementById('availableVideosList');
-const playlistVideosList = document.getElementById('playlistVideosList');
-const loadingAvailableVideos = document.getElementById('loadingAvailableVideos');
-const emptyPlaylistMessage = document.getElementById('emptyPlaylistMessage');
-const availableVideoCount = document.getElementById('availableVideoCount');
-const totalPlaylistDuration = document.getElementById('totalPlaylistDuration');
-
-// Initialize the page
-document.addEventListener('DOMContentLoaded', function() {
-    // Load available videos
-    loadAvailableVideos();
     
-    // Set up search functionality
-    setupSearchFilter();
+    <!-- Script específico del modal de dispositivos -->
+    <script src="/static/js/device-assignment-modal.js"></script>
     
-    // Initialize drag and drop
-    initializeDragAndDrop();
+    <!-- Script para gestionar dispositivos asignados -->
+    <script src="/static/js/assigned-devices-manager.js"></script>
     
-    // Calculate total duration
-    calculateTotalDuration();
-});
-
-// Load available videos from API
-async function loadAvailableVideos() {
-    loadingAvailableVideos.style.display = 'block';
-    availableVideosList.innerHTML = '';
+    <!-- Script adicional para funcionalidades específicas de vista -->
+    <script>
+    // ==========================================
+    // FUNCIONES ESPECÍFICAS DE LA VISTA
+    // ==========================================
     
-    try {
-        const response = await fetch(`${API_URL}/videos?available=true`);
-        if (!response.ok) throw new Error('Failed to load videos');
-        
-        const videos = await response.json();
-        
-        loadingAvailableVideos.style.display = 'none';
-        
-        if (videos.length === 0) {
-            availableVideosList.innerHTML = `
-                <div class="text-center py-4">
-                    <i class="fas fa-film fa-2x text-muted mb-3"></i>
-                    <h6>No hay videos disponibles</h6>
-                    <p class="text-muted">Sube videos para agregarlos a la lista</p>
-                </div>
-            `;
-            availableVideoCount.textContent = '0 videos';
+    /**
+     * Función para editar información de la playlist
+     */
+    function editPlaylistInfo() {
+        // Aquí puedes abrir un modal de edición o redirigir a página de edición
+        const editUrl = `/ui/playlists/${getPlaylistId()}/edit`;
+        window.location.href = editUrl;
+    }
+    
+    /**
+     * Función para confirmar eliminación de playlist
+     */
+    function confirmDeletePlaylist() {
+        if (confirm('¿Estás seguro de que deseas eliminar esta lista de reproducción? Esta acción no se puede deshacer.')) {
+            deletePlaylist();
+        }
+    }
+    
+    /**
+     * Función para eliminar playlist
+     */
+    async function deletePlaylist() {
+        const playlistId = getPlaylistId();
+        if (!playlistId) {
+            showToast('Error: No se pudo determinar el ID de la playlist', 'error');
             return;
         }
-        
-        availableVideoCount.textContent = `${videos.length} videos`;
-        
-        // Render each video
-        videos.forEach(video => {
-            const videoElement = createVideoElement(video, 'library');
-            availableVideosList.appendChild(videoElement);
-        });
-    } catch (error) {
-        console.error('Error loading videos:', error);
-        loadingAvailableVideos.style.display = 'none';
-        availableVideosList.innerHTML = `
-            <div class="text-center py-4 text-danger">
-                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
-                <h6>Error al cargar videos</h6>
-                <p>No se pudieron cargar los videos. Intente de nuevo.</p>
-                <button class="btn btn-outline-primary" onclick="loadAvailableVideos()">
-                    <i class="fas fa-sync-alt me-1"></i>Reintentar
-                </button>
-            </div>
-        `;
-    }
-}
-
-// Create a video element for display
-function createVideoElement(video, type) {
-    const videoDiv = document.createElement('div');
-    videoDiv.className = type === 'library' ? 'available-video-item mb-2' : 'playlist-video-item';
-    videoDiv.dataset.videoId = video.id;
-    
-    if (type === 'playlist') {
-        videoDiv.draggable = true;
-        videoDiv.dataset.order = video.order || 0;
-    }
-    
-    const thumbnailSrc = video.thumbnail || '';
-    const thumbnailHtml = thumbnailSrc 
-        ? `<img src="${thumbnailSrc}" alt="Thumbnail" class="img-thumbnail" style="width: 60px; height: 45px; object-fit: cover;">`
-        : `<div class="bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 60px; height: 45px; border-radius: 0.25rem;"><i class="fas fa-video"></i></div>`;
-    
-    videoDiv.innerHTML = `
-        <div class="card video-card">
-            <div class="card-body p-2">
-                <div class="d-flex align-items-center">
-                    ${type === 'playlist' ? '<div class="drag-handle me-2"><i class="fas fa-grip-vertical text-muted"></i></div>' : ''}
-                    <div class="video-thumbnail me-3">
-                        ${thumbnailHtml}
-                    </div>
-                    <div class="flex-grow-1">
-                        <h6 class="mb-1 video-title">${video.title}</h6>
-                        <small class="text-muted video-duration">
-                            ${type === 'playlist' ? `<span class="badge bg-secondary me-1">${video.order || ''}</span>` : ''}
-                            ${formatDuration(video.duration)}
-                        </small>
-                    </div>
-                    <div class="video-actions">
-                        ${type === 'library' 
-                            ? `<button class="btn btn-sm btn-outline-primary" onclick="addVideoToPlaylist(${video.id})" title="Agregar a la lista"><i class="fas fa-plus"></i></button>`
-                            : `<button class="btn btn-sm btn-outline-danger" onclick="removeVideoFromPlaylist(${video.id})" title="Eliminar de la lista"><i class="fas fa-times"></i></button>`
-                        }
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // If it's a library video, make it draggable
-    if (type === 'library') {
-        videoDiv.draggable = true;
-        videoDiv.addEventListener('dragstart', e => {
-            e.dataTransfer.setData('text/plain', video.id);
-            e.dataTransfer.effectAllowed = 'copy';
-        });
-    }
-    
-    return videoDiv;
-}
-
-// Initialize drag and drop functionality
-function initializeDragAndDrop() {
-    const dropZone = document.getElementById('playlistDropZone');
-    
-    // Make playlist items draggable
-    const playlistItems = document.querySelectorAll('.playlist-video-item');
-    playlistItems.forEach(item => {
-        item.draggable = true;
-        
-        item.addEventListener('dragstart', e => {
-            e.dataTransfer.setData('text/plain', item.dataset.videoId);
-            e.dataTransfer.setData('source', 'playlist');
-            e.dataTransfer.effectAllowed = 'move';
-            item.classList.add('dragging');
-        });
-        
-        item.addEventListener('dragend', () => {
-            item.classList.remove('dragging');
-        });
-    });
-    
-    // Set up drop zone
-    dropZone.addEventListener('dragover', e => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        dropZone.classList.add('highlight-drop-zone');
-        
-        // Find the position to insert
-        const afterElement = getDragAfterElement(playlistVideosList, e.clientY);
-        const draggable = document.querySelector('.dragging');
-        
-        if (draggable && afterElement) {
-            playlistVideosList.insertBefore(draggable, afterElement);
-        } else if (draggable) {
-            playlistVideosList.appendChild(draggable);
-        }
-    });
-    
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('highlight-drop-zone');
-    });
-    
-    dropZone.addEventListener('drop', async e => {
-        e.preventDefault();
-        dropZone.classList.remove('highlight-drop-zone');
-        
-        const videoId = e.dataTransfer.getData('text/plain');
-        const source = e.dataTransfer.getData('source');
-        
-        if (source === 'playlist') {
-            // Reorder in playlist
-            await updatePlaylistOrder();
-        } else {
-            // Add from library
-            await addVideoToPlaylist(videoId);
-        }
-    });
-}
-
-// Helper to determine drop position
-function getDragAfterElement(container, y) {
-    const draggableElements = [...container.querySelectorAll('.playlist-video-item:not(.dragging)')];
-    
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-        
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-        } else {
-            return closest;
-        }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
-}
-
-// Add a video to the playlist
-async function addVideoToPlaylist(videoId) {
-    try {
-        // Get current order numbers
-        const playlistItems = document.querySelectorAll('.playlist-video-item');
-        const order = playlistItems.length + 1;
-        
-        const response = await fetch(`${API_URL}/playlists/${playlistId}/videos`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                video_id: parseInt(videoId),
-                order: order
-            })
-        });
-        
-        if (!response.ok) throw new Error('Failed to add video');
-        
-        // Reload the page to reflect changes
-        window.location.reload();
-    } catch (error) {
-        console.error('Error adding video:', error);
-        alert('Error al agregar el video a la lista');
-    }
-}
-
-// Update the order of videos in the playlist
-async function updatePlaylistOrder() {
-    try {
-        // Get all videos in their current order
-        const playlistItems = document.querySelectorAll('.playlist-video-item');
-        const videos = [];
-        
-        playlistItems.forEach((item, index) => {
-            videos.push({
-                video_id: parseInt(item.dataset.videoId),
-                order: index + 1
-            });
-            
-            // Update order badge
-            const orderBadge = item.querySelector('.badge');
-            if (orderBadge) orderBadge.textContent = index + 1;
-        });
-        
-        const response = await fetch(`${API_URL}/playlists/${playlistId}/reorder`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ videos })
-        });
-        
-        if (!response.ok) throw new Error('Failed to update order');
-        
-        // Update local UI
-        calculateTotalDuration();
-    } catch (error) {
-        console.error('Error updating order:', error);
-        alert('Error al actualizar el orden de los videos');
-    }
-}
-
-// Calculate total playlist duration
-function calculateTotalDuration() {
-    const playlistItems = document.querySelectorAll('.playlist-video-item');
-    let totalSeconds = 0;
-    
-    playlistItems.forEach(item => {
-        const durationText = item.querySelector('.video-duration').textContent;
-        // Extract time part (remove the order badge)
-        const timePart = durationText.split(/\s+/).pop();
-        totalSeconds += durationToSeconds(timePart);
-    });
-    
-    totalPlaylistDuration.textContent = formatDuration(totalSeconds);
-    
-    // Show/hide empty message
-    emptyPlaylistMessage.style.display = playlistItems.length === 0 ? 'block' : 'none';
-}
-
-// Convert duration string to seconds
-function durationToSeconds(duration) {
-    if (!duration || duration === '0:00') return 0;
-    
-    const parts = duration.split(':').map(p => parseInt(p));
-    if (parts.length === 3) {
-        return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    } else if (parts.length === 2) {
-        return parts[0] * 60 + parts[1];
-    } else {
-        return parseInt(duration) || 0;
-    }
-}
-
-// Format seconds to HH:MM:SS or MM:SS
-function formatDuration(seconds) {
-    if (!seconds) return '0:00';
-    
-    seconds = parseInt(seconds);
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    if (hours > 0) {
-        return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    } else {
-        return `${minutes}:${secs.toString().padStart(2, '0')}`;
-    }
-}
-
-// Set up search filter functionality
-function setupSearchFilter() {
-    if (!videoSearchInput || !clearVideoSearchBtn) return;
-    
-    videoSearchInput.addEventListener('input', filterVideos);
-    
-    clearVideoSearchBtn.addEventListener('click', () => {
-        videoSearchInput.value = '';
-        filterVideos();
-    });
-}
-
-// Filter videos based on search input
-function filterVideos() {
-    const searchTerm = videoSearchInput.value.toLowerCase().trim();
-    const videos = document.querySelectorAll('.available-video-item');
-    
-    videos.forEach(video => {
-        const title = video.querySelector('.video-title').textContent.toLowerCase();
-        if (title.includes(searchTerm) || searchTerm === '') {
-            video.style.display = 'block';
-        } else {
-            video.style.display = 'none';
-        }
-    });
-}
-
-// Add multiple videos to the playlist
-function addVideosToPlaylist() {
-    // Open a modal to select multiple videos
-    const modal = document.createElement('div');
-    modal.className = 'modal fade';
-    modal.id = 'addVideosModal';
-    modal.setAttribute('tabindex', '-1');
-    modal.setAttribute('aria-hidden', 'true');
-    
-    modal.innerHTML = `
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Agregar Videos a la Lista</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <input type="text" class="form-control" id="modalVideoSearch" placeholder="Buscar videos...">
-                    </div>
-                    <div id="modalVideosList" style="max-height: 400px; overflow-y: auto;">
-                        <div class="text-center py-3">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Cargando...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="addSelectedVideos">Agregar Seleccionados</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // Initialize Bootstrap modal
-    const modalInstance = new bootstrap.Modal(modal);
-    modalInstance.show();
-    
-    // Load videos in modal
-    loadVideosForModal();
-    
-    // Handle search in modal
-    const modalSearchInput = document.getElementById('modalVideoSearch');
-    modalSearchInput.addEventListener('input', () => {
-        const searchTerm = modalSearchInput.value.toLowerCase().trim();
-        const videos = document.querySelectorAll('#modalVideosList .video-item');
-        
-        videos.forEach(video => {
-            const title = video.querySelector('.video-title').textContent.toLowerCase();
-            if (title.includes(searchTerm) || searchTerm === '') {
-                video.style.display = 'block';
-            } else {
-                video.style.display = 'none';
-            }
-        });
-    });
-    
-    // Handle add selected
-    const addSelectedBtn = document.getElementById('addSelectedVideos');
-    addSelectedBtn.addEventListener('click', async () => {
-        const selectedVideos = document.querySelectorAll('#modalVideosList input[type="checkbox"]:checked');
-        if (selectedVideos.length === 0) {
-            alert('Seleccione al menos un video para agregar');
-            return;
-        }
-        
-        const videoIds = Array.from(selectedVideos).map(cb => parseInt(cb.value));
         
         try {
-            const response = await fetch(`${API_URL}/playlists/${playlistId}/videos/batch`, {
-                method: 'POST',
+            showLoadingState('Eliminando lista de reproducción...');
+            
+            const response = await fetch(`${API_URL}/playlists/${playlistId}`, {
+                method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    video_ids: videoIds
-                })
+                    'Content-Type': 'application/json'
+                }
             });
-            
-            if (!response.ok) throw new Error('Failed to add videos');
-            
-            modalInstance.hide();
-            window.location.reload();
-        } catch (error) {
-            console.error('Error adding videos:', error);
-            alert('Error al agregar los videos seleccionados');
-        }
-    });
-    
-    // Clean up on modal close
-    modal.addEventListener('hidden.bs.modal', () => {
-        document.body.removeChild(modal);
-    });
-}
 
-// Load videos for the modal
-async function loadVideosForModal() {
-    const modalVideosList = document.getElementById('modalVideosList');
-    
-    try {
-        const response = await fetch(`${API_URL}/videos?available=true`);
-        if (!response.ok) throw new Error('Failed to load videos');
-        
-        const videos = await response.json();
-        
-        if (videos.length === 0) {
-            modalVideosList.innerHTML = `
-                <div class="text-center py-4">
-                    <i class="fas fa-film fa-2x text-muted mb-3"></i>
-                    <h6>No hay videos disponibles</h6>
-                    <p class="text-muted">Sube videos para agregarlos a la lista</p>
-                </div>
-            `;
-            return;
-        }
-        
-        modalVideosList.innerHTML = '';
-        
-        // Get current playlist videos to exclude
-        const currentPlaylistVideoIds = Array.from(
-            document.querySelectorAll('.playlist-video-item')
-        ).map(item => parseInt(item.dataset.videoId));
-        
-        // Render each video with checkbox
-        videos.forEach(video => {
-            // Skip videos already in playlist
-            if (currentPlaylistVideoIds.includes(video.id)) return;
-            
-            const videoDiv = document.createElement('div');
-            videoDiv.className = 'video-item mb-2';
-            
-            const thumbnailSrc = video.thumbnail || '';
-            const thumbnailHtml = thumbnailSrc 
-                ? `<img src="${thumbnailSrc}" alt="Thumbnail" class="img-thumbnail" style="width: 60px; height: 45px; object-fit: cover;">`
-                : `<div class="bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 60px; height: 45px; border-radius: 0.25rem;"><i class="fas fa-video"></i></div>`;
-            
-            videoDiv.innerHTML = `
-                <div class="card">
-                    <div class="card-body p-2">
-                        <div class="d-flex align-items-center">
-                            <div class="form-check me-2">
-                                <input class="form-check-input" type="checkbox" value="${video.id}" id="video-${video.id}">
-                            </div>
-                            <div class="video-thumbnail me-3">
-                                ${thumbnailHtml}
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1 video-title">${video.title}</h6>
-                                <small class="text-muted">${formatDuration(video.duration)}</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            modalVideosList.appendChild(videoDiv);
-        });
-    } catch (error) {
-        console.error('Error loading videos for modal:', error);
-        modalVideosList.innerHTML = `
-            <div class="text-center py-4 text-danger">
-                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
-                <h6>Error al cargar videos</h6>
-                <p>No se pudieron cargar los videos. Intente de nuevo.</p>
-            </div>
-        `;
-    }
-}
-
-// Clear all videos from playlist
-async function clearPlaylist() {
-    if (!confirm('¿Estás seguro de vaciar toda la lista? Esta acción eliminará todos los videos de la lista.')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_URL}/playlists/${playlistId}/videos/clear`, {
-            method: 'DELETE'
-        });
-        
-        if (!response.ok) throw new Error('Failed to clear playlist');
-        
-        window.location.reload();
-    } catch (error) {
-        console.error('Error clearing playlist:', error);
-        alert('Error al vaciar la lista de reproducción');
-    }
-}
-
-// Function to assign devices
-async function assignDevices() {
-    // Create modal for device selection
-    const modal = document.createElement('div');
-    modal.className = 'modal fade';
-    modal.id = 'assignDevicesModal';
-    modal.setAttribute('tabindex', '-1');
-    modal.setAttribute('aria-hidden', 'true');
-    
-    modal.innerHTML = `
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Asignar Dispositivos</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <input type="text" class="form-control" id="deviceSearch" placeholder="Buscar dispositivos...">
-                    </div>
-                    <div id="devicesList" style="max-height: 400px; overflow-y: auto;">
-                        <div class="text-center py-3">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Cargando...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="assignSelectedDevices">Asignar Seleccionados</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // Initialize Bootstrap modal
-    const modalInstance = new bootstrap.Modal(modal);
-    modalInstance.show();
-    
-    // Load devices
-    loadDevicesForModal();
-    
-    // Handle search
-    const deviceSearchInput = document.getElementById('deviceSearch');
-    deviceSearchInput.addEventListener('input', () => {
-        const searchTerm = deviceSearchInput.value.toLowerCase().trim();
-        const devices = document.querySelectorAll('#devicesList .device-item');
-        
-        devices.forEach(device => {
-            const name = device.querySelector('.device-name').textContent.toLowerCase();
-            const location = device.querySelector('.device-location').textContent.toLowerCase();
-            
-            if (name.includes(searchTerm) || location.includes(searchTerm) || searchTerm === '') {
-                device.style.display = 'block';
-            } else {
-                device.style.display = 'none';
+            if (!response.ok) {
+                throw new Error('Error al eliminar la playlist');
             }
-        });
-    });
-    
-    // Handle assign selected
-    const assignBtn = document.getElementById('assignSelectedDevices');
-    assignBtn.addEventListener('click', async () => {
-        const selectedDevices = document.querySelectorAll('#devicesList input[type="checkbox"]:checked');
-        if (selectedDevices.length === 0) {
-            alert('Seleccione al menos un dispositivo para asignar');
-            return;
+            
+            showToast('Lista de reproducción eliminada correctamente', 'success');
+            
+            // Redirigir a la lista de playlists después de un breve delay
+            setTimeout(() => {
+                window.location.href = '/ui/playlists';
+            }, 1500);
+            
+        } catch (error) {
+            console.error('Error eliminando playlist:', error);
+            hideLoadingState();
+            showToast(`Error al eliminar la playlist: ${error.message}`, 'error');
         }
-        
-        const deviceIds = Array.from(selectedDevices).map(cb => cb.value);
+    }
+
+    // Hacer funciones disponibles globalmente
+    window.editPlaylistInfo = editPlaylistInfo;
+    window.confirmDeletePlaylist = confirmDeletePlaylist;
+    window.deletePlaylist = deletePlaylist;
+    window.showAddVideosModal = showAddVideosModal;
+    window.exportPlaylist = exportPlaylist;
+    window.formatDuration = formatDuration;
+    window.formatDurationsOnPage = formatDurationsOnPage;
+    
+    /**
+     * Mostrar modal para agregar múltiples videos
+     */
+    function showAddVideosModal() {
+        // Implementar modal para selección múltiple de videos
+        showToast('Función de agregar múltiples videos en desarrollo', 'info');
+    }
+    
+    /**
+     * Función para exportar playlist
+     */
+    function exportPlaylist() {
+        // Implementar opciones de exportación (JSON, CSV, PDF)
+        showToast('Función de exportación en desarrollo', 'info');
+    }
+    
+    /**
+     * Cargar dispositivos asignados en las estadísticas
+     */
+    async function loadAssignedDevicesCount() {
+        const playlistId = getPlaylistId();
+        if (!playlistId) return;
         
         try {
-            const response = await fetch(`${API_URL}/device-playlists/batch`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    device_ids: deviceIds,
-                    playlist_id: parseInt(playlistId)
-                })
-            });
-            
-            if (!response.ok) throw new Error('Failed to assign devices');
-            
-            modalInstance.hide();
-            window.location.reload();
+            const response = await fetch(`${API_URL}/device-playlists/playlist/${playlistId}/devices`);
+            if (response.ok) {
+                const devices = await response.json();
+                const countElement = document.getElementById('assignedDevices');
+                if (countElement) {
+                    countElement.textContent = devices.length;
+                }
+                
+                // Guardar datos para uso posterior
+                window.assignedDevicesData = devices;
+            }
         } catch (error) {
-            console.error('Error assigning devices:', error);
-            alert('Error al asignar los dispositivos seleccionados');
+            console.error('Error cargando dispositivos asignados:', error);
         }
-    });
-    
-    // Clean up on modal close
-    modal.addEventListener('hidden.bs.modal', () => {
-        document.body.removeChild(modal);
-    });
-}
-
-// Load devices for the modal
-async function loadDevicesForModal() {
-    const devicesList = document.getElementById('devicesList');
-    
-    try {
-        const response = await fetch(`${API_URL}/devices?available=true`);
-        if (!response.ok) throw new Error('Failed to load devices');
-        
-        const devices = await response.json();
-        
-        if (devices.length === 0) {
-            devicesList.innerHTML = `
-                <div class="text-center py-4">
-                    <i class="fas fa-tv fa-2x text-muted mb-3"></i>
-                    <h6>No hay dispositivos disponibles</h6>
-                    <p class="text-muted">Registre dispositivos para asignarlos a esta lista</p>
-                </div>
-            `;
-            return;
-        }
-        
-        devicesList.innerHTML = '';
-        
-        // Get currently assigned devices to exclude
-        const currentAssignedDeviceIds = Array.from(
-            document.querySelectorAll('table tbody tr')
-        ).map(row => {
-            const deviceId = row.querySelector('td:first-child small').textContent;
-            return deviceId;
-        });
-        
-        // Render each device with checkbox
-        devices.forEach(device => {
-            // Skip already assigned devices
-            if (currentAssignedDeviceIds.includes(device.device_id)) return;
-            
-            const deviceDiv = document.createElement('div');
-            deviceDiv.className = 'device-item mb-2';
-            
-            deviceDiv.innerHTML = `
-                <div class="card">
-                    <div class="card-body p-2">
-                        <div class="d-flex align-items-center">
-                            <div class="form-check me-2">
-                                <input class="form-check-input" type="checkbox" value="${device.device_id}" id="device-${device.device_id}">
-                            </div>
-                            <div class="me-3">
-                                <i class="fas fa-tv fa-2x text-primary"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1 device-name">${device.name}</h6>
-                                <small class="text-muted device-location">${device.location} - ${device.tienda || 'N/A'}</small>
-                            </div>
-                            <div>
-                                ${device.is_active 
-                                    ? '<span class="badge bg-success">Activo</span>' 
-                                    : '<span class="badge bg-danger">Inactivo</span>'}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            devicesList.appendChild(deviceDiv);
-        });
-    } catch (error) {
-        console.error('Error loading devices:', error);
-        devicesList.innerHTML = `
-            <div class="text-center py-4 text-danger">
-                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
-                <h6>Error al cargar dispositivos</h6>
-                <p>No se pudieron cargar los dispositivos. Intente de nuevo.</p>
-            </div>
-        `;
     }
-}
-
-// Function to preview playlist
-function previewPlaylist() {
-    // Create modal for preview
-    const modal = document.createElement('div');
-    modal.className = 'modal fade';
-    modal.id = 'previewPlaylistModal';
-    modal.setAttribute('tabindex', '-1');
-    modal.setAttribute('aria-hidden', 'true');
     
-    modal.innerHTML = `
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Vista Previa: ${document.querySelector('h1').textContent}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-0">
-                    <div id="previewPlayer" class="ratio ratio-16x9">
-                        <div class="d-flex align-items-center justify-content-center bg-dark text-white">
-                            <div class="text-center">
-                                <div class="spinner-border" role="status">
-                                    <span class="visually-hidden">Cargando...</span>
-                                </div>
-                                <p class="mt-3">Cargando reproductor...</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <h6 id="currentVideoTitle">Cargando...</h6>
-                                <small class="text-muted" id="currentVideoInfo"></small>
-                            </div>
-                            <div>
-                                <button id="prevVideoBtn" class="btn btn-sm btn-outline-secondary" disabled>
-                                    <i class="fas fa-step-backward"></i>
-                                </button>
-                                <button id="playPauseBtn" class="btn btn-sm btn-primary">
-                                    <i class="fas fa-play"></i>
-                                </button>
-                                <button id="nextVideoBtn" class="btn btn-sm btn-outline-secondary">
-                                    <i class="fas fa-step-forward"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="progress mb-3" style="height: 8px;">
-                            <div id="videoProgressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
-                        </div>
-                        <div class="list-group" id="previewPlaylistItems" style="max-height: 200px; overflow-y: auto;">
-                            <!-- Items se cargan dinámicamente -->
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // Initialize Bootstrap modal
-    const modalInstance = new bootstrap.Modal(modal);
-    modalInstance.show();
-    
-    // Load preview player
-    loadPreviewPlayer();
-    
-    // Clean up on modal close
-    modal.addEventListener('hidden.bs.modal', () => {
-        document.body.removeChild(modal);
-    });
-}
-
-// Load preview player
-async function loadPreviewPlayer() {
-    const previewPlayer = document.getElementById('previewPlayer');
-    const previewPlaylistItems = document.getElementById('previewPlaylistItems');
-    
-    try {
-        // Get playlist videos
-        const response = await fetch(`${API_URL}/playlists/${playlistId}/videos`);
-        if (!response.ok) throw new Error('Failed to load playlist videos');
+    /**
+     * Formatear duraciones en la página
+     */
+    function formatDurationsOnPage() {
+        const durationElements = document.querySelectorAll('.video-duration[data-duration]');
+        let totalSeconds = 0;
         
-        const videos = await response.json();
-        
-        if (videos.length === 0) {
-            previewPlayer.innerHTML = `
-                <div class="d-flex align-items-center justify-content-center bg-dark text-white h-100">
-                    <div class="text-center">
-                        <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
-                        <h5>No hay videos en esta lista</h5>
-                        <p>Agregue videos para poder reproducir la lista</p>
-                    </div>
-                </div>
-            `;
-            previewPlaylistItems.innerHTML = '';
-            return;
-        }
-        
-        // Create playlist items
-        videos.forEach((video, index) => {
-            const item = document.createElement('a');
-            item.href = '#';
-            item.className = `list-group-item list-group-item-action ${index === 0 ? 'active' : ''}`;
-            item.dataset.videoId = video.id;
-            item.dataset.videoIndex = index;
-            
-            const thumbnailSrc = video.thumbnail || '';
-            const thumbnailHtml = thumbnailSrc 
-                ? `<img src="${thumbnailSrc}" alt="Thumbnail" class="img-thumbnail" style="width: 40px; height: 30px; object-fit: cover;">`
-                : `<div class="bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 40px; height: 30px; border-radius: 0.25rem;"><i class="fas fa-video"></i></div>`;
-            
-            item.innerHTML = `
-                <div class="d-flex align-items-center">
-                    <div class="me-2">${thumbnailHtml}</div>
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between">
-                            <div>${video.title}</div>
-                            <small>${formatDuration(video.duration)}</small>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            item.addEventListener('click', (e) => {
-                e.preventDefault();
-                changePreviewVideo(index);
-            });
-            
-            previewPlaylistItems.appendChild(item);
+        durationElements.forEach(element => {
+            const duration = parseInt(element.getAttribute('data-duration')) || 0;
+            element.textContent = formatDuration(duration);
+            totalSeconds += duration;
         });
         
-        // Load first video
-        loadVideoInPlayer(videos[0]);
+        // Actualizar duración total en estadísticas
+        const totalDurationElement = document.getElementById('totalDuration');
+        if (totalDurationElement) {
+            totalDurationElement.textContent = formatDuration(totalSeconds);
+        }
         
-        // Set up controls
-        const prevBtn = document.getElementById('prevVideoBtn');
-        const nextBtn = document.getElementById('nextVideoBtn');
-        const playPauseBtn = document.getElementById('playPauseBtn');
+        // Actualizar duración total en footer
+        const totalPlaylistDurationElement = document.getElementById('totalPlaylistDuration');
+        if (totalPlaylistDurationElement) {
+            totalPlaylistDurationElement.textContent = formatDuration(totalSeconds);
+        }
         
-        prevBtn.addEventListener('click', () => {
-            const currentIndex = parseInt(document.querySelector('#previewPlaylistItems .active').dataset.videoIndex);
-            if (currentIndex > 0) {
-                changePreviewVideo(currentIndex - 1);
+        // Contar videos activos
+        const videoItems = document.querySelectorAll('.playlist-video-item');
+        let activeVideosCount = 0;
+        
+        videoItems.forEach(item => {
+            // Si el item no tiene un badge de "Inactivo", es activo
+            const inactiveBadge = item.querySelector('.badge.bg-warning');
+            if (!inactiveBadge) {
+                activeVideosCount++;
             }
         });
         
-        nextBtn.addEventListener('click', () => {
-            const currentIndex = parseInt(document.querySelector('#previewPlaylistItems .active').dataset.videoIndex);
-            if (currentIndex < videos.length - 1) {
-                changePreviewVideo(currentIndex + 1);
-            }
-        });
-        
-        playPauseBtn.addEventListener('click', togglePlayPause);
-        
-    } catch (error) {
-        console.error('Error loading preview:', error);
-        previewPlayer.innerHTML = `
-            <div class="d-flex align-items-center justify-content-center bg-dark text-white h-100">
-                <div class="text-center">
-                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
-                    <h5>Error al cargar la vista previa</h5>
-                    <p>No se pudo cargar el reproductor</p>
-                </div>
-            </div>
-        `;
+        const activeVideosElement = document.getElementById('activeVideos');
+        if (activeVideosElement) {
+            activeVideosElement.textContent = activeVideosCount;
+        }
     }
-}
-
-// Load video in player
-function loadVideoInPlayer(video) {
-    const previewPlayer = document.getElementById('previewPlayer');
-    const currentVideoTitle = document.getElementById('currentVideoTitle');
-    const currentVideoInfo = document.getElementById('currentVideoInfo');
     
-    // Update info
-    currentVideoTitle.textContent = video.title;
-    currentVideoInfo.textContent = `${formatDuration(video.duration)}`;
-    
-    // Create video element
-    previewPlayer.innerHTML = '';
-    const videoElement = document.createElement('video');
-    videoElement.className = 'w-100 h-100';
-    videoElement.id = 'videoElement';
-    videoElement.controls = false;
-    
-    // Add source
-    const source = document.createElement('source');
-    source.src = video.url || `/videos/${video.id}/stream`;
-    source.type = 'video/mp4';
-    
-    videoElement.appendChild(source);
-    previewPlayer.appendChild(videoElement);
-    
-    // Set up progress tracking
-    const progressBar = document.getElementById('videoProgressBar');
-    videoElement.addEventListener('timeupdate', () => {
-        const percent = (videoElement.currentTime / videoElement.duration) * 100;
-        progressBar.style.width = `${percent}%`;
-    });
-    
-    // Handle video end
-    videoElement.addEventListener('ended', () => {
-        const currentIndex = parseInt(document.querySelector('#previewPlaylistItems .active').dataset.videoIndex);
-        const totalVideos = document.querySelectorAll('#previewPlaylistItems a').length;
+    /**
+     * Formatear duración en segundos a MM:SS o HH:MM:SS
+     */
+    function formatDuration(seconds) {
+        if (!seconds || seconds === 0) return '0:00';
         
-        if (currentIndex < totalVideos - 1) {
-            changePreviewVideo(currentIndex + 1);
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        
+        if (hours > 0) {
+            return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         } else {
-            // Reset to first video or stop
-            changePreviewVideo(0);
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
         }
-    });
-    
-    // Update play/pause button state
-    const playPauseBtn = document.getElementById('playPauseBtn');
-    videoElement.addEventListener('play', () => {
-        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-    });
-    
-    videoElement.addEventListener('pause', () => {
-        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-    });
-    
-    // Auto play
-    videoElement.play().catch(error => {
-        console.warn('Auto-play prevented:', error);
-        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-    });
-    
-    // Update prev/next buttons
-    updateNavigationButtons();
-}
-
-// Change video in preview
-async function changePreviewVideo(index) {
-    // Update active item
-    const items = document.querySelectorAll('#previewPlaylistItems a');
-    items.forEach(item => item.classList.remove('active'));
-    items[index].classList.add('active');
-    
-    // Get video details
-    const videoId = items[index].dataset.videoId;
-    
-    try {
-        const response = await fetch(`${API_URL}/videos/${videoId}`);
-        if (!response.ok) throw new Error('Failed to load video');
-        
-        const video = await response.json();
-        loadVideoInPlayer(video);
-        
-    } catch (error) {
-        console.error('Error loading video:', error);
-        alert('Error al cargar el video');
     }
     
-    // Update navigation buttons
-    updateNavigationButtons();
-}
-
-// Update navigation buttons state
-function updateNavigationButtons() {
-    const currentIndex = parseInt(document.querySelector('#previewPlaylistItems .active').dataset.videoIndex);
-    const totalVideos = document.querySelectorAll('#previewPlaylistItems a').length;
-    
-    const prevBtn = document.getElementById('prevVideoBtn');
-    const nextBtn = document.getElementById('nextVideoBtn');
-    
-    prevBtn.disabled = currentIndex === 0;
-    nextBtn.disabled = currentIndex === totalVideos - 1;
-}
-
-// Toggle play/pause
-function togglePlayPause() {
-    const videoElement = document.getElementById('videoElement');
-    const playPauseBtn = document.getElementById('playPauseBtn');
-    
-    if (videoElement.paused) {
-        videoElement.play();
-        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-    } else {
-        videoElement.pause();
-        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-    }
-}
-
-// Function to export playlist
-function exportPlaylist() {
-    // Create modal for export options
-    const modal = document.createElement('div');
-    modal.className = 'modal fade';
-    modal.id = 'exportPlaylistModal';
-    modal.setAttribute('tabindex', '-1');
-    modal.setAttribute('aria-hidden', 'true');
-    
-    modal.innerHTML = `
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Exportar Lista de Reproducción</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="list-group">
-                        <button class="list-group-item list-group-item-action" onclick="exportAsJson()">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-file-code fa-2x text-primary me-3"></i>
-                                <div>
-                                    <h6 class="mb-1">Exportar como JSON</h6>
-                                    <small class="text-muted">Formato de datos para sistemas</small>
-                                </div>
-                            </div>
-                        </button>
-                        <button class="list-group-item list-group-item-action" onclick="exportAsCsv()">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-file-csv fa-2x text-success me-3"></i>
-                                <div>
-                                    <h6 class="mb-1">Exportar como CSV</h6>
-                                    <small class="text-muted">Compatible con Excel y hojas de cálculo</small>
-                                </div>
-                            </div>
-                        </button>
-                        <button class="list-group-item list-group-item-action" onclick="exportAsPdf()">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-file-pdf fa-2x text-danger me-3"></i>
-                                <div>
-                                    <h6 class="mb-1">Exportar como PDF</h6>
-                                    <small class="text-muted">Documento para imprimir o compartir</small>
-                                </div>
-                            </div>
-                        </button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // Initialize Bootstrap modal
-    const modalInstance = new bootstrap.Modal(modal);
-    modalInstance.show();
-    
-    // Clean up on modal close
-    modal.addEventListener('hidden.bs.modal', () => {
-        document.body.removeChild(modal);
-    });
-    
-    // Define export functions in window scope
-    window.exportAsJson = exportPlaylistAsJson;
-    window.exportAsCsv = exportPlaylistAsCsv;
-    window.exportAsPdf = exportPlaylistAsPdf;
-}
-
-// Export playlist as JSON
-async function exportPlaylistAsJson() {
-    try {
-        // Get playlist details
-        const response = await fetch(`${API_URL}/playlists/${playlistId}?include_videos=true`);
-        if (!response.ok) throw new Error('Failed to load playlist');
+    /**
+     * Inicialización adicional para la vista
+     */
+    document.addEventListener('DOMContentLoaded', function() {
+        // Formatear duraciones en la página
+        formatDurationsOnPage();
         
-        const playlist = await response.json();
+        // Cargar conteo de dispositivos asignados
+        loadAssignedDevicesCount();
         
-        // Convert to JSON and create download
-        const jsonData = JSON.stringify(playlist, null, 2);
-        const blob = new Blob([jsonData], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        // Create download link
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `playlist-${playlistId}.json`;
-        document.body.appendChild(a);
-        a.click();
-        
-        // Clean up
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        // Close modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('exportPlaylistModal'));
-        if (modal) modal.hide();
-        
-    } catch (error) {
-        console.error('Error exporting playlist:', error);
-        alert('Error al exportar la lista de reproducción');
-    }
-}
-
-// Export playlist as CSV
-async function exportPlaylistAsCsv() {
-    try {
-        // Get playlist details
-        const response = await fetch(`${API_URL}/playlists/${playlistId}?include_videos=true`);
-        if (!response.ok) throw new Error('Failed to load playlist');
-        
-        const playlist = await response.json();
-        
-        // Create CSV header
-        let csvContent = 'ID,Orden,Título,Duración,URL\n';
-        
-        // Add video rows
-        if (playlist.videos && playlist.videos.length > 0) {
-            playlist.videos.forEach(video => {
-                const row = [
-                    video.id,
-                    video.order || '',
-                    `"${video.title.replace(/"/g, '""')}"`,
-                    formatDuration(video.duration),
-                    video.url || ''
-                ];
-                csvContent += row.join(',') + '\n';
+        // Configurar tooltips de Bootstrap si están disponibles
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
             });
         }
         
-        // Create download
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        
-        // Create download link
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `playlist-${playlistId}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        
-        // Clean up
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        // Close modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('exportPlaylistModal'));
-        if (modal) modal.hide();
-        
-    } catch (error) {
-        console.error('Error exporting playlist:', error);
-        alert('Error al exportar la lista de reproducción');
-    }
-}
-
-// Export playlist as PDF
-async function exportPlaylistAsPdf() {
-    alert('Función de exportación a PDF en desarrollo');
-    
-    // Cierra el modal
-    const modal = bootstrap.Modal.getInstance(document.getElementById('exportPlaylistModal'));
-    if (modal) modal.hide();
-}
-
-// Initialize the page when loaded
-document.addEventListener('DOMContentLoaded', function() {
-    loadAvailableVideos();
-    calculateTotalDuration();
-    initializeDragAndDrop();
-});
-
-</script>
-
+        // Cargar dispositivos asignados con un pequeño delay para asegurar que todos los scripts estén listos
+        setTimeout(function() {
+            if (typeof window.loadAssignedDevices === 'function') {
+                window.loadAssignedDevices();
+            }
+        }, 1000);
+    });
+    </script>
 {% endblock %}
