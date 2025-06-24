@@ -7,7 +7,7 @@ import logging
 from typing import List, Optional
 from datetime import datetime
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query, Request, Response
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -101,18 +101,55 @@ def get_videos(
         logger.error(f"Error al obtener videos: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al obtener videos: {str(e)}")
 
+# Añade o modifica este endpoint en router/videos.py
+
 @router.get("/{video_id}", response_model=VideoResponse)
-def get_video(video_id: int, db: Session = Depends(get_db)):
+async def get_video(
+    video_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtener información detallada de un video específico.
+    """
     try:
+        # Buscar el video en la base de datos
         video = db.query(Video).filter(Video.id == video_id).first()
-        if video is None:
+        if not video:
             raise HTTPException(status_code=404, detail="Video no encontrado")
-        return video
+        
+        # Verificar si el archivo existe
+        file_exists = os.path.exists(video.file_path) if video.file_path else False
+        
+        # Extraer el nombre del archivo de la ruta completa
+        filename = os.path.basename(video.file_path) if video.file_path else "unknown.mp4"
+        
+        # Crear un objeto VideoResponse con los datos del video
+        # NOTA: Solo incluir atributos que existen en el modelo Video y en el esquema VideoResponse
+        response = {
+            "id": video.id,
+            "title": video.title,
+            "description": video.description,
+            "file_path": video.file_path,
+            "file_size": video.file_size,
+            "upload_date": video.upload_date,
+            "duration": video.duration,
+            "expiration_date": video.expiration_date,
+            # Añadir propiedades adicionales que puedan ser útiles para el frontend
+            "file_exists": file_exists,
+            # No incluir 'filename' como atributo directo, sino extraerlo de file_path
+            # para evitar el error 'Video' object has no attribute 'filename'
+        }
+        
+        # Registrar en el log la consulta
+        logger.info(f"Obteniendo información del video ID {video_id}: {video.title}")
+        
+        return response
+        
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error al obtener video {video_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error al obtener video: {str(e)}")
+        logger.error(f"Error al obtener info del video {video_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener información del video: {str(e)}")
 
 @router.put("/{video_id}", response_model=VideoResponse)
 def update_video(
@@ -146,99 +183,66 @@ def update_video(
         logger.error(f"Error al actualizar video {video_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar video: {str(e)}")
 
+# Reemplaza el endpoint de descarga con esta versión que soporta HEAD
+
 @router.get("/{video_id}/download")
-def download_video(
-    video_id: int, 
+@router.head("/{video_id}/download")  # Añadir soporte para solicitudes HEAD
+async def download_video(
+    video_id: int,
+    request: Request,  # Añadir Request para verificar el método
     db: Session = Depends(get_db)
 ):
     """
-    Endpoint mejorado para descargar videos con mejor logging y manejo de errores
+    Endpoint para descargar un video completo.
+    También maneja solicitudes HEAD para verificar disponibilidad.
     """
     try:
-        logger.info(f"Solicitando descarga de video ID: {video_id}")
-        
         # Buscar el video en la base de datos
         video = db.query(Video).filter(Video.id == video_id).first()
-        if video is None:
-            logger.warning(f"Video no encontrado en BD: ID {video_id}")
+        if not video:
             raise HTTPException(status_code=404, detail="Video no encontrado")
         
-        logger.info(f"Video encontrado: {video.title} - Archivo: {video.file_path}")
-        
-        # Verificar si el video ha expirado
-        if video.expiration_date and video.expiration_date < datetime.now():
-            logger.warning(f"Video {video_id} ha expirado: {video.expiration_date}")
-            raise HTTPException(status_code=403, detail="Este video ha expirado y ya no está disponible")
-        
         # Verificar que el archivo existe
-        if not video.file_path:
-            logger.error(f"Video {video_id} no tiene ruta de archivo definida")
-            raise HTTPException(status_code=500, detail="El video no tiene una ruta de archivo válida")
+        video_path = Path(video.file_path)
+        if not video_path.exists() or not video_path.is_file():
+            logger.error(f"Archivo de video no encontrado: {video.file_path}")
+            raise HTTPException(status_code=404, detail="Archivo de video no encontrado")
         
-        # Convertir a Path para mejor manejo
-        file_path = Path(video.file_path)
+        # Generar un nombre de archivo para la descarga
+        download_filename = f"{video.title or 'video'}{video_path.suffix}"
+        # Sanitizar el nombre de archivo para evitar caracteres inválidos
+        download_filename = "".join(c for c in download_filename if c.isalnum() or c in "._- ")
         
-        # Verificar que el archivo existe físicamente
-        if not file_path.exists():
-            logger.error(f"Archivo no encontrado en el sistema: {file_path}")
-            # Intentar buscar en directorio uploads con nombre original
-            upload_path = Path(UPLOAD_DIR) / video.filename
-            if upload_path.exists():
-                logger.info(f"Archivo encontrado en ruta alternativa: {upload_path}")
-                file_path = upload_path
-                # Actualizar la ruta en la base de datos
-                video.file_path = str(upload_path)
-                db.commit()
-            else:
-                raise HTTPException(status_code=404, detail="Archivo de video no encontrado en el servidor")
-        
-        # Verificar que el archivo es legible
-        if not file_path.is_file():
-            logger.error(f"La ruta no apunta a un archivo válido: {file_path}")
-            raise HTTPException(status_code=500, detail="La ruta del video no apunta a un archivo válido")
-        
-        # Obtener información del archivo
-        file_size = file_path.stat().st_size
-        logger.info(f"Preparando descarga - Archivo: {file_path.name}, Tamaño: {file_size} bytes")
-        
-        # Determinar el tipo de contenido basado en la extensión
-        content_types = {
-            '.mp4': 'video/mp4',
-            '.avi': 'video/avi',
-            '.mov': 'video/quicktime',
-            '.mkv': 'video/x-matroska',
-            '.webm': 'video/webm',
-            '.flv': 'video/x-flv',
-            '.wmv': 'video/x-ms-wmv'
-        }
-        
-        file_extension = file_path.suffix.lower()
-        media_type = content_types.get(file_extension, 'video/mp4')
-        
-        # Generar nombre de archivo para descarga
-        download_filename = video.filename or f"{video.title or 'video'}_{video_id}{file_extension}"
-        
-        # Asegurar que el nombre de archivo sea seguro
-        safe_filename = "".join(c for c in download_filename if c.isalnum() or c in (' ', '-', '_', '.')).rstrip()
-        
-        logger.info(f"Iniciando descarga: {safe_filename} ({media_type})")
-        
-        # Retornar FileResponse para descarga
-        return FileResponse(
-            path=str(file_path),
-            filename=safe_filename,
-            media_type=media_type,
-            headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}",
-                "Content-Length": str(file_size)
+        # Para solicitudes HEAD, solo devolver los headers sin el cuerpo
+        if request.method == "HEAD":
+            # Obtener tamaño del archivo
+            file_size = video_path.stat().st_size
+            
+            # Configurar los headers de respuesta
+            headers = {
+                "Content-Disposition": f'attachment; filename="{download_filename}"',
+                "Content-Type": "application/octet-stream",
+                "Content-Length": str(file_size),
+                "Accept-Ranges": "bytes"
             }
+            
+            logger.info(f"Verificación HEAD para video ID {video_id}: {video.file_path}")
+            return Response(headers=headers)
+        
+        # Para solicitudes GET, devolver el archivo completo
+        logger.info(f"Descargando video ID {video_id}: {video.file_path} como {download_filename}")
+        
+        return FileResponse(
+            path=video.file_path,
+            filename=download_filename,
+            media_type="application/octet-stream"  # Forzar descarga en lugar de reproducción
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error inesperado al descargar video {video_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error interno al descargar video: {str(e)}")
+        logger.error(f"Error al procesar video {video_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al procesar el video: {str(e)}")
 
 @router.delete("/{video_id}")
 def delete_video(
@@ -461,3 +465,77 @@ def get_content_type(file_path: Path) -> str:
     
     # Devolver el tipo MIME correspondiente o un tipo genérico si no se encuentra
     return mime_types.get(extension, "application/octet-stream")
+
+
+    # Añade o modifica este endpoint en router/videos.py
+
+@router.get("/{video_id}/info", response_model=dict)
+async def get_video_info(
+    video_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtener información detallada de un video específico.
+    """
+    try:
+        # Buscar el video en la base de datos
+        video = db.query(Video).filter(Video.id == video_id).first()
+        if not video:
+            raise HTTPException(status_code=404, detail="Video no encontrado")
+        
+        # Verificar si el archivo existe
+        file_exists = os.path.exists(video.file_path) if video.file_path else False
+        
+        # Extraer el nombre del archivo de la ruta completa
+        file_name = os.path.basename(video.file_path) if video.file_path else "unknown.mp4"
+        
+        # Crear un objeto con los datos del video
+        # Solo incluir atributos que existen en el modelo Video
+        response = {
+            "id": video.id,
+            "title": video.title,
+            "description": video.description,
+            "file_path": video.file_path,
+            "file_size": video.file_size,
+            "upload_date": video.upload_date,
+            "duration": video.duration,
+            "expiration_date": video.expiration_date,
+            # Añadir propiedades derivadas
+            "file_exists": file_exists,
+            "file_name": file_name,  # Usar file_name en lugar de filename
+            # Propiedades formateadas para el frontend
+            "formatted_duration": video.formatted_duration if hasattr(video, 'formatted_duration') else formatDuration(video.duration),
+            "formatted_file_size": video.formatted_file_size if hasattr(video, 'formatted_file_size') else formatFileSize(video.file_size)
+        }
+        
+        # Registrar en el log la consulta
+        logger.info(f"Obteniendo información del video ID {video_id}: {video.title}")
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al obtener info del video {video_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener información del video: {str(e)}")
+
+# Funciones auxiliares para formatear duración y tamaño
+def formatDuration(seconds):
+    """Formatea la duración en segundos a formato legible"""
+    if seconds is None:
+        return "Desconocida"
+    
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+def formatFileSize(size_bytes):
+    """Formatea el tamaño en bytes a formato legible"""
+    if size_bytes is None:
+        return "Desconocido"
+    
+    # Convertir bytes a una unidad legible
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_bytes < 1024 or unit == 'GB':
+            return f"{size_bytes:.2f} {unit}"
+        size_bytes /= 1024

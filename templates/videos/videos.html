@@ -312,15 +312,19 @@
     <script src="/static/js/main.js"></script>
     
     <script>
-        // Función para abrir el modal y reproducir el video
+        // Función para reproducir video
         function playVideo(videoId, videoTitle, videoDescription) {
+            console.log(`Reproduciendo video ID: ${videoId}`);
+            
             // Actualizar datos en el modal
             document.getElementById('playingVideoTitle').textContent = videoTitle || 'Sin título';
             document.getElementById('playingVideoDescription').textContent = videoDescription || 'Sin descripción';
             
             // Configurar la fuente del video
             const videoSource = document.getElementById('videoSource');
-            videoSource.src = `/api/videos/${videoId}/stream`;
+            const streamUrl = `/api/videos/${videoId}/stream`;
+            console.log(`URL de streaming: ${streamUrl}`);
+            videoSource.src = streamUrl;
             
             // Configurar el botón de descarga
             const downloadBtn = document.getElementById('downloadVideoBtn');
@@ -344,46 +348,86 @@
                 videoSource.src = '';
             });
         }
-        
+
         // Función para obtener información adicional del video
         async function fetchVideoInfo(videoId) {
             try {
-                const response = await fetch(`/api/videos/${videoId}`);
-                if (!response.ok) throw new Error('No se pudo obtener información del video');
+                console.log(`Obteniendo información del video ID: ${videoId}`);
                 
-                const videoData = await response.json();
+                // Verificar primero si el video existe y está disponible para descarga
+                const headResponse = await fetch(`/api/videos/${videoId}/download`, {
+                    method: 'HEAD'
+                });
+                
+                if (!headResponse.ok) {
+                    console.warn(`El video ID ${videoId} no está disponible para descarga (${headResponse.status})`);
+                } else {
+                    console.log(`Video ID ${videoId} disponible para descarga`);
+                }
+                
+                // Obtener información detallada del video
+                const infoResponse = await fetch(`/api/videos/${videoId}/info`);
+                if (!infoResponse.ok) {
+                    throw new Error(`No se pudo obtener información del video (${infoResponse.status})`);
+                }
+                
+                const videoData = await infoResponse.json();
+                console.log('Datos del video:', videoData);
                 
                 // Actualizar duración
-                if (videoData.duration) {
+                if (videoData.duration || videoData.formatted_duration) {
                     const durationElement = document.getElementById('videoDurationValue');
-                    durationElement.textContent = formatDuration(videoData.duration);
+                    if (durationElement) {
+                        durationElement.textContent = videoData.formatted_duration || formatDuration(videoData.duration);
+                    }
                 }
                 
                 // Actualizar tamaño
-                if (videoData.file_size) {
+                if (videoData.file_size || videoData.formatted_file_size) {
                     const sizeElement = document.getElementById('videoSizeValue');
-                    sizeElement.textContent = formatFileSize(videoData.file_size);
+                    if (sizeElement) {
+                        sizeElement.textContent = videoData.formatted_file_size || formatFileSize(videoData.file_size);
+                    }
                 }
+                
+                // Actualizar descripción si no se proporcionó al abrir el modal
+                const descElement = document.getElementById('playingVideoDescription');
+                if (descElement && descElement.textContent === 'Sin descripción' && videoData.description) {
+                    descElement.textContent = videoData.description;
+                }
+                
+                // Actualizar nombre del archivo (obtenido desde la info)
+                const fileName = videoData.file_name || 
+                                (videoData.file_path ? videoData.file_path.split('/').pop() : 'video.mp4');
+                
+                // Actualizar botón de descarga con el nombre de archivo correcto
+                const downloadBtn = document.getElementById('downloadVideoBtn');
+                if (downloadBtn) {
+                    // Usar el título si está disponible, o el nombre del archivo como respaldo
+                    downloadBtn.download = videoData.title || fileName;
+                }
+                
+                return videoData;
+                
             } catch (error) {
                 console.error('Error al obtener información del video:', error);
+                // Mostrar un mensaje al usuario
+                const errorElement = document.createElement('div');
+                errorElement.className = 'alert alert-danger mt-3';
+                errorElement.innerHTML = `
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Error al cargar información del video:</strong> ${error.message}
+                `;
+                
+                // Añadir el mensaje de error al modal si es posible
+                const modalBody = document.querySelector('#playVideoModal .modal-body');
+                if (modalBody) {
+                    modalBody.appendChild(errorElement);
+                }
+                
+                return null;
             }
         }
-        
-        // Función para formatear la duración
-        function formatDuration(seconds) {
-            if (!seconds) return '--:--';
-            
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const secs = Math.floor(seconds % 60);
-            
-            if (hours > 0) {
-                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-            } else {
-                return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-            }
-        }
-        
         // Función para formatear el tamaño del archivo
         function formatFileSize(bytes) {
             if (!bytes) return '-- MB';
@@ -399,90 +443,143 @@
             
             return `${size.toFixed(2)} ${units[unitIndex]}`;
         }
-        
-        // Modificar la función original displayVideos para incluir el botón de reproducción
-        window.originalDisplayVideos = window.displayVideos || function() {
-            console.log('Función displayVideos original no encontrada');
-        };
-        
-        // Reemplazar con nuestra función mejorada que AÑADE el botón de reproducción
-        // sin quitar los botones existentes
-        window.displayVideos = function(videos) {
-            const videosList = document.getElementById('videosList');
-            if (!videosList) return;
+
+        // SOLUCIÓN CORREGIDA: Función para añadir botones de reproducción
+        // Evita duplicaciones verificando si ya existe un botón de reproducción
+        function addPlayButtonsToVideoTable() {
+            // Marcar que estamos ejecutando la función para evitar llamadas duplicadas
+            if (window.isAddingPlayButtons) return;
+            window.isAddingPlayButtons = true;
             
-            if (!videos || videos.length === 0) {
-                videosList.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="text-center py-4">
-                            <i class="fas fa-film fa-3x mb-3 text-muted"></i>
-                            <p>No se encontraron videos.</p>
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
+            console.log('Tabla cargada, añadiendo botones de reproducción...');
             
-            const videosHTML = videos.map(video => {
-                const isExpired = video.expiration_date && new Date(video.expiration_date) < new Date();
+            try {
+                // Obtener todas las filas de la tabla de videos
+                const videoRows = document.querySelectorAll('#videosList tr');
+                let buttonsAdded = 0;
                 
-                return `
-                    <tr ${isExpired ? 'class="table-warning"' : ''}>
-                        <td>${video.title || 'Sin título'}</td>
-                        <td>${video.description || '<span class="text-muted">Sin descripción</span>'}</td>
-                        <td><small>${formatDate(video.upload_date)}</small></td>
-                        <td>
-                            ${video.expiration_date ? 
-                                `<small class="text-${isExpired ? 'danger' : 'muted'}">${isExpired ? 'Expiró' : 'Expira'}: ${formatDate(video.expiration_date)}</small>` : 
-                                '<small class="text-muted">Sin expiración</small>'}
-                        </td>
-                        <td>
-                            <span class="badge ${isExpired ? 'bg-danger' : 'bg-success'}">
-                                ${isExpired ? 'Expirado' : 'Activo'}
-                            </span>
-                        </td>
-                        <td>
-                            <div class="btn-group btn-group-sm">
-                                <!-- NUEVO: Botón de reproducción -->
-                                <button class="btn btn-outline-primary" 
-                                        onclick="playVideo(${video.id}, '${video.title?.replace(/'/g, "\\'")}', '${video.description?.replace(/'/g, "\\'")}')">
-                                    <i class="fas fa-play"></i>
-                                </button>
-                                <!-- Botones existentes (mantenidos tal cual) -->
-                                <a href="/api/videos/${video.id}/download" class="btn btn-outline-primary btn-sm">
-                                    <i class="fas fa-download"></i>
-                                </a>
-                                <button class="btn btn-outline-secondary btn-sm" onclick="editVideo(${video.id})">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-outline-danger btn-sm" onclick="deleteVideo(${video.id})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                // Procesar cada fila
+                videoRows.forEach(row => {
+                    // Ignorar filas de carga o mensajes
+                    if (row.querySelector('#videosLoading') || row.cells.length < 6) return;
+                    
+                    // Obtener la celda de acciones (última celda)
+                    const actionsCell = row.querySelector('td:last-child');
+                    if (!actionsCell) return;
+                    
+                    // Obtener el grupo de botones
+                    const btnGroup = actionsCell.querySelector('.btn-group');
+                    if (!btnGroup) return;
+                    
+                    // IMPORTANTE: Verificar si ya existe un botón de reproducción
+                    // para evitar duplicaciones
+                    if (btnGroup.querySelector('button[data-play-button="true"]')) {
+                        return; // Ya existe un botón, no añadir otro
+                    }
+                    
+                    // Obtener el ID del video de los botones existentes
+                    let videoId = null;
+                    
+                    // Intentar obtener el ID del enlace de descarga
+                    const downloadLink = btnGroup.querySelector('a[href*="/download"]');
+                    if (downloadLink) {
+                        const hrefMatch = downloadLink.href.match(/\/videos\/(\d+)\/download/);
+                        if (hrefMatch && hrefMatch[1]) {
+                            videoId = hrefMatch[1];
+                        }
+                    }
+                    
+                    // Si no se encontró en el enlace de descarga, intentar con el botón de edición
+                    if (!videoId) {
+                        const editBtn = btnGroup.querySelector('button[onclick*="editVideo"]');
+                        if (editBtn) {
+                            const onclickMatch = editBtn.getAttribute('onclick').match(/editVideo\((\d+)\)/);
+                            if (onclickMatch && onclickMatch[1]) {
+                                videoId = onclickMatch[1];
+                            }
+                        }
+                    }
+                    
+                    // Si encontramos un ID de video, crear el botón de reproducción
+                    if (videoId) {
+                        // Obtener el título del video (primera celda)
+                        const titleCell = row.querySelector('td:first-child');
+                        const videoTitle = titleCell ? titleCell.textContent.trim() : '';
+                        
+                        // Obtener la descripción (segunda celda)
+                        const descCell = row.querySelector('td:nth-child(2)');
+                        const videoDesc = descCell ? descCell.textContent.trim() : '';
+                        
+                        // Crear el botón de reproducción
+                        const playBtn = document.createElement('button');
+                        playBtn.className = 'btn btn-outline-primary btn-sm';
+                        playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                        playBtn.title = 'Reproducir video';
+                        playBtn.setAttribute('data-play-button', 'true'); // Marcar para identificarlo
+                        playBtn.onclick = function() {
+                            playVideo(videoId, videoTitle, videoDesc);
+                        };
+                        
+                        // Insertar el botón al principio del grupo de botones
+                        if (btnGroup.firstChild) {
+                            btnGroup.insertBefore(playBtn, btnGroup.firstChild);
+                        } else {
+                            btnGroup.appendChild(playBtn);
+                        }
+                        
+                        buttonsAdded++;
+                        console.log(`Botón de reproducción añadido para video ID: ${videoId}`);
+                    }
+                });
+                
+                console.log(`Proceso completado: ${buttonsAdded} botones de reproducción añadidos`);
+            } catch (error) {
+                console.error('Error al añadir botones de reproducción:', error);
+            } finally {
+                // Marcar que hemos terminado para permitir futuras ejecuciones
+                window.isAddingPlayButtons = false;
+            }
+        }
+
+        // Observador para detectar cambios en la tabla y añadir botones
+        function setupTableObserver() {
+            // Evitar inicializar múltiples observadores
+            if (window.tableObserverSetup) return;
+            window.tableObserverSetup = true;
             
-            videosList.innerHTML = videosHTML;
-        };
-        
-        // Función auxiliar para formatear fechas
-        function formatDate(dateStr) {
-            if (!dateStr) return '';
-            const date = new Date(dateStr);
-            return date.toLocaleString('es-ES', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
+            // Seleccionar el contenedor de la tabla
+            const tableContainer = document.getElementById('videosList');
+            if (!tableContainer) return;
+            
+            console.log('Configurando observador de tabla para botones de reproducción...');
+            
+            // Configurar un observador para detectar cambios en la tabla
+            const observer = new MutationObserver(function(mutations) {
+                // Solo procesar los cambios si no estamos ya añadiendo botones
+                if (!window.isAddingPlayButtons) {
+                    // Esperar un poco para asegurarse de que todos los cambios se han aplicado
+                    setTimeout(addPlayButtonsToVideoTable, 100);
+                }
             });
+            
+            // Iniciar la observación
+            observer.observe(tableContainer, { 
+                childList: true, 
+                subtree: true,
+                attributes: false,
+                characterData: false
+            });
+            
+            // También intentar añadir botones inmediatamente por si la tabla ya está cargada
+            setTimeout(addPlayButtonsToVideoTable, 500);
         }
         
-        // Inicializar funcionalidades de video al cargar la página
+        // Inicializar cuando el DOM esté listo
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Videos V2 - Inicializando...');
+            
+            // Configurar el observador de la tabla una sola vez
+            setupTableObserver();
             
             // Esperar a que main.js esté completamente cargado
             setTimeout(() => {
