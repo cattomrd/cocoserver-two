@@ -164,9 +164,14 @@ def delete_device(device_id: str, db: Session = Depends(get_db)):
 
 @router.post("/status", response_model=schemas.Device)
 def update_device_status(status_update: schemas.DeviceStatus, db: Session = Depends(get_db)):
+    # Buscar el dispositivo en la base de datos
     device = db.query(models.Device).filter(models.Device.device_id == status_update.device_id).first()
     if device is None:
         raise HTTPException(status_code=404, detail="Device not found")
+    
+    # Asegurarse de que model nunca sea None (CORRECCIÓN AÑADIDA)
+    if device.model is None:
+        device.model = ""  # Asignar string vacío si es None
     
     # Actualizar métricas
     device.cpu_temp = status_update.cpu_temp
@@ -185,14 +190,28 @@ def update_device_status(status_update: schemas.DeviceStatus, db: Session = Depe
         device.wlan0_mac = status_update.wlan0_mac
     
     # Actualizar estados de servicios si se proporcionan
-    if status_update.videoloop_status:
+    if status_update.videoloop_status is not None:
         device.videoloop_status = status_update.videoloop_status
     
-    if status_update.kiosk_status:
+    if status_update.kiosk_status is not None:
         device.kiosk_status = status_update.kiosk_status
+        
+    # Actualizar timestamp de última actualización si el modelo tiene ese campo
+    if hasattr(device, 'last_status_update'):
+        from datetime import datetime
+        device.last_status_update = datetime.utcnow()
     
+    # Guardar logs de servicio si se proporcionan
+    if hasattr(status_update, 'service_logs') and status_update.service_logs:
+        # Almacenar logs en el dispositivo o en una tabla separada si existe
+        if hasattr(device, 'service_logs'):
+            device.service_logs = status_update.service_logs
+            
+    # Guardar los cambios en la base de datos
     db.commit()
     db.refresh(device)
+    
+    # Devolver el dispositivo actualizado
     return device
 
 # Endpoint para verificar el estado de un dispositivo mediante ping

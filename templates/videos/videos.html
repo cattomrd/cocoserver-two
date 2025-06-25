@@ -230,12 +230,12 @@
         </div>
     </div>
 
-    <!-- Modal para reproducir video -->
+    <!-- Modal para reproducir video (optimizado) -->
     <div class="modal fade" id="playVideoModal" tabindex="-1" aria-labelledby="playVideoModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="playVideoModalLabel">Reproduciendo: <span id="playingVideoTitle"></span></h5>
+                    <h5 class="modal-title" id="playVideoModalLabel">Reproduciendo video</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-0">
@@ -246,8 +246,8 @@
                         </video>
                     </div>
                     <div class="bg-light p-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
+                        <div class="d-flex justify-content-center align-items-center">
+                            <div class="btn-group" role="group" aria-label="Controles de velocidad">
                                 <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('videoPlayer').playbackRate = 0.5;">
                                     <i class="fas fa-backward"></i> 0.5x
                                 </button>
@@ -261,25 +261,15 @@
                                     <i class="fas fa-fast-forward"></i> 2x
                                 </button>
                             </div>
-                            <div id="videoInfo">
-                                <span class="badge bg-secondary" id="videoDuration">
-                                    <i class="fas fa-clock"></i> Duración: <span id="videoDurationValue">--:--</span>
-                                </span>
-                                <span class="badge bg-info" id="videoSize">
-                                    <i class="fas fa-hdd"></i> Tamaño: <span id="videoSizeValue">-- MB</span>
-                                </span>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <h6>Descripción:</h6>
-                            <p id="playingVideoDescription" class="mb-0 text-muted">Sin descripción</p>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cerrar
+                    </button>
                     <a id="downloadVideoBtn" href="#" class="btn btn-primary" download>
-                        <i class="fas fa-download"></i> Descargar Video
+                        <i class="fas fa-download me-1"></i>Descargar Video
                     </a>
                 </div>
             </div>
@@ -313,42 +303,202 @@
     
     <script>
         // Función para reproducir video
-        function playVideo(videoId, videoTitle, videoDescription) {
-            console.log(`Reproduciendo video ID: ${videoId}`);
+        function playVideo(videoId) {
+            // Validar que recibimos un ID válido
+            if (!videoId) {
+                console.error('Error: No se proporcionó un ID de video válido');
+                return;
+            }
             
-            // Actualizar datos en el modal
-            document.getElementById('playingVideoTitle').textContent = videoTitle || 'Sin título';
-            document.getElementById('playingVideoDescription').textContent = videoDescription || 'Sin descripción';
+            try {
+                // Construir la URL de descarga correcta
+                const videoUrl = `/api/videos/${videoId}/download`;
+                console.log(`Reproduciendo video ID ${videoId}, URL: ${videoUrl}`);
+                
+                // Establecer la URL del video
+                const videoSource = document.getElementById('videoSource');
+                if (videoSource) {
+                    videoSource.src = videoUrl;
+                }
+                
+                // Establecer la URL de descarga
+                const downloadBtn = document.getElementById('downloadVideoBtn');
+                if (downloadBtn) {
+                    downloadBtn.href = videoUrl;
+                }
+                
+                // Recargar el elemento de video para aplicar la nueva fuente
+                const videoPlayer = document.getElementById('videoPlayer');
+                if (videoPlayer) {
+                    videoPlayer.load();
+                }
+                
+                // Abrir el modal
+                const modal = new bootstrap.Modal(document.getElementById('playVideoModal'));
+                modal.show();
+            } catch (error) {
+                console.error('Error al reproducir video:', error);
+                alert('No se pudo reproducir el video. Por favor, inténtelo de nuevo.');
+            }
+        }
+
+        // Función optimizada para limpiar el reproductor cuando se cierra el modal
+        function setupVideoModalEvents() {
+            const videoModal = document.getElementById('playVideoModal');
+            if (!videoModal) return;
             
-            // Configurar la fuente del video
-            const videoSource = document.getElementById('videoSource');
-            const streamUrl = `/api/videos/${videoId}/stream`;
-            console.log(`URL de streaming: ${streamUrl}`);
-            videoSource.src = streamUrl;
-            
-            // Configurar el botón de descarga
-            const downloadBtn = document.getElementById('downloadVideoBtn');
-            downloadBtn.href = `/api/videos/${videoId}/download`;
-            downloadBtn.download = videoTitle || `video_${videoId}`;
-            
-            // Reiniciar el reproductor
-            const videoPlayer = document.getElementById('videoPlayer');
-            videoPlayer.load();
-            
-            // Cargar información adicional del video
-            fetchVideoInfo(videoId);
-            
-            // Abrir el modal
-            const modal = new bootstrap.Modal(document.getElementById('playVideoModal'));
-            modal.show();
-            
-            // Configurar evento de cierre del modal para detener el video
-            document.getElementById('playVideoModal').addEventListener('hidden.bs.modal', function () {
-                videoPlayer.pause();
-                videoSource.src = '';
+            videoModal.addEventListener('hidden.bs.modal', function() {
+                const videoPlayer = document.getElementById('videoPlayer');
+                if (videoPlayer) {
+                    videoPlayer.pause();
+                    videoPlayer.currentTime = 0;
+                    // Limpiar la fuente para evitar que se siga descargando en segundo plano
+                    document.getElementById('videoSource').src = '';
+                    videoPlayer.load();
+                }
             });
         }
 
+        // Función optimizada para añadir botones de reproducción a la tabla
+        function addPlayButtonsToVideoTable() {
+            // Evitar procesamiento duplicado
+            if (window.isAddingPlayButtons) return;
+            window.isAddingPlayButtons = true;
+            
+            try {
+                console.log('Añadiendo botones de reproducción...');
+                
+                // Seleccionar todas las filas que contienen datos de videos
+                const videoRows = document.querySelectorAll('#videosList tr:not(:has(#videosLoading))');
+                let buttonsAdded = 0;
+                
+                videoRows.forEach(row => {
+                    // Verificar que la fila tiene celdas
+                    if (!row.cells || row.cells.length < 6) return;
+                    
+                    // Buscar la celda de acciones (última celda)
+                    const actionsCell = row.cells[row.cells.length - 1];
+                    if (!actionsCell) return;
+                    
+                    // Buscar el grupo de botones
+                    const btnGroup = actionsCell.querySelector('.btn-group');
+                    if (!btnGroup) return;
+                    
+                    // Verificar si ya existe un botón de reproducción para evitar duplicados
+                    if (btnGroup.querySelector('[data-play-button="true"]')) return;
+                    
+                    // Buscar el ID del video usando atributos data-*
+                    let videoId = row.getAttribute('data-video-id');
+                    
+                    // Si no hay data-video-id, intentar extraerlo de otros elementos
+                    if (!videoId) {
+                        // Intentar obtener de botones de edición o eliminación
+                        const actionBtn = btnGroup.querySelector('button[onclick*="Video("]');
+                        if (actionBtn) {
+                            const match = actionBtn.getAttribute('onclick').match(/Video\((\d+)/);
+                            if (match && match[1]) videoId = match[1];
+                        }
+                        
+                        // Intentar obtener de enlaces de descarga
+                        if (!videoId) {
+                            const downloadLink = btnGroup.querySelector('a[href*="/videos/"]');
+                            if (downloadLink) {
+                                const match = downloadLink.href.match(/\/videos\/(\d+)/);
+                                if (match && match[1]) videoId = match[1];
+                            }
+                        }
+                    }
+                    
+                    // Si encontramos un ID, crear el botón de reproducción
+                    if (videoId) {
+                        // Crear el botón
+                        const playBtn = document.createElement('button');
+                        playBtn.className = 'btn btn-outline-primary btn-sm';
+                        playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                        playBtn.title = 'Reproducir video';
+                        playBtn.setAttribute('data-play-button', 'true');
+                        
+                        // Usar una función anónima para evitar problemas con el ámbito de las variables
+                        playBtn.onclick = function() {
+                            playVideo(videoId);
+                        };
+                        
+                        // Insertar al principio del grupo de botones
+                        btnGroup.insertBefore(playBtn, btnGroup.firstChild);
+                        buttonsAdded++;
+                    }
+                });
+                
+                console.log(`Proceso completado: ${buttonsAdded} botones de reproducción añadidos`);
+            } catch (error) {
+                console.error('Error al añadir botones de reproducción:', error);
+            } finally {
+                window.isAddingPlayButtons = false;
+            }
+        }
+
+        // Función mejorada para observar cambios en la tabla
+        function setupTableObserver() {
+            // Evitar múltiples observadores
+            if (window.tableObserver) {
+                console.log('Observador ya configurado, saltando...');
+                return;
+            }
+            
+            const tableBody = document.getElementById('videosList');
+            if (!tableBody) {
+                console.error('No se encontró la tabla de videos');
+                return;
+            }
+            
+            console.log('Configurando observador para la tabla de videos...');
+            
+            // Crear un observador de mutaciones con debounce para evitar llamadas excesivas
+            let debounceTimer;
+            window.tableObserver = new MutationObserver(function(mutations) {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(addPlayButtonsToVideoTable, 200);
+            });
+            
+            // Iniciar observación
+            window.tableObserver.observe(tableBody, {
+                childList: true,
+                subtree: true
+            });
+            
+            // Ejecutar una vez al inicio para procesar elementos existentes
+            setTimeout(addPlayButtonsToVideoTable, 500);
+        }
+
+        // Función de inicialización
+        function initializeVideoPage() {
+            console.log('Inicializando página de videos...');
+            
+            // Configurar eventos del modal de video
+            setupVideoModalEvents();
+            
+            // Configurar observador de tabla
+            setupTableObserver();
+            
+            // Verificar si loadVideos está disponible en main.js
+            if (typeof window.loadVideos === 'function') {
+                console.log('Cargando videos...');
+                window.loadVideos();
+            } else {
+                console.warn('Función loadVideos no disponible. Esperando...');
+                // Intentar nuevamente después de un breve retraso
+                setTimeout(() => {
+                    if (typeof window.loadVideos === 'function') {
+                        window.loadVideos();
+                    } else {
+                        console.error('Error: No se pudo cargar la función loadVideos');
+                    }
+                }, 1000);
+            }
+        }
+
+        // Inicializar cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', initializeVideoPage);
         // Función para obtener información adicional del video
         async function fetchVideoInfo(videoId) {
             try {
@@ -365,11 +515,6 @@
                     console.log(`Video ID ${videoId} disponible para descarga`);
                 }
                 
-                // Obtener información detallada del video
-                const infoResponse = await fetch(`/api/videos/${videoId}/info`);
-                if (!infoResponse.ok) {
-                    throw new Error(`No se pudo obtener información del video (${infoResponse.status})`);
-                }
                 
                 const videoData = await infoResponse.json();
                 console.log('Datos del video:', videoData);
