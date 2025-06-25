@@ -338,6 +338,41 @@
             const searchForm = document.getElementById('searchForm');
             if (!searchForm) return;
             
+            // Reemplazar el comportamiento normal del formulario para manejar parámetros vacíos
+            searchForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Construir la URL manualmente sin incluir parámetros vacíos
+                const baseUrl = '/ui/users/';
+                const params = new URLSearchParams();
+                
+                // Solo añadir parámetros si tienen valor
+                const search = document.getElementById('search');
+                if (search && search.value.trim()) {
+                    params.append('search', search.value.trim());
+                }
+                
+                const isActive = document.getElementById('is_active');
+                if (isActive && isActive.value) {
+                    params.append('is_active', isActive.value);
+                }
+                
+                const authProvider = document.getElementById('auth_provider');
+                if (authProvider && authProvider.value) {
+                    params.append('auth_provider', authProvider.value);
+                }
+                
+                // Construir la URL final
+                let url = baseUrl;
+                const paramString = params.toString();
+                if (paramString) {
+                    url += '?' + paramString;
+                }
+                
+                // Navegar a la URL
+                window.location.href = url;
+            });
+            
             // Manejar el campo de búsqueda con debounce
             const searchInput = document.getElementById('search');
             if (searchInput) {
@@ -345,7 +380,10 @@
                 searchInput.addEventListener('input', function() {
                     clearTimeout(searchTimeout);
                     searchTimeout = setTimeout(() => {
-                        searchForm.submit();
+                        // Solo enviar si hay algo escrito
+                        if (this.value.trim().length > 0 || document.getElementById('is_active').value || document.getElementById('auth_provider').value) {
+                            searchForm.dispatchEvent(new Event('submit'));
+                        }
                     }, 500);
                 });
             }
@@ -354,14 +392,14 @@
             const isActiveSelect = document.getElementById('is_active');
             if (isActiveSelect) {
                 isActiveSelect.addEventListener('change', function() {
-                    searchForm.submit();
+                    searchForm.dispatchEvent(new Event('submit'));
                 });
             }
             
             const authProviderSelect = document.getElementById('auth_provider');
             if (authProviderSelect) {
                 authProviderSelect.addEventListener('change', function() {
-                    searchForm.submit();
+                    searchForm.dispatchEvent(new Event('submit'));
                 });
             }
             
@@ -370,7 +408,7 @@
             if (filterButton) {
                 filterButton.addEventListener('click', function(e) {
                     e.preventDefault();
-                    searchForm.submit();
+                    searchForm.dispatchEvent(new Event('submit'));
                 });
             }
         }
@@ -562,14 +600,21 @@
             const params = new URLSearchParams();
             params.append('format', format.toLowerCase());
             
+            // Solo añadir parámetros si tienen valor
             const search = document.getElementById('search');
-            if (search && search.value) params.append('search', search.value);
+            if (search && search.value.trim()) {
+                params.append('search', search.value.trim());
+            }
             
             const isActive = document.getElementById('is_active');
-            if (isActive && isActive.value) params.append('is_active', isActive.value);
+            if (isActive && isActive.value) {
+                params.append('is_active', isActive.value);
+            }
             
             const authProvider = document.getElementById('auth_provider');
-            if (authProvider && authProvider.value) params.append('auth_provider', authProvider.value);
+            if (authProvider && authProvider.value) {
+                params.append('auth_provider', authProvider.value);
+            }
             
             // Download file
             window.location.href = `/ui/users/api/export?${params.toString()}`;
