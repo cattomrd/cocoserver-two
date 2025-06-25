@@ -1,0 +1,65 @@
+SECRET_KEY=4b99ac08117f2229a1dc7ebfb594c484eb0612626f1e9b31e8158b6c8c8de198
+ACCESS_TOKEN_EXPIRE_MINUTES=480
+
+POSTGRES_USER = "adminlocal"
+POSTGRES_PASSWORD = "Ikea,.2010"
+POSTGRES_DB ="raspberry_db"
+POSTGRES_HOST = "172.19.2.234"
+SSH_USER = "pi"
+SSH_PASSWORD = "Ikea1234"
+SQLALCHEMY_DATABASE_URL = f"postgresql://{user_db}:{password_db}@{server_db}/{db}"
+####
+APP_USERNAME = "admin2"
+APP_PASSWORD = "Ikea,.2010"
+APP_EMAIL =  "app@email.com"
+APP_FULLNAME = "Administrador"
+
+
+# =================== CONFIGURACIÓN ACTIVE DIRECTORY FUNCIONAL ===================
+# ✅ Esta configuración está probada y funciona
+
+# Servidor y conexión
+AD_SERVER=172.19.2.241
+AD_PORT=389
+AD_USE_SSL=false
+
+# Autenticación - USAR FORMATO UPN CON SIMPLE AUTH
+AD_BIND_DN=su-jorge.romero@ikeasi.com
+AD_BIND_PASSWORD=Isl@sV@leares,.,2025**
+
+# Base DN para búsquedas
+AD_BASE_DN=DC=ikeaspc,DC=ikeasi,DC=com
+AD_USER_BASE_DN=DC=ikeaspc,DC=ikeasi,DC=com
+AD_GROUP_BASE_DN=OU=Grupos de Seguridad,OU=IKEASPC.IKEASI.COM,DC=ikeaspc,DC=ikeasi,DC=com
+
+# Configuración de dominio
+AD_DOMAIN=IKEASI
+AD_DOMAIN_FQDN=ikeasi.com
+
+# Tipo de autenticación - CRITICAL: Usar SIMPLE en lugar de NTLM
+AD_AUTH_TYPE=SIMPLE
+
+# Atributos de usuario
+AD_USERNAME_ATTRIBUTE=sAMAccountName
+AD_EMAIL_ATTRIBUTE=mail
+AD_FULLNAME_ATTRIBUTE=displayName
+AD_DEPARTMENT_ATTRIBUTE=department
+
+# Grupos de administradores
+AD_ADMIN_GROUPS=Domain Admins,Administrators,IT Admins
+
+# Configuración de sincronización
+AD_SYNC_ENABLED=true
+AD_AUTO_CREATE_USERS=true
+AD_UPDATE_USER_INFO=true
+
+# Filtros LDAP
+AD_USER_FILTER=(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))
+AD_GROUP_FILTER=(objectClass=group)
+
+# =================== CONFIGURACIÓN DE LOGGING ===================
+LOG_LEVEL=INFO
+
+# =================== CONFIGURACIÓN DE LA APLICACIÓN ===================
+DEBUG=false
+ENVIRONMENT=production
