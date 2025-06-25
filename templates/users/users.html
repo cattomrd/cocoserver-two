@@ -47,7 +47,7 @@
                 <!-- Filtros -->
                 <div class="card mb-4">
                     <div class="card-body">
-                        <form method="GET" class="row g-3" id="searchForm">
+                        <form method="GET" action="/ui/users/" class="row g-3" id="searchForm">
                             <div class="col-md-4">
                                 <label for="search" class="form-label">
                                     <i class="fas fa-search"></i> Buscar Usuario
@@ -71,8 +71,8 @@
                                 </label>
                                 <select class="form-select" id="auth_provider" name="auth_provider">
                                     <option value="">Todos</option>
-                                    <option value="local">Usuarios Locales</option>
-                                    <option value="ad">Active Directory</option>
+                                    <option value="local" {{ 'selected' if auth_provider == "local" else '' }}>Usuarios Locales</option>
+                                    <option value="ad" {{ 'selected' if auth_provider == "ad" else '' }}>Active Directory</option>
                                 </select>
                             </div>
                             <div class="col-md-2 d-flex align-items-end">
@@ -296,20 +296,28 @@
     <script>
         // Función para asegurar que los elementos del DOM están cargados
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM completamente cargado');
+            
             // Toggle between card and table view
-            document.getElementById('cardView').addEventListener('change', function() {
-                if (this.checked) {
-                    document.getElementById('cardViewContent').style.display = 'block';
-                    document.getElementById('tableViewContent').style.display = 'none';
-                }
-            });
+            const cardViewBtn = document.getElementById('cardView');
+            if (cardViewBtn) {
+                cardViewBtn.addEventListener('change', function() {
+                    if (this.checked) {
+                        document.getElementById('cardViewContent').style.display = 'block';
+                        document.getElementById('tableViewContent').style.display = 'none';
+                    }
+                });
+            }
 
-            document.getElementById('tableView').addEventListener('change', function() {
-                if (this.checked) {
-                    document.getElementById('cardViewContent').style.display = 'none';
-                    document.getElementById('tableViewContent').style.display = 'block';
-                }
-            });
+            const tableViewBtn = document.getElementById('tableView');
+            if (tableViewBtn) {
+                tableViewBtn.addEventListener('change', function() {
+                    if (this.checked) {
+                        document.getElementById('cardViewContent').style.display = 'none';
+                        document.getElementById('tableViewContent').style.display = 'block';
+                    }
+                });
+            }
 
             // Inicializar el buscador
             initializeSearch();
@@ -323,24 +331,41 @@
             });
             
             // Inicializar tooltips
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
+            try {
+                const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                if (window.bootstrap && window.bootstrap.Tooltip) {
+                    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                        return new bootstrap.Tooltip(tooltipTriggerEl);
+                    });
+                } else {
+                    console.warn('Bootstrap Tooltip no está disponible');
+                }
+            } catch (error) {
+                console.error('Error inicializando tooltips:', error);
+            }
             
             // Actualizar estado de conexión
             updateConnectionStatus();
+            
+            // Configurar el botón de sincronización
+            setupSyncAdButton();
         });
 
         // Función para inicializar la búsqueda
         function initializeSearch() {
             // Referencia al formulario de búsqueda
             const searchForm = document.getElementById('searchForm');
-            if (!searchForm) return;
+            if (!searchForm) {
+                console.error('No se encontró el formulario de búsqueda');
+                return;
+            }
+            
+            console.log('Inicializando búsqueda...');
             
             // Reemplazar el comportamiento normal del formulario para manejar parámetros vacíos
             searchForm.addEventListener('submit', function(e) {
                 e.preventDefault();
+                console.log('Formulario enviado');
                 
                 // Construir la URL manualmente sin incluir parámetros vacíos
                 const baseUrl = '/ui/users/';
@@ -350,16 +375,27 @@
                 const search = document.getElementById('search');
                 if (search && search.value.trim()) {
                     params.append('search', search.value.trim());
+                    console.log('Añadiendo búsqueda:', search.value.trim());
                 }
                 
+                // Para el parámetro is_active, asegurar que sea un booleano válido o no incluirlo
                 const isActive = document.getElementById('is_active');
-                if (isActive && isActive.value) {
-                    params.append('is_active', isActive.value);
+                if (isActive) {
+                    console.log('Valor de is_active:', isActive.value);
+                    if (isActive.value === 'true') {
+                        params.append('is_active', 'true');
+                    } else if (isActive.value === 'false') {
+                        params.append('is_active', 'false');
+                    }
                 }
                 
+                // Solo incluir auth_provider si tiene un valor específico
                 const authProvider = document.getElementById('auth_provider');
-                if (authProvider && authProvider.value) {
-                    params.append('auth_provider', authProvider.value);
+                if (authProvider) {
+                    console.log('Valor de auth_provider:', authProvider.value);
+                    if (authProvider.value && authProvider.value !== '') {
+                        params.append('auth_provider', authProvider.value);
+                    }
                 }
                 
                 // Construir la URL final
@@ -368,6 +404,8 @@
                 if (paramString) {
                     url += '?' + paramString;
                 }
+                
+                console.log('Redirigiendo a:', url);
                 
                 // Navegar a la URL
                 window.location.href = url;
@@ -381,26 +419,35 @@
                     clearTimeout(searchTimeout);
                     searchTimeout = setTimeout(() => {
                         // Solo enviar si hay algo escrito
-                        if (this.value.trim().length > 0 || document.getElementById('is_active').value || document.getElementById('auth_provider').value) {
+                        if (this.value.trim().length > 0) {
+                            console.log('Enviando formulario por input de búsqueda');
                             searchForm.dispatchEvent(new Event('submit'));
                         }
                     }, 500);
                 });
+            } else {
+                console.error('No se encontró el campo de búsqueda');
             }
             
             // Actualización en tiempo real de filtros
             const isActiveSelect = document.getElementById('is_active');
             if (isActiveSelect) {
                 isActiveSelect.addEventListener('change', function() {
+                    console.log('Cambio en is_active:', this.value);
                     searchForm.dispatchEvent(new Event('submit'));
                 });
+            } else {
+                console.error('No se encontró el selector is_active');
             }
             
             const authProviderSelect = document.getElementById('auth_provider');
             if (authProviderSelect) {
                 authProviderSelect.addEventListener('change', function() {
+                    console.log('Cambio en auth_provider:', this.value);
                     searchForm.dispatchEvent(new Event('submit'));
                 });
+            } else {
+                console.error('No se encontró el selector auth_provider');
             }
             
             // Asegurar que el botón de filtrar funcione
@@ -408,9 +455,14 @@
             if (filterButton) {
                 filterButton.addEventListener('click', function(e) {
                     e.preventDefault();
+                    console.log('Botón de filtrar clickeado');
                     searchForm.dispatchEvent(new Event('submit'));
                 });
+            } else {
+                console.error('No se encontró el botón de filtrar');
             }
+            
+            console.log('Inicialización de búsqueda completa');
         }
 
         // Load user statistics
@@ -606,13 +658,17 @@
                 params.append('search', search.value.trim());
             }
             
+            // Para el parámetro is_active, asegurar que sea un booleano válido o no incluirlo
             const isActive = document.getElementById('is_active');
-            if (isActive && isActive.value) {
-                params.append('is_active', isActive.value);
+            if (isActive && isActive.value === 'true') {
+                params.append('is_active', 'true');
+            } else if (isActive && isActive.value === 'false') {
+                params.append('is_active', 'false');
             }
             
+            // Solo incluir auth_provider si tiene un valor específico
             const authProvider = document.getElementById('auth_provider');
-            if (authProvider && authProvider.value) {
+            if (authProvider && authProvider.value && authProvider.value !== '') {
                 params.append('auth_provider', authProvider.value);
             }
             

@@ -177,8 +177,8 @@
                     <i class="fas fa-video"></i> VideoSystem
                 </h4>
                 <small class="text-muted">
-                    {% if current_user %}
-                        Bienvenido, {{ current_user.username }}
+                    {% if user %}
+                        Bienvenido, {{ user.username }}
                     {% else %}
                         Bienvenido, Usuario
                     {% endif %}
@@ -211,14 +211,14 @@
                         <i class="fas fa-list me-2"></i> Listas de Reproducción
                     </a>
                 </li>
+                {% if user and user.is_admin %}
                 <li class="nav-item" role="none">
-                    {% if user and user.is_admin %}
                     <a class="nav-link {% if current_page == 'users' %}active{% endif %}" 
-                       href="/ui/users" role="menuitem">
+                    href="/ui/users" role="menuitem">
                         <i class="fas fa-users me-2"></i> Usuarios
-                    {% endif %}    
                     </a>
                 </li>
+                {% endif %}
                 
                 <!-- Separator -->
                 <hr class="sidebar-divider my-3">
