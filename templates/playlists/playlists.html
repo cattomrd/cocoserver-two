@@ -392,7 +392,7 @@
             return `
                 <tr>
                     <td>
-                        <a href="/ui/playlists/${playlist.id}" class="fw-bold text-decoration-none">
+                        <a href="/ui/playlist_detail?id=${playlist.id}" class="fw-bold text-decoration-none">
                             ${playlist.title || 'Sin título'}
                         </a>
                     </td>
@@ -624,7 +624,7 @@
             await loadPlaylists();
             
             // Redireccionar a la página de detalle
-            window.location.href = `/ui/playlists/${newPlaylist.id}`;
+            window.location.href = `/ui/playlist_detail?id=${newPlaylist.id}`;
             
         } catch (error) {
             console.error('Error al crear playlist:', error);

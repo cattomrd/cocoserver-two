@@ -1,5 +1,4 @@
-# models/models.py (reemplaza COMPLETAMENTE el archivo actual)
-
+# models/models.py  Version 2.0
 from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, UniqueConstraint, Float, func, or_
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import relationship
