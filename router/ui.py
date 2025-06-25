@@ -412,3 +412,33 @@ async def get_playlist_detail(request: Request, id: int):
         }
     )
 
+@router.post("/users/{user_id}/update", response_class=HTMLResponse)
+async def update_user_ui(
+    request: Request,
+    user_id: int,
+    username: str = Form(None),
+    email: str = Form(None),
+    is_active: bool = Form(False),
+    is_admin: bool = Form(False),
+    db: Session = Depends(get_db)
+):
+    """
+    Actualizar información de un usuario
+    """
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # Actualizar solo los campos proporcionados
+    if username is not None and username.strip():
+        user.username = username
+    if email is not None and email.strip():
+        user.email = email
+    
+    user.is_active = is_active
+    user.is_admin = is_admin
+    
+    db.commit()
+    
+    # Redirigir a la página de usuarios
+    return RedirectResponse(url="/ui/users", status_code=303)

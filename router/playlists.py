@@ -329,58 +329,6 @@ def delete_playlist(
     
     return {"message": "Lista de reproducción eliminada correctamente"}
 
-@router.post("/{playlist_id}/videos/{video_id}")
-def add_video_to_playlist(
-    playlist_id: int, 
-    video_id: int, 
-    db: Session = Depends(get_db)
-):
-    """
-    Añade un video a una playlist.
-    Verifica si el video ya está en la playlist para evitar duplicados.
-    """
-    db_playlist = db.query(Playlist).filter(Playlist.id == playlist_id).first()
-    if db_playlist is None:
-        raise HTTPException(status_code=404, detail="Lista de reproducción no encontrada")
-    
-    db_video = db.query(Video).filter(Video.id == video_id).first()
-    if db_video is None:
-        raise HTTPException(status_code=404, detail="Video no encontrado")
-    
-    # Verificar si el video ya está en la playlist
-    video_in_playlist = db.query(PlaylistVideo).filter(
-        PlaylistVideo.playlist_id == playlist_id,
-        PlaylistVideo.video_id == video_id
-    ).first()
-    
-    if video_in_playlist:
-        return {"message": "El video ya está en la lista de reproducción"}
-    
-    # Obtener la posición máxima actual
-    max_position_query = db.query(PlaylistVideo).filter(
-        PlaylistVideo.playlist_id == playlist_id
-    ).order_by(PlaylistVideo.position.desc()).first()
-    
-    next_position = 0
-    if max_position_query:
-        next_position = max_position_query.position + 1
-    
-    # Crear nueva relación
-    new_playlist_video = PlaylistVideo(
-        playlist_id=playlist_id,
-        video_id=video_id,
-        position=next_position
-    )
-    
-    db.add(new_playlist_video)
-    
-    try:
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al añadir el video: {str(e)}")
-    
-    return {"message": "Video añadido a la lista de reproducción correctamente"}
 
 @router.delete("/{playlist_id}/videos/{video_id}")
 def remove_video_from_playlist_simple(

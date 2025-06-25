@@ -160,7 +160,7 @@ async def periodic_check_devices(interval_minutes=5):
             logger.error(f"Error en la verificación periódica: {str(e)}")
         
         # Esperar el intervalo especificado
-        await asyncio.sleep(interval_minutes * 60)
+        await asyncio.sleep(interval_minutes * 180)
 
 # Función para iniciar la verificación periódica desde main.py
 def start_background_ping_checker(app):

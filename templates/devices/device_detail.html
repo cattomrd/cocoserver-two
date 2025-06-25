@@ -19,9 +19,13 @@
                         <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#editDeviceModal">
                             <i class="fas fa-edit me-1"></i> Editar Información
                         </button>
+                        {% if user and user.is_admin %}
                         <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteDeviceModal">
+                            
                             <i class="fas fa-trash me-1"></i> Eliminar Dispositivo
+                            
                         </button>
+                        {% endif%}
                         <a href="/api/devices/{{ device.device_id }}/ping" class="btn btn-info" id="pingButton">
                             <i class="fas fa-sync me-1"></i> Verificar Estado (Ping)
                         </a>

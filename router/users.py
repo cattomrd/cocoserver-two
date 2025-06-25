@@ -974,7 +974,7 @@ async def view_user(request: Request, user_id: int, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail="User not found")
     
     return templates.TemplateResponse(
-        "user_detail.html",
+        "/users/user_detail.html",
         {
             "request": request,
             "title": f"Usuario: {user.username}",

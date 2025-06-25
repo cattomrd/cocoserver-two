@@ -212,9 +212,11 @@
                     </a>
                 </li>
                 <li class="nav-item" role="none">
+                    {% if user and user.is_admin %}
                     <a class="nav-link {% if current_page == 'users' %}active{% endif %}" 
                        href="/ui/users" role="menuitem">
                         <i class="fas fa-users me-2"></i> Usuarios
+                    {% endif %}    
                     </a>
                 </li>
                 

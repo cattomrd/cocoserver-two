@@ -18,7 +18,7 @@ def auth_middleware(public_paths: list = None, admin_paths: list = None):
     Middleware de autenticación 
     """
     if public_paths is None:
-        public_paths = ["/ui/login", "/login", "/static/", "/docs", "/redoc", "/openapi.json"]
+        public_paths = ["/ui/login", "/login", "/static/"]
     
     if admin_paths is None:
         admin_paths = []

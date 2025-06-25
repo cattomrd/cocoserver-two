@@ -22,7 +22,8 @@ from router.auth import router as auth_router
 from router.users import router as users_router
 from router.playlist_checker_api import router as playlist_checker_router
 from router.ui_auth import router as ui_auth_router
-
+from utils.list_checker import start_playlist_checker
+from utils.ping_checker import start_background_ping_checker
 # Crear las tablas en la base de datos
 models.Base.metadata.create_all(bind=engine)
 
@@ -126,6 +127,9 @@ app.include_router(services.router)
 app.include_router(device_service_api.router)
 app.include_router(playlist_checker_router)
 
+
+start_background_ping_checker(app)
+start_playlist_checker(app)
 # Middleware de autenticación corregido que reconoce cookies
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
@@ -140,59 +144,78 @@ async def auth_middleware(request: Request, call_next):
         "/ui/login", 
         "/ui/register",
         "/ui/logout",
-        "/static/", 
-        "/docs", 
-        "/redoc", 
-        "/openapi.json",
+        "/static/",
+        "/api/videos" 
+        # "/docs", 
+        # "/redoc", 
+        # "/openapi.json",
         "/api/devices",
         "/api/raspberry/"
     ]
     
-    # Si es una ruta pública, continuar
-    if any(path.startswith(public_path) for public_path in public_paths):
+    try:
+        # Si es una ruta pública, continuar sin verificación
+        if any(path.startswith(public_path) for public_path in public_paths):
+            response = await call_next(request)
+            return response
+        
+        # Para rutas protegidas de UI, verificar autenticación por cookie O token
+        if path.startswith("/ui/"):
+            # Verificar cookie de sesión primero
+            if is_authenticated(request):
+                response = await call_next(request)
+                return response
+            
+            # Si no hay cookie, verificar header Authorization
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                response = await call_next(request)
+                return response
+            
+            # Sin autenticación, redireccionar a login
+            login_url = "/ui/login"
+            return RedirectResponse(url=login_url, status_code=302)
+        
+        # Para rutas API, verificar token o cookie
+        elif path.startswith("/api/") and not any(path.startswith(p) for p in ["/api/devices", "/api/raspberry/", "/api/ui/videos", "/api/ui/playlists", "/api/videos/"]):
+            # Verificar cookie primero
+            if is_authenticated(request):
+                response = await call_next(request)
+                return response
+                
+            # Verificar header Authorization
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                response = await call_next(request)
+                return response
+            
+            # Sin autenticación para API, devolver 401
+            return JSONResponse(
+                content={"detail": "Token de acceso requerido"},
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        
+        # Continuar con la solicitud para cualquier otra ruta
         response = await call_next(request)
         return response
     
-    # Para rutas protegidas de UI, verificar autenticación por cookie O token
-    if path.startswith("/ui/"):
-        # Verificar cookie de sesión primero
-        if is_authenticated(request):
-            response = await call_next(request)
-            return response
+    except Exception as e:
+        # Registrar el error para depuración
+        logger.error(f"Error en auth_middleware: {str(e)}")
         
-        # Si no hay cookie, verificar header Authorization
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            response = await call_next(request)
-            return response
-        
-        # Sin autenticación, redireccionar a login
-        login_url = "/ui/login"
-        return RedirectResponse(url=login_url, status_code=302)
-    
-    # Para rutas API, verificar token o cookie
-    elif path.startswith("/api/") and not any(path.startswith(p) for p in ["/api/devices", "/api/raspberry/"]):
-        # Verificar cookie primero
-        if is_authenticated(request):
-            response = await call_next(request)
-            return response
-            
-        # Verificar header Authorization
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            response = await call_next(request)
-            return response
-        
-        # Sin autenticación para API, devolver 401
-        return JSONResponse(
-            content={"detail": "Token de acceso requerido"},
-            status_code=401,
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    
-    # Continuar con la solicitud
-    response = await call_next(request)
-    return response
+        # Determinar si es una respuesta API o UI para manejar el error adecuadamente
+        if path.startswith("/api/"):
+            return JSONResponse(
+                content={"detail": "Error de servidor: " + str(e)},
+                status_code=500
+            )
+        else:
+            # Para rutas UI, redirigir a una página de error o mostrar un mensaje
+            return JSONResponse(
+                content={"detail": "Error de servidor"},
+                status_code=500
+            )
 
 # Evento de inicio
 @app.on_event("startup")
