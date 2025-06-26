@@ -258,3 +258,130 @@ async def list_device_services(
         "device_name": device.name,
         "services": services_data
     }
+
+
+   # Agregar este endpoint al archivo router/device_service_api.py
+
+@router.get("/{device_id}/all-services")
+async def get_all_device_services(
+    device_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtiene el estado de todos los servicios de un dispositivo de una vez.
+    Este endpoint es optimizado para cargar rápidamente el estado completo.
+    
+    Args:
+        device_id (str): ID del dispositivo
+        db (Session): Sesión de base de datos
+    
+    Returns:
+        Dict: Estado completo de todos los servicios del dispositivo
+    """
+    try:
+        # Buscar el dispositivo en la base de datos
+        device = db.query(models.Device).filter(models.Device.device_id == device_id).first()
+        if not device:
+            raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
+        
+        # Verificar que el dispositivo está activo
+        if not device.is_active:
+            return {
+                "success": False,
+                "message": "El dispositivo no está activo. Verifique su conexión.",
+                "device_id": device_id,
+                "device_name": device.name,
+                "services": [],
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Obtener la dirección IP del dispositivo (preferir LAN sobre WiFi)
+        device_ip = device.ip_address_lan or device.ip_address_wifi
+        if not device_ip:
+            return {
+                "success": False,
+                "message": "El dispositivo no tiene una dirección IP configurada.",
+                "device_id": device_id,
+                "device_name": device.name,
+                "services": [],
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Obtener información de todos los servicios
+        services_data = []
+        for service_name in ALLOWED_SERVICES:
+            try:
+                # Obtener estado actual del servicio
+                status_url = f"http://{device_ip}:8000/services/{service_name}/status"
+                status_response = requests.get(status_url, timeout=5)
+                status = status_response.text.strip() if status_response.status_code == 200 else "unknown"
+                
+                # Obtener si está habilitado para auto-inicio
+                enabled_url = f"http://{device_ip}:8000/services/{service_name}/is-enabled"
+                enabled_response = requests.get(enabled_url, timeout=5)
+                enabled = enabled_response.text.strip() if enabled_response.status_code == 200 else "unknown"
+                
+                # Determinar el estado visual para la UI
+                ui_status = "success" if status == "running" else "danger" if status == "stopped" else "warning"
+                
+                services_data.append({
+                    "name": service_name,
+                    "display_name": service_name.capitalize(),
+                    "status": status,
+                    "enabled": enabled,
+                    "ui_status": ui_status,
+                    "actions": VALID_ACTIONS,
+                    "last_checked": datetime.now().isoformat()
+                })
+                
+                logger.info(f"Servicio {service_name} en {device_id}: status={status}, enabled={enabled}")
+                
+            except requests.RequestException as e:
+                logger.error(f"Error al consultar servicio {service_name} en dispositivo {device_id}: {str(e)}")
+                services_data.append({
+                    "name": service_name,
+                    "display_name": service_name.capitalize(),
+                    "status": "error",
+                    "enabled": "unknown",
+                    "ui_status": "secondary",
+                    "error": str(e),
+                    "actions": VALID_ACTIONS,
+                    "last_checked": datetime.now().isoformat()
+                })
+            except Exception as e:
+                logger.error(f"Error inesperado al consultar servicio {service_name}: {str(e)}")
+                services_data.append({
+                    "name": service_name,
+                    "display_name": service_name.capitalize(),
+                    "status": "error",
+                    "enabled": "unknown",
+                    "ui_status": "secondary",
+                    "error": f"Error interno: {str(e)}",
+                    "actions": VALID_ACTIONS,
+                    "last_checked": datetime.now().isoformat()
+                })
+        
+        # Respuesta exitosa
+        response = {
+            "success": True,
+            "device_id": device_id,
+            "device_name": device.name,
+            "device_ip": device_ip,
+            "services": services_data,
+            "timestamp": datetime.now().isoformat(),
+            "message": f"Estado de servicios obtenido correctamente para {device.name}"
+        }
+        
+        logger.info(f"Estado de servicios obtenido exitosamente para dispositivo {device_id}")
+        return response
+        
+    except HTTPException:
+        # Re-lanzar excepciones HTTP específicas
+        raise
+    except Exception as e:
+        logger.error(f"Error general al obtener servicios del dispositivo {device_id}: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error interno del servidor: {str(e)}"
+        ) 
