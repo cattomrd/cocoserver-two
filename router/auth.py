@@ -1,7 +1,8 @@
-# router/auth.py - VERSIÓN SIMPLIFICADA QUE FUNCIONA
-# Reemplaza completamente tu archivo router/auth.py actual
+# ==========================================
+# PASO 1: Reemplazar router/auth.py con este código corregido
+# ==========================================
 
-from fastapi import APIRouter, Request, Form, Depends, HTTPException
+from fastapi import APIRouter, Request, Form, Depends, HTTPException, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -11,10 +12,10 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
-import bcrypt
 
 from models.database import get_db
 from models.models import User
+import bcrypt
 
 logger = logging.getLogger(__name__)
 
@@ -22,13 +23,11 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-router = APIRouter(tags=["authentication"])
-
 # ==========================================
-# SISTEMA DE SESIONES SIMPLE
+# SISTEMA DE SESIONES MEJORADO
 # ==========================================
 
-# Almacén de sesiones en memoria
+# Almacén de sesiones en memoria (en producción usar Redis o BD)
 active_sessions = {}
 
 def generate_session_token() -> str:
@@ -64,19 +63,8 @@ def verify_session(session_token: str) -> Optional[dict]:
     
     # Actualizar última actividad
     session_data['last_activity'] = datetime.utcnow()
+    
     return session_data
-
-def revoke_session(session_token: str) -> bool:
-    """Revoca una sesión específica"""
-    if session_token in active_sessions:
-        del active_sessions[session_token]
-        logger.info(f"Sesión revocada: {session_token[:10]}...")
-        return True
-    return False
-
-# ==========================================
-# FUNCIÓN DE AUTENTICACIÓN - MISMA LÓGICA DEL SCRIPT
-# ==========================================
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verificar contraseña - VERSIÓN QUE MANEJA USUARIOS AD"""
@@ -96,7 +84,7 @@ def verify_password(password: str, hashed: str) -> bool:
     except Exception as e:
         logger.error(f"Error verificando contraseña: {e}")
         return False
-    
+
 def authenticate_ad_user(username: str, password: str) -> bool:
     """Autenticar usuario contra Active Directory"""
     try:
@@ -144,7 +132,19 @@ def authenticate_ad_user(username: str, password: str) -> bool:
     except Exception as e:
         logger.error(f"❌ Error en autenticación AD para {username}: {str(e)}")
         return False
-        
+    
+def revoke_session(session_token: str) -> bool:
+    """Revoca una sesión específica"""
+    if session_token in active_sessions:
+        del active_sessions[session_token]
+        logger.info(f"Sesión revocada: {session_token[:10]}...")
+        return True
+    return False
+
+# ==========================================
+# FUNCIÓN DE AUTENTICACIÓN CORREGIDA
+# ==========================================
+
 def authenticate_user(db: Session, username: str, password: str) -> tuple[bool, Optional[User], str]:
     """
     Autentica un usuario - VERSIÓN QUE SOPORTA AD + LOCAL
@@ -201,12 +201,12 @@ def authenticate_user(db: Session, username: str, password: str) -> tuple[bool, 
     except Exception as e:
         logger.error(f"❌ Error en authenticate_user: {str(e)}")
         return False, None, "Error interno de autenticación"
-    
-
 
 # ==========================================
-# RUTAS DE AUTENTICACIÓN
+# ROUTER DE AUTENTICACIÓN
 # ==========================================
+
+router = APIRouter(prefix="", tags=["authentication"])
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = None, next: str = "/"):
@@ -215,7 +215,6 @@ async def login_page(request: Request, error: str = None, next: str = "/"):
     # Si ya está autenticado, redirigir
     session_token = request.cookies.get("session")
     if session_token and verify_session(session_token):
-        logger.info("Usuario ya autenticado, redirigiendo...")
         return RedirectResponse(url=next, status_code=302)
     
     context = {
@@ -238,13 +237,13 @@ async def login_submit(
     """Procesa el login del usuario"""
     
     try:
-        logger.info(f"📝 Login form submit para: {username}")
+        logger.info(f"Intento de login para: {username}")
         
         # Autenticar usuario
         success, user, message = authenticate_user(db, username, password)
         
         if not success or not user:
-            logger.warning(f"❌ Login fallido: {username} - {message}")
+            logger.warning(f"Login fallido: {username} - {message}")
             error_url = f"/login?error={message}&next={next}"
             return RedirectResponse(url=error_url, status_code=302)
         
@@ -263,11 +262,11 @@ async def login_submit(
             samesite="lax"
         )
         
-        logger.info(f"✅ Login exitoso: {username}")
+        logger.info(f"Login exitoso: {username}")
         return response
         
     except Exception as e:
-        logger.error(f"❌ Error en login: {str(e)}")
+        logger.error(f"Error en login: {str(e)}")
         error_url = f"/login?error=Error interno del servidor&next={next}"
         return RedirectResponse(url=error_url, status_code=302)
 
@@ -334,7 +333,7 @@ async def api_login(
             "success": False,
             "message": "Error interno del servidor"
         }, status_code=500)
-        
+
 @router.get("/logout")
 @router.post("/logout")
 async def logout(request: Request):
@@ -346,7 +345,7 @@ async def logout(request: Request):
     if session_token:
         # Revocar sesión del servidor
         revoke_session(session_token)
-        logger.info(f"🚪 Logout: sesión {session_token[:10]}... revocada")
+        logger.info(f"Logout: sesión {session_token[:10]}... revocada")
     
     # Crear respuesta de redirección
     response = RedirectResponse(url="/login", status_code=302)
@@ -355,21 +354,6 @@ async def logout(request: Request):
     response.delete_cookie(key="session", path="/")
     
     return response
-
-@router.get("/api/logout")
-async def api_logout(request: Request):
-    """API endpoint para logout"""
-    
-    session_token = request.cookies.get("session")
-    
-    if session_token:
-        revoke_session(session_token)
-        logger.info(f"🚪 API logout: sesión {session_token[:10]}... revocada")
-    
-    return JSONResponse({
-        "success": True,
-        "message": "Sesión cerrada correctamente"
-    })
 
 # ==========================================
 # FUNCIÓN PARA VERIFICAR AUTENTICACIÓN (para main.py)
@@ -407,54 +391,3 @@ def is_authenticated(request: Request) -> bool:
     """Verificar si el usuario tiene una sesión válida por cookie"""
     session_token = request.cookies.get("session")
     return session_token and verify_session(session_token) is not None
-
-# ==========================================
-# RUTA DE DEBUG (TEMPORAL)
-# ==========================================
-
-@router.get("/debug/sessions")
-async def debug_sessions(request: Request):
-    """Ver sesiones activas - SOLO PARA DEBUG"""
-    
-    session_token = request.cookies.get("session")
-    current_session = verify_session(session_token) if session_token else None
-    
-    return JSONResponse({
-        "total_sessions": len(active_sessions),
-        "current_session_valid": bool(current_session),
-        "current_session_token": session_token[:10] + "..." if session_token else None,
-        "current_session_data": current_session,
-        "all_sessions": {
-            token[:10] + "...": {
-                "username": data["username"],
-                "created_at": data["created_at"].isoformat(),
-                "expires_at": data["expires_at"].isoformat()
-            } for token, data in active_sessions.items()
-        }
-    })
-
-# ==========================================
-# RUTA DE TEST DE AUTENTICACIÓN
-# ==========================================
-
-@router.post("/test-auth")
-async def test_auth_endpoint(
-    username: str = Form(...),
-    password: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    """Endpoint para probar autenticación - SOLO PARA DEBUG"""
-    
-    success, user, message = authenticate_user(db, username, password)
-    
-    return JSONResponse({
-        "success": success,
-        "message": message,
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "is_admin": user.is_admin,
-            "is_active": user.is_active
-        } if user else None
-    })
