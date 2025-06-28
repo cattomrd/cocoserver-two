@@ -1,416 +1,503 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}VideoSystem{% endblock %}</title>
+{% extends "base.html" %}
+
+{% block title %}Listas de Reproducción{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/playlists.css">
+<style>
+/* Estilos específicos para la vista de playlists */
+.playlist-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid #dee2e6;
+    margin-bottom: 1rem;
+}
+
+.playlist-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.playlist-thumbnail {
+    width: 100px;
+    height: 75px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.playlist-status-badge {
+    font-size: 0.75rem;
+    padding: 0.35em 0.65em;
+}
+
+.playlist-actions .btn {
+    margin: 0 2px;
+}
+
+.video-count-badge {
+    background: linear-gradient(45deg, #007bff, #0056b3);
+    color: white;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.playlist-grid-view .playlist-item {
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.playlist-grid-view .playlist-item:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 20px rgba(0,123,255,0.15);
+}
+
+.view-toggle-buttons .btn {
+    border-radius: 0;
+}
+
+.view-toggle-buttons .btn:first-child {
+    border-top-left-radius: 0.375rem;
+    border-bottom-left-radius: 0.375rem;
+}
+
+.view-toggle-buttons .btn:last-child {
+    border-top-right-radius: 0.375rem;
+    border-bottom-right-radius: 0.375rem;
+}
+
+@media (max-width: 768px) {
+    .playlist-actions {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
     
-    <!-- CSS Dependencies -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/base.css">
-    
-    <!-- Block for additional CSS -->
-    {% block extra_css %}{% endblock %}
-    
-    <!-- Inline critical CSS -->
-    <style>
-        :root {
-            --sidebar-width: 250px;
-            --primary: #007bff;
-            --success: #28a745;
-            --danger: #dc3545;
-            --warning: #ffc107;
-            --info: #17a2b8;
-        }
+    .playlist-actions .btn {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+    }
+}
+</style>
+{% endblock %}
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8f9fa;
-            margin: 0;
-            padding: 0;
-        }
-
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: var(--sidebar-width);
-            height: 100vh;
-            background: linear-gradient(135deg, #343a40, #495057);
-            color: white;
-            transition: transform 0.3s ease;
-            z-index: 1000;
-            overflow-y: auto;
-        }
-
-        .sidebar.hidden {
-            transform: translateX(-100%);
-        }
-
-        .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin: 4px 12px;
-            transition: all 0.2s ease;
-            text-decoration: none;
-        }
-
-        .sidebar .nav-link:hover {
-            color: white;
-            background: rgba(255,255,255,0.1);
-        }
-
-        .sidebar .nav-link.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .sidebar-toggle {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 1001;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            width: 45px;
-            height: 45px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .sidebar-toggle:hover {
-            background: #0056b3;
-            transform: scale(1.05);
-        }
-
-        .main-content {
-            margin-left: var(--sidebar-width);
-            min-height: 100vh;
-            padding: 20px;
-            transition: margin-left 0.3s ease;
-        }
-
-        .main-content.expanded {
-            margin-left: 0;
-        }
-
-        .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-        }
-
-        .card-header {
-            background: linear-gradient(135deg, var(--primary), #0056b3);
-            color: white;
-            border-radius: 12px 12px 0 0 !important;
-            border: none;
-        }
-
-        .btn {
-            border-radius: 8px;
-            transition: all 0.2s ease;
-        }
-
-        .btn:hover {
-            transform: translateY(-1px);
-        }
-
-        /* Responsive design */
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 100%;
-                transform: translateX(-100%);
-            }
-            
-            .sidebar:not(.hidden) {
-                transform: translateX(0);
-            }
-            
-            .main-content {
-                margin-left: 0;
-                padding: 15px;
-            }
-            
-            .d-mobile-none {
-                display: none !important;
-            }
-        }
-
-        /* Loading state */
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
-        }
-
-        /* Toast notifications */
-        .toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1050;
-        }
-    </style>
-</head>
-<body>
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
-
-    <!-- Sidebar Toggle Button -->
-    <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
-        <i class="fas fa-bars" id="sidebarToggleIcon"></i>
-    </button>
-
-    <!-- Sidebar Navigation -->
-    <nav class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
-        <div class="position-sticky pt-3">
-            <!-- Header -->
-            <div class="text-center text-white mb-4">
-                <h4 class="mb-1">
-                    <i class="fas fa-video"></i> VideoSystem
-                </h4>
-                <small class="text-muted">
-                    {% if user %}
-                        Bienvenido, {{ user.username }}
-                    {% else %}
-                        Bienvenido, Usuario
-                    {% endif %}
-                </small>
-            </div>
-            
-            <!-- Navigation Menu -->
-            <ul class="nav flex-column" role="menubar">
-                <li class="nav-item" role="none">
-                    <a class="nav-link {% if current_page == 'dashboard' %}active{% endif %}" 
-                       href="/ui/dashboard" role="menuitem">
-                        <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                    </a>
-                </li>
-                <li class="nav-item" role="none">
-                    <a class="nav-link {% if current_page == 'devices' %}active{% endif %}" 
-                       href="/ui/devices" role="menuitem">
-                        <i class="fas fa-tv me-2"></i> Dispositivos
-                    </a>
-                </li>
-                <li class="nav-item" role="none">
-                    <a class="nav-link {% if current_page == 'videos' %}active{% endif %}" 
-                       href="/ui/videos" role="menuitem">
-                        <i class="fas fa-film me-2"></i> Videos
-                    </a>
-                </li>
-                <li class="nav-item" role="none">
-                    <a class="nav-link {% if current_page == 'playlists' %}active{% endif %}" 
-                       href="/ui/playlists" role="menuitem">
-                        <i class="fas fa-list me-2"></i> Listas de Reproducción
-                    </a>
-                </li>
-                {% if user and user.is_admin %}
-                <li class="nav-item" role="none">
-                    <a class="nav-link {% if current_page == 'users' %}active{% endif %}" 
-                    href="/ui/users" role="menuitem">
-                        <i class="fas fa-users me-2"></i> Usuarios
-                    </a>
-                </li>
-                {% endif %}
-                
-                <!-- Separator -->
-                <hr class="sidebar-divider my-3">
-                
-                <!-- Logout -->
-                <li class="nav-item" role="none">
-                    <a class="nav-link text-danger" href="/ui/logout" role="menuitem">
-                        <i class="fas fa-sign-out-alt me-2"></i> Cerrar Sesión
-                    </a>
-                </li>
-            </ul>
-        </div>
-    </nav>
-
-    <!-- Main Content Area -->
-    <main class="main-content" id="mainContent" role="main">
-        <!-- Content Block -->
-        {% block content %}
-        <div class="container-fluid">
-            <div class="alert alert-info">
-                <h4>¡Bienvenido a VideoSystem!</h4>
-                <p>Selecciona una opción del menú lateral para comenzar.</p>
-            </div>
-        </div>
-        {% endblock %}
-    </main>
-
-    <!-- JavaScript Dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Base JavaScript -->
-    <script>
-        // Global variables
-        let sidebarHidden = false;
-        
-        // DOM Content Loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeSidebar();
-            initializeTooltips();
-            initializePageSpecific();
-        });
-
-        // Initialize sidebar functionality
-        function initializeSidebar() {
-            const sidebarToggle = document.getElementById('sidebarToggle');
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-            const toggleIcon = document.getElementById('sidebarToggleIcon');
-
-            if (sidebarToggle) {
-                sidebarToggle.addEventListener('click', function() {
-                    toggleSidebar();
-                });
-            }
-
-            // Handle window resize
-            window.addEventListener('resize', function() {
-                handleResize();
-            });
-
-            // Set initial state based on screen size
-            handleResize();
-        }
-
-        // Toggle sidebar function
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-            const toggleIcon = document.getElementById('sidebarToggleIcon');
-
-            if (!sidebar || !mainContent || !toggleIcon) return;
-
-            sidebarHidden = !sidebarHidden;
-
-            if (sidebarHidden) {
-                sidebar.classList.add('hidden');
-                mainContent.classList.add('expanded');
-                toggleIcon.className = 'fas fa-bars';
-            } else {
-                sidebar.classList.remove('hidden');
-                mainContent.classList.remove('expanded');
-                toggleIcon.className = 'fas fa-times';
-            }
-
-            // Store preference
-            localStorage.setItem('sidebarHidden', sidebarHidden);
-        }
-
-        // Handle window resize
-        function handleResize() {
-            const width = window.innerWidth;
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-
-            if (width <= 768) {
-                // Mobile: always hide sidebar initially
-                if (sidebar && mainContent) {
-                    sidebar.classList.add('hidden');
-                    mainContent.classList.add('expanded');
-                    sidebarHidden = true;
-                }
-            } else {
-                // Desktop: restore previous state
-                const savedState = localStorage.getItem('sidebarHidden');
-                if (savedState !== null) {
-                    sidebarHidden = savedState === 'true';
-                    if (sidebarHidden) {
-                        sidebar.classList.add('hidden');
-                        mainContent.classList.add('expanded');
-                    } else {
-                        sidebar.classList.remove('hidden');
-                        mainContent.classList.remove('expanded');
-                    }
-                }
-            }
-        }
-
-        // Initialize tooltips
-        function initializeTooltips() {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-        }
-
-        // Initialize page-specific functionality
-        function initializePageSpecific() {
-            // This can be overridden in individual pages
-        }
-
-        // Utility functions
-        function showToast(message, type = 'info', duration = 5000) {
-            const toastContainer = document.getElementById('toastContainer');
-            if (!toastContainer) return;
-
-            const toastId = 'toast_' + Date.now();
-            const bgClass = type === 'success' ? 'bg-success' : 
-                           type === 'error' ? 'bg-danger' : 
-                           type === 'warning' ? 'bg-warning' : 'bg-info';
-
-            const toastHTML = `
-                <div class="toast ${bgClass} text-white" id="${toastId}" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="toast-header ${bgClass} text-white">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong class="me-auto">VideoSystem</strong>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-                    </div>
-                    <div class="toast-body">
-                        ${message}
+{% block content %}
+<main class="container-fluid py-4">
+    <!-- Header y botón crear nueva playlist -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
+                <div>
+                    <h1 class="h3 mb-2 text-primary">
+                        <i class="fas fa-list-alt me-2"></i>Mis Listas de Reproducción
+                    </h1>
+                    <p class="text-muted mb-0">Gestiona y organiza tus listas de reproducción</p>
+                </div>
+                <div class="d-flex flex-column flex-sm-row gap-2 mt-3 mt-md-0">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPlaylistModal">
+                        <i class="fas fa-plus me-2"></i>Nueva Lista
+                    </button>
+                    <div class="btn-group view-toggle-buttons" role="group" aria-label="Vista">
+                        <button type="button" class="btn btn-outline-secondary active" id="tableViewBtn" onclick="switchToTableView()">
+                            <i class="fas fa-table me-1"></i><span class="d-none d-sm-inline">Tabla</span>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="gridViewBtn" onclick="switchToGridView()">
+                            <i class="fas fa-th-large me-1"></i><span class="d-none d-sm-inline">Cuadrícula</span>
+                        </button>
                     </div>
                 </div>
-            `;
+            </div>
+        </div>
+    </div>
 
-            toastContainer.insertAdjacentHTML('beforeend', toastHTML);
-            const toastElement = document.getElementById(toastId);
-            const toast = new bootstrap.Toast(toastElement, { delay: duration });
-            toast.show();
+    <!-- Controles de búsqueda y filtros -->
+    <div class="row mb-4 g-3">
+        <div class="col-lg-5 col-md-6">
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" id="playlistSearchInput" class="form-control" 
+                       placeholder="Buscar por título, descripción o fecha...">
+                <button class="btn btn-outline-secondary" type="button" id="clearPlaylistSearch">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-3 col-6">
+            <select class="form-select" id="playlistFilterStatus">
+                <option value="all">Todas las listas</option>
+                <option value="active">Activas</option>
+                <option value="inactive">Inactivas</option>
+                <option value="expired">Expiradas</option>
+            </select>
+        </div>
+        <div class="col-lg-2 col-md-3 col-6">
+            <select class="form-select" id="playlistSortBy">
+                <option value="created_desc">Más recientes</option>
+                <option value="created_asc">Más antiguas</option>
+                <option value="title_asc">A-Z</option>
+                <option value="title_desc">Z-A</option>
+                <option value="videos_desc">Más videos</option>
+            </select>
+        </div>
+        <div class="col-lg-3 col-sm-6">
+            <div class="d-flex align-items-center">
+                <label for="playlistPageSize" class="form-label me-2 mb-0 text-nowrap">Por página:</label>
+                <select class="form-select" id="playlistPageSize">
+                    <option value="12">12</option>
+                    <option value="24" selected>24</option>
+                    <option value="48">48</option>
+                    <option value="all">Todas</option>
+                </select>
+            </div>
+        </div>
+    </div>
 
-            // Remove toast element after it's hidden
-            toastElement.addEventListener('hidden.bs.toast', function() {
-                toastElement.remove();
-            });
-        }
+    <!-- Estadísticas rápidas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-wrap justify-content-between align-items-center bg-light p-3 rounded">
+                <div class="d-flex flex-wrap gap-3">
+                    <span id="playlistCountBadge" class="badge bg-primary fs-6">
+                        <i class="fas fa-list me-1"></i>0 listas
+                    </span>
+                    <span id="activePlaylistsBadge" class="badge bg-success fs-6">
+                        <i class="fas fa-check-circle me-1"></i>0 activas
+                    </span>
+                    <span id="totalVideosBadge" class="badge bg-info fs-6">
+                        <i class="fas fa-video me-1"></i>0 videos
+                    </span>
+                </div>
+                <small class="text-muted mt-2 mt-sm-0" id="playlistPaginationInfo">
+                    Mostrando 0 - 0 de 0 resultados
+                </small>
+            </div>
+        </div>
+    </div>
 
-        // Loading state utility
-        function showLoading(element) {
-            if (element) {
-                element.innerHTML = `
-                    <div class="loading">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Cargando...</span>
+    <!-- Vista de tabla (por defecto) -->
+    <div id="tableView" class="playlist-view">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-dark">
+                        <i class="fas fa-table me-2 text-primary"></i>Vista de Tabla
+                    </h5>
+                    <!-- Paginación superior -->
+                    <nav aria-label="Paginación de playlists">
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-outline-secondary" id="firstPageBtn" title="Primera página">
+                                <i class="fas fa-angle-double-left"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" id="prevPageBtn" title="Anterior">
+                                <i class="fas fa-angle-left"></i>
+                            </button>
+                            <input type="number" id="pageInput" class="form-control form-control-sm text-center" 
+                                   style="width: 60px;" min="1" value="1">
+                            <span class="text-muted small">de <span id="totalPages">1</span></span>
+                            <button class="btn btn-sm btn-outline-secondary" id="nextPageBtn" title="Siguiente">
+                                <i class="fas fa-angle-right"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" id="lastPageBtn" title="Última página">
+                                <i class="fas fa-angle-double-right"></i>
+                            </button>
                         </div>
-                        <span class="ms-2">Cargando...</span>
+                    </nav>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" style="width: 30%">
+                                <i class="fas fa-list me-1"></i>Lista de Reproducción
+                            </th>
+                            <th scope="col" style="width: 25%">
+                                <i class="fas fa-info-circle me-1"></i>Descripción
+                            </th>
+                            <th scope="col" style="width: 15%">
+                                <i class="fas fa-calendar me-1"></i>Creada
+                            </th>
+                            <th scope="col" style="width: 10%">
+                                <i class="fas fa-video me-1"></i>Videos
+                            </th>
+                            <th scope="col" style="width: 10%">
+                                <i class="fas fa-toggle-on me-1"></i>Estado
+                            </th>
+                            <th scope="col" style="width: 10%">
+                                <i class="fas fa-cogs me-1"></i>Acciones
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="playlistsTableBody">
+                        <!-- Las playlists se cargarán aquí dinámicamente -->
+                        <tr id="loadingRow">
+                            <td colspan="6" class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2 mb-0 text-muted">Cargando listas de reproducción...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vista de cuadrícula -->
+    <div id="gridView" class="playlist-view d-none">
+        <div class="row" id="playlistsGridContainer">
+            <!-- Las tarjetas se generarán aquí dinámicamente -->
+        </div>
+    </div>
+
+    <!-- Mensaje cuando no hay resultados -->
+    <div id="noResultsMessage" class="text-center py-5 d-none">
+        <div class="card border-0">
+            <div class="card-body">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No se encontraron listas de reproducción</h5>
+                <p class="text-muted">Intenta ajustar los filtros de búsqueda o crear una nueva lista.</p>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPlaylistModal">
+                    <i class="fas fa-plus me-2"></i>Crear Nueva Lista
+                </button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Modal para crear nueva playlist -->
+<div class="modal fade" id="createPlaylistModal" tabindex="-1" aria-labelledby="createPlaylistModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="createPlaylistModalLabel">
+                    <i class="fas fa-plus-circle me-2"></i>Crear Nueva Lista de Reproducción
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="createPlaylistForm" novalidate>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="playlistTitle" class="form-label">
+                                <i class="fas fa-heading me-1"></i>Título <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="playlistTitle" name="title" 
+                                   placeholder="Ej: Lista de Videos Educativos" required maxlength="100">
+                            <div class="invalid-feedback">Por favor, ingresa un título para la lista.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="playlistActive" class="form-label">
+                                <i class="fas fa-toggle-on me-1"></i>Estado
+                            </label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="playlistActive" 
+                                       name="is_active" checked>
+                                <label class="form-check-label" for="playlistActive">
+                                    Lista Activa
+                                </label>
+                            </div>
+                        </div>
                     </div>
-                `;
-            }
-        }
+                    
+                    <div class="mb-3">
+                        <label for="playlistDescription" class="form-label">
+                            <i class="fas fa-align-left me-1"></i>Descripción
+                        </label>
+                        <textarea class="form-control" id="playlistDescription" name="description" 
+                                  rows="3" placeholder="Describe el contenido y propósito de esta lista..."
+                                  maxlength="500"></textarea>
+                        <div class="form-text">
+                            <span id="descriptionCount">0</span>/500 caracteres
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="playlistExpiration" class="form-label">
+                                <i class="fas fa-clock me-1"></i>Fecha de Expiración (opcional)
+                            </label>
+                            <input type="datetime-local" class="form-control" id="playlistExpiration" 
+                                   name="expiration_date">
+                            <div class="form-text">Deja en blanco si no tiene expiración</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="playlistPriority" class="form-label">
+                                <i class="fas fa-sort-numeric-up me-1"></i>Prioridad
+                            </label>
+                            <select class="form-select" id="playlistPriority" name="priority">
+                                <option value="1">Alta</option>
+                                <option value="2" selected>Normal</option>
+                                <option value="3">Baja</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Crear Lista de Reproducción
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-        // Error handling
-        window.addEventListener('error', function(e) {
-            console.error('JavaScript Error:', e.error);
-            showToast('Ha ocurrido un error inesperado', 'error');
+<!-- Modal para editar playlist -->
+<div class="modal fade" id="editPlaylistModal" tabindex="-1" aria-labelledby="editPlaylistModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="editPlaylistModalLabel">
+                    <i class="fas fa-edit me-2"></i>Editar Lista de Reproducción
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editPlaylistForm" novalidate>
+                <div class="modal-body">
+                    <input type="hidden" id="editPlaylistId">
+                    <!-- Los campos del formulario son similares al modal de crear -->
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="editPlaylistTitle" class="form-label">
+                                <i class="fas fa-heading me-1"></i>Título <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="editPlaylistTitle" name="title" 
+                                   required maxlength="100">
+                            <div class="invalid-feedback">Por favor, ingresa un título para la lista.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="editPlaylistActive" class="form-label">
+                                <i class="fas fa-toggle-on me-1"></i>Estado
+                            </label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="editPlaylistActive" 
+                                       name="is_active">
+                                <label class="form-check-label" for="editPlaylistActive">
+                                    Lista Activa
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editPlaylistDescription" class="form-label">
+                            <i class="fas fa-align-left me-1"></i>Descripción
+                        </label>
+                        <textarea class="form-control" id="editPlaylistDescription" name="description" 
+                                  rows="3" maxlength="500"></textarea>
+                        <div class="form-text">
+                            <span id="editDescriptionCount">0</span>/500 caracteres
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="editPlaylistExpiration" class="form-label">
+                                <i class="fas fa-clock me-1"></i>Fecha de Expiración
+                            </label>
+                            <input type="datetime-local" class="form-control" id="editPlaylistExpiration" 
+                                   name="expiration_date">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editPlaylistPriority" class="form-label">
+                                <i class="fas fa-sort-numeric-up me-1"></i>Prioridad
+                            </label>
+                            <select class="form-select" id="editPlaylistPriority" name="priority">
+                                <option value="1">Alta</option>
+                                <option value="2">Normal</option>
+                                <option value="3">Baja</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-warning text-dark">
+                        <i class="fas fa-save me-1"></i>Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación para eliminar -->
+<div class="modal fade" id="deletePlaylistModal" tabindex="-1" aria-labelledby="deletePlaylistModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deletePlaylistModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Eliminación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar la lista de reproducción <strong id="deletePlaylistName"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Esta acción no se puede deshacer y eliminará todos los videos asociados a esta lista.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash-alt me-1"></i>Eliminar Lista
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/playlists-improved.js"></script>
+<script>
+// Inicialización específica del template
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar contadores de caracteres
+    const descriptionTextarea = document.getElementById('playlistDescription');
+    const descriptionCount = document.getElementById('descriptionCount');
+    const editDescriptionTextarea = document.getElementById('editPlaylistDescription');
+    const editDescriptionCount = document.getElementById('editDescriptionCount');
+    
+    if (descriptionTextarea && descriptionCount) {
+        descriptionTextarea.addEventListener('input', function() {
+            descriptionCount.textContent = this.value.length;
         });
-
-        // Unhandled promise rejections
-        window.addEventListener('unhandledrejection', function(e) {
-            console.error('Unhandled Promise Rejection:', e.reason);
-            showToast('Error de conexión', 'error');
+    }
+    
+    if (editDescriptionTextarea && editDescriptionCount) {
+        editDescriptionTextarea.addEventListener('input', function() {
+            editDescriptionCount.textContent = this.value.length;
         });
-    </script>
-
-    <!-- Block for additional scripts -->
-    {% block extra_scripts %}{% endblock %}
-</body>
-</html>
+    }
+    
+    // Configurar fecha mínima para expiración (no puede ser en el pasado)
+    const expirationInput = document.getElementById('playlistExpiration');
+    const editExpirationInput = document.getElementById('editPlaylistExpiration');
+    const now = new Date();
+    const minDateTime = now.toISOString().slice(0, 16);
+    
+    if (expirationInput) {
+        expirationInput.min = minDateTime;
+    }
+    if (editExpirationInput) {
+        editExpirationInput.min = minDateTime;
+    }
+});
+</script>
+{% endblock %}

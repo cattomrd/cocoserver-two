@@ -18,12 +18,13 @@ from models.database import engine
 
 # Importar los routers
 from router import videos, playlists, raspberry, ui, devices, device_playlists, services_enhanced as services, device_service_api,playlists_api
-from router.auth import router as auth_router
+from router.auth_fixed import router as auth_router
 from router.users import router as users_router
 from router.playlist_checker_api import router as playlist_checker_router
 from router.ui_auth import router as ui_auth_router
 from utils.list_checker import start_playlist_checker
 from utils.ping_checker import start_background_ping_checker
+from middleware.auth_middleware import AuthMiddleware
 # Crear las tablas en la base de datos
 models.Base.metadata.create_all(bind=engine)
 
@@ -42,6 +43,18 @@ app = FastAPI(
     description="API para gestionar videos y listas de reproducción para Raspberry Pi",
     version="1.0.0"
 )
+
+def is_authenticated(request: Request) -> bool:
+    from router.auth_fixed import verify_session
+    
+    session_cookie = request.cookies.get("session")
+    if not session_cookie:
+        return False
+    
+    session_data = verify_session(session_cookie)
+    return session_data is not None
+
+app.add_middleware(AuthMiddleware)
 
 # Función para verificar si el usuario está autenticado por cookie
 def is_authenticated(request: Request) -> bool:
@@ -128,8 +141,8 @@ app.include_router(device_service_api.router)
 app.include_router(playlist_checker_router)
 
 
-start_background_ping_checker(app)
-start_playlist_checker(app)
+# start_background_ping_checker(app)
+# start_playlist_checker(app)
 # Middleware de autenticación corregido que reconoce cookies
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
