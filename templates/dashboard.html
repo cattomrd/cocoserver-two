@@ -182,17 +182,16 @@
                                 </div>
                             </button>
                         </div>
-                        {% if user and user.is_admin %}
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <button class="btn quick-action-btn w-100" onclick="location.href='/ui/users'">
-                                <div>
-                                    <i class="fas fa-users fa-2x text-warning mb-2"></i>
-                                    <div class="fw-bold">Gestionar Usuarios</div>
-                                    <small class="text-muted">Administrar accesos</small>
-                                </div>
-                            </button>
-                        </div>
-                        {% endif %}
+                            <div class="col-lg-3 col-md-6 mb-3">
+                                <button class="btn quick-action-btn w-100" onclick="{% if is_admin %}location.href='/ui/users'{% endif %}" {% if not is_admin %}disabled{% endif %}>
+                                    <div>
+                                        <i class="fas fa-users fa-2x {% if is_admin %}text-warning{% else %}text-secondary{% endif %} mb-2"></i>
+                                        <div class="fw-bold">Gestionar Usuarios</div>
+                                        <small class="text-muted">Administrar accesos</small>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>  
                     </div>
                 </div>
             </div>

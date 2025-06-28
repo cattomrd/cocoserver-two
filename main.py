@@ -251,6 +251,9 @@ async def auth_middleware(request: Request, call_next):
                 status_code=500
             )
 
+start_playlist_checker(app)
+start_background_ping_checker(app)
+
 # ==========================================
 # EVENTOS DE APLICACIÓN
 # ==========================================
