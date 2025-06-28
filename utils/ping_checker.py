@@ -134,7 +134,7 @@ async def check_device_status(device_id=None):
     finally:
         db.close()
 
-async def periodic_check_devices(interval_minutes=5):
+async def periodic_check_devices(interval_minutes=3):
     """
     Ejecuta la verificación periódica de dispositivos
     

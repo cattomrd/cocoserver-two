@@ -79,20 +79,75 @@ def revoke_session(session_token: str) -> bool:
 # ==========================================
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Verificar contraseña - MISMA LÓGICA QUE EL SCRIPT QUE FUNCIONA"""
+    """Verificar contraseña - VERSIÓN QUE MANEJA USUARIOS AD"""
     try:
+        # ⭐ VERIFICAR SI LA CONTRASEÑA ES NULA (usuarios AD)
+        if hashed is None or hashed == "":
+            logger.info("🔑 Usuario sin contraseña local (posible usuario AD)")
+            return False  # No verificar localmente, debe usar AD
+        
+        # Verificar bcrypt (usuarios locales)
         if hashed.startswith('$2b$'):
             return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
         else:
-            # Contraseña en texto plano o SHA256
+            # Contraseña en texto plano o SHA256 (usuarios locales)
             return password == hashed or hashed == hashlib.sha256(password.encode()).hexdigest()
+            
     except Exception as e:
         logger.error(f"Error verificando contraseña: {e}")
         return False
-
+    
+def authenticate_ad_user(username: str, password: str) -> bool:
+    """Autenticar usuario contra Active Directory"""
+    try:
+        logger.info(f"🏢 Intentando autenticación AD para: {username}")
+        
+        # Importar librería LDAP
+        try:
+            from ldap3 import Server, Connection, ALL, SIMPLE
+        except ImportError:
+            logger.error("❌ Librería ldap3 no instalada - pip install ldap3")
+            return False
+        
+        # Configuración AD desde variables de entorno
+        import os
+        ad_server = os.getenv('AD_SERVER', '172.19.2.241')
+        ad_domain = os.getenv('AD_DOMAIN_FQDN', 'ikeasi.com')
+        ad_base_dn = os.getenv('AD_BASE_DN', 'DC=ikeaspc,DC=ikeasi,DC=com')
+        
+        # Construir DN del usuario
+        user_dn = f"{username}@{ad_domain}"
+        
+        logger.info(f"🔗 Conectando a AD: {ad_server}")
+        logger.info(f"👤 Usuario AD: {user_dn}")
+        
+        # Crear servidor AD
+        server = Server(ad_server, port=389, use_ssl=False, get_info=ALL)
+        
+        # Intentar conexión con las credenciales del usuario
+        conn = Connection(
+            server,
+            user=user_dn,
+            password=password,
+            authentication=SIMPLE,
+            auto_bind=True
+        )
+        
+        if conn.bound:
+            logger.info(f"✅ Autenticación AD exitosa para: {username}")
+            conn.unbind()
+            return True
+        else:
+            logger.warning(f"❌ Autenticación AD fallida para: {username}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ Error en autenticación AD para {username}: {str(e)}")
+        return False
+        
 def authenticate_user(db: Session, username: str, password: str) -> tuple[bool, Optional[User], str]:
     """
-    Autentica un usuario - MISMA LÓGICA QUE EL SCRIPT QUE FUNCIONA
+    Autentica un usuario - VERSIÓN QUE SOPORTA AD + LOCAL
     """
     try:
         logger.info(f"🔐 Intento de autenticación para: {username}")
@@ -114,18 +169,40 @@ def authenticate_user(db: Session, username: str, password: str) -> tuple[bool, 
             logger.warning(f"❌ Usuario desactivado: {username}")
             return False, None, "Usuario desactivado"
         
-        # Verificar contraseña usando la misma lógica del script
-        if verify_password(password, user.password_hash):
-            logger.info(f"✅ Contraseña correcta para: {username}")
-            return True, user, "Autenticación exitosa"
-        else:
-            logger.warning(f"❌ Contraseña incorrecta para: {username}")
-            logger.debug(f"Hash almacenado: {user.password_hash[:30] if user.password_hash else 'None'}...")
-            return False, None, "Contraseña incorrecta"
-            
+        # ⭐ DETERMINAR TIPO DE AUTENTICACIÓN
+        auth_provider = getattr(user, 'auth_provider', 'local')
+        has_local_password = user.password_hash is not None and user.password_hash != ""
+        
+        logger.info(f"🔍 Proveedor de auth: {auth_provider}")
+        logger.info(f"🔐 Tiene contraseña local: {'Sí' if has_local_password else 'No'}")
+        
+        # Intentar autenticación local primero (si tiene contraseña)
+        if has_local_password:
+            logger.info(f"🏠 Intentando autenticación local para: {username}")
+            if verify_password(password, user.password_hash):
+                logger.info(f"✅ Autenticación local exitosa para: {username}")
+                return True, user, "Autenticación local exitosa"
+            else:
+                logger.info(f"❌ Autenticación local fallida para: {username}")
+        
+        # Si no tiene contraseña local O la autenticación local falló, intentar AD
+        if auth_provider == 'ad' or not has_local_password:
+            logger.info(f"🏢 Intentando autenticación AD para: {username}")
+            if authenticate_ad_user(username, password):
+                logger.info(f"✅ Autenticación AD exitosa para: {username}")
+                return True, user, "Autenticación AD exitosa"
+            else:
+                logger.warning(f"❌ Autenticación AD fallida para: {username}")
+        
+        # Si llegamos aquí, todas las autenticaciones fallaron
+        logger.warning(f"❌ Todas las autenticaciones fallaron para: {username}")
+        return False, None, "Contraseña incorrecta"
+        
     except Exception as e:
         logger.error(f"❌ Error en authenticate_user: {str(e)}")
         return False, None, "Error interno de autenticación"
+    
+
 
 # ==========================================
 # RUTAS DE AUTENTICACIÓN
