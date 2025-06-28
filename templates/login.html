@@ -3,721 +3,218 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if title %}{{ title }} - {% endif %}Sistema de Gestión de Playlists</title>
+    <title>Iniciar Sesión - VideoSystem</title>
     
     <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    <style>
-        :root {
-            --primary-color: #0d6efd;
-            --secondary-color: #6c757d;
-            --success-color: #198754;
-            --danger-color: #dc3545;
-            --warning-color: #ffc107;
-            --info-color: #0dcaf0;
-            --light-color: #f8f9fa;
-            --dark-color: #212529;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        .login-container {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .login-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            overflow: hidden;
-            max-width: 450px;
-            width: 100%;
-        }
-        
-        .login-header {
-            background: linear-gradient(135deg, var(--primary-color), var(--info-color));
-            color: white;
-            padding: 2rem;
-            text-align: center;
-            position: relative;
-        }
-        
-        .login-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Ccircle cx='49' cy='49' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-            opacity: 0.1;
-        }
-        
-        .login-header h1 {
-            font-size: 1.8rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .login-header p {
-            margin: 0;
-            opacity: 0.9;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .login-body {
-            padding: 2rem;
-        }
-        
-        .form-floating {
-            margin-bottom: 1rem;
-        }
-        
-        .form-floating > .form-control {
-            border: 2px solid #e9ecef;
-            border-radius: 12px;
-            padding: 1rem 0.75rem;
-            height: calc(3.5rem + 2px);
-            transition: all 0.3s ease;
-        }
-        
-        .form-floating > .form-control:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-        }
-        
-        .form-floating > label {
-            padding: 1rem 0.75rem;
-            color: var(--secondary-color);
-        }
-        
-        .btn-login {
-            background: linear-gradient(135deg, var(--primary-color), var(--info-color));
-            border: none;
-            border-radius: 12px;
-            padding: 0.75rem 2rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-        }
-        
-        .btn-login:active {
-            transform: translateY(0);
-        }
-        
-        .btn-login::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s;
-        }
-        
-        .btn-login:hover::before {
-            left: 100%;
-        }
-        
-        .alert {
-            border-radius: 12px;
-            border: none;
-            margin-bottom: 1rem;
-        }
-        
-        .alert-danger {
-            background: linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(220, 53, 69, 0.05));
-            color: var(--danger-color);
-            border-left: 4px solid var(--danger-color);
-        }
-        
-        .remember-forgot {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 1.5rem 0;
-            font-size: 0.9rem;
-        }
-        
-        .form-check-input:checked {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-        
-        .forgot-link {
-            color: var(--primary-color);
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-        
-        .forgot-link:hover {
-            color: var(--info-color);
-            text-decoration: underline;
-        }
-        
-        .login-footer {
-            background: var(--light-color);
-            padding: 1.5rem;
-            text-align: center;
-            border-top: 1px solid #dee2e6;
-        }
-        
-        .login-footer p {
-            margin: 0;
-            color: var(--secondary-color);
-            font-size: 0.9rem;
-        }
-        
-        .loading-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.9);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            border-radius: 12px;
-            z-index: 1000;
-        }
-        
-        .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--primary-color);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .input-group-text {
-            background: transparent;
-            border: none;
-            color: var(--secondary-color);
-        }
-        
-        .password-toggle {
-            cursor: pointer;
-            transition: color 0.3s ease;
-        }
-        
-        .password-toggle:hover {
-            color: var(--primary-color);
-        }
-        
-        @media (max-width: 576px) {
-            .login-container {
-                padding: 10px;
-            }
-            
-            .login-header {
-                padding: 1.5rem;
-            }
-            
-            .login-header h1 {
-                font-size: 1.5rem;
-            }
-            
-            .login-body {
-                padding: 1.5rem;
-            }
-            
-            .remember-forgot {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-        }
-        
-        /* Animaciones de entrada */
-        .fade-in {
-            animation: fadeIn 0.6s ease-out;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .slide-in {
-            animation: slideIn 0.8s ease-out;
-        }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateX(-50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-    </style>
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<style>
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.login-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    width: 100%;
+    max-width: 400px;
+    margin: 2rem;
+}
+
+.login-header {
+    background: linear-gradient(135deg, #0d6efd, #0dcaf0);
+    color: white;
+    padding: 2rem;
+    text-align: center;
+}
+
+.login-form {
+    padding: 2rem;
+}
+
+.form-control {
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.btn-login {
+    background: linear-gradient(135deg, #0d6efd, #0dcaf0);
+    border: none;
+    border-radius: 10px;
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    transition: transform 0.2s ease;
+}
+
+.btn-login:hover {
+    transform: translateY(-2px);
+}
+
+.btn-login:disabled {
+    opacity: 0.6;
+    transform: none;
+}
+
+.alert {
+    border-radius: 10px;
+    border: none;
+}
+</style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-card fade-in">
-            <!-- Header -->
-            <div class="login-header">
-                <div class="slide-in">
-                    <i class="fas fa-music fa-2x mb-2"></i>
-                    <h1>Sistema de Playlists</h1>
-                    <p>Gestión de listas de reproducción</p>
-                </div>
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <h2 class="mb-2">
+                <i class="fas fa-video me-2"></i>
+                VideoSystem
+            </h2>
+            <p class="mb-0 opacity-75">Accede a tu panel de control</p>
+        </div>
+        
+        <div class="login-form">
+            <!-- Mostrar errores si existen -->
+            <div id="errorAlert" class="alert alert-danger d-none" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <span id="errorMessage"></span>
             </div>
             
-            <!-- Body -->
-            <div class="login-body">
-                <div class="loading-overlay" id="loadingOverlay">
-                    <div class="loading-spinner"></div>
+            <!-- Formulario de Login -->
+            <form id="loginForm" novalidate>
+                <!-- Hidden field para redirección (se llenará con JavaScript) -->
+                <input type="hidden" name="next" id="nextField" value="/ui/dashboard">
+                
+                <div class="mb-3">
+                    <label for="username" class="form-label">
+                        <i class="fas fa-user me-2"></i>Usuario
+                    </label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="username" 
+                           name="username" 
+                           required 
+                           autocomplete="username"
+                           placeholder="Ingresa tu usuario">
                 </div>
                 
-                <!-- Error Alert -->
-                {% if error %}
-                <div class="alert alert-danger" role="alert">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    {{ error }}
+                <div class="mb-4">
+                    <label for="password" class="form-label">
+                        <i class="fas fa-lock me-2"></i>Contraseña
+                    </label>
+                    <input type="password" 
+                           class="form-control" 
+                           id="password" 
+                           name="password" 
+                           required 
+                           autocomplete="current-password"
+                           placeholder="Ingresa tu contraseña">
                 </div>
-                {% endif %}
                 
-                <!-- Login Form -->
-                <form id="loginForm" novalidate>
-                    <input type="hidden" name="next" value="{{ next or '/' }}">
-                    
-                    <!-- Username Field -->
-                    <div class="form-floating">
-                        <input type="text" 
-                               class="form-control" 
-                               id="username" 
-                               name="username" 
-                               placeholder="Usuario o Email"
-                               required
-                               autocomplete="username">
-                        <label for="username">
-                            <i class="fas fa-user me-2"></i>Usuario o Email
-                        </label>
-                        <div class="invalid-feedback">
-                            Por favor, ingresa tu usuario o email.
-                        </div>
-                    </div>
-                    
-                    <!-- Password Field -->
-                    <div class="form-floating">
-                        <input type="password" 
-                               class="form-control" 
-                               id="password" 
-                               name="password" 
-                               placeholder="Contraseña"
-                               required
-                               autocomplete="current-password">
-                        <label for="password">
-                            <i class="fas fa-lock me-2"></i>Contraseña
-                        </label>
-                        <div class="input-group-text password-toggle" onclick="togglePassword()">
-                            <i class="fas fa-eye" id="passwordToggleIcon"></i>
-                        </div>
-                        <div class="invalid-feedback">
-                            Por favor, ingresa tu contraseña.
-                        </div>
-                    </div>
-                    
-                    <!-- Remember & Forgot -->
-                    <div class="remember-forgot">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="rememberMe" name="remember">
-                            <label class="form-check-label" for="rememberMe">
-                                Recordarme
-                            </label>
-                        </div>
-                        <a href="#" class="forgot-link">¿Olvidaste tu contraseña?</a>
-                    </div>
-                    
-                    <!-- Submit Button -->
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-login">
-                            <i class="fas fa-sign-in-alt me-2"></i>
-                            <span id="loginButtonText">Iniciar Sesión</span>
-                        </button>
-                    </div>
-                </form>
-                
-                <!-- Alternative Login Methods -->
-                <div class="text-center mt-3">
-                    <small class="text-muted">
-                        ¿Primera vez? Contacta al administrador para crear tu cuenta
-                    </small>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-login">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        Iniciar Sesión
+                    </button>
                 </div>
-            </div>
+            </form>
             
             <!-- Footer -->
-            <div class="login-footer">
-                <p>
+            <div class="text-center mt-4">
+                <small class="text-muted">
                     <i class="fas fa-shield-alt me-1"></i>
-                    Conexión segura • Sistema v2.0
-                </p>
+                    Conexión segura
+                </small>
             </div>
         </div>
     </div>
-    
-    <!-- Toast Container -->
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div id="loginToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header">
-                <i class="fas fa-info-circle me-2 text-primary"></i>
-                <strong class="me-auto">Sistema</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-            <div class="toast-body" id="toastBody">
-                <!-- Toast message will be inserted here -->
-            </div>
-        </div>
-    </div>
+</div>
+</div>
+</div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/auth_fixed.js"></script>
+<!-- JavaScript Dependencies -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Auth Manager -->
+<script src="/static/js/auth_fixed.js"></script>
+<script>
+// Función showToast simple para esta página
+function showToast(message, type = 'info') {
+    // Crear toast container si no existe
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(container);
+    }
     
-    <script>
-        // Variables globales
-        let isSubmitting = false;
-        
-        // Inicialización cuando el DOM esté listo
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeLoginPage();
-        });
-        
-        function initializeLoginPage() {
-            console.log('🔐 Inicializando página de login...');
-            
-            // Configurar formulario
-            setupFormValidation();
-            setupFormSubmission();
-            
-            // Configurar campos
-            setupInputAnimations();
-            
-            // Focus automático en username si está vacío
-            const usernameField = document.getElementById('username');
-            if (usernameField && !usernameField.value) {
-                setTimeout(() => usernameField.focus(), 500);
-            }
-            
-            // Verificar si ya está autenticado
-            if (window.authManager && authManager.isAuthenticated()) {
-                const urlParams = new URLSearchParams(window.location.search);
-                const nextUrl = urlParams.get('next') || '/';
-                
-                showToast('Ya tienes una sesión activa, redirigiendo...', 'info');
-                setTimeout(() => {
-                    window.location.href = nextUrl;
-                }, 1500);
-            }
+    const toastId = 'toast-' + Date.now();
+    const bgClass = type === 'success' ? 'bg-success' : 
+                   type === 'error' ? 'bg-danger' : 
+                   type === 'warning' ? 'bg-warning' : 'bg-info';
+
+    const toastHtml = `
+        <div class="toast ${bgClass} text-white" id="${toastId}" role="alert">
+            <div class="toast-header ${bgClass} text-white border-0">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong class="me-auto">VideoSystem</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">${message}</div>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', toastHtml);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+    toast.show();
+
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.remove();
+    });
+}
+
+// Manejar parámetros de URL al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Obtener parámetros de URL
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Mostrar error si existe
+    const error = urlParams.get('error');
+    if (error) {
+        const errorAlert = document.getElementById('errorAlert');
+        const errorMessage = document.getElementById('errorMessage');
+        if (errorAlert && errorMessage) {
+            errorMessage.textContent = decodeURIComponent(error);
+            errorAlert.classList.remove('d-none');
         }
-        
-        function setupFormValidation() {
-            const form = document.getElementById('loginForm');
-            if (!form) return;
-            
-            // Validación en tiempo real
-            const inputs = form.querySelectorAll('input[required]');
-            inputs.forEach(input => {
-                input.addEventListener('blur', validateField);
-                input.addEventListener('input', clearFieldError);
-            });
-        }
-        
-        function setupFormSubmission() {
-            const form = document.getElementById('loginForm');
-            if (!form) return;
-            
-            form.addEventListener('submit', handleFormSubmit);
-        }
-        
-        function setupInputAnimations() {
-            // Agregar animaciones a los campos cuando reciben focus
-            const inputs = document.querySelectorAll('.form-control');
-            inputs.forEach(input => {
-                input.addEventListener('focus', function() {
-                    this.parentElement.classList.add('focused');
-                });
-                
-                input.addEventListener('blur', function() {
-                    if (!this.value) {
-                        this.parentElement.classList.remove('focused');
-                    }
-                });
-            });
-        }
-        
-        async function handleFormSubmit(event) {
-            event.preventDefault();
-            
-            if (isSubmitting) {
-                return; // Prevenir envíos múltiples
-            }
-            
-            const form = event.target;
-            
-            // Validar formulario
-            if (!validateForm(form)) {
-                return;
-            }
-            
-            // Obtener datos
-            const formData = new FormData(form);
-            const username = formData.get('username');
-            const password = formData.get('password');
-            const next = formData.get('next') || '/';
-            
-            try {
-                isSubmitting = true;
-                setLoadingState(true);
-                
-                // Intentar login
-                const result = await authManager.login(username, password);
-                
-                if (result.success) {
-                    showToast('¡Login exitoso! Redirigiendo...', 'success');
-                    
-                    // Pequeño delay para mostrar el mensaje
-                    setTimeout(() => {
-                        window.location.href = next;
-                    }, 1000);
-                } else {
-                    showToast(result.message || 'Error de autenticación', 'error');
-                    
-                    // Shake animation en caso de error
-                    form.classList.add('shake');
-                    setTimeout(() => form.classList.remove('shake'), 600);
-                }
-                
-            } catch (error) {
-                console.error('Error en login:', error);
-                showToast('Error de conexión. Inténtalo de nuevo.', 'error');
-            } finally {
-                isSubmitting = false;
-                setLoadingState(false);
-            }
-        }
-        
-        function validateForm(form) {
-            let isValid = true;
-            const inputs = form.querySelectorAll('input[required]');
-            
-            inputs.forEach(input => {
-                if (!validateField({ target: input })) {
-                    isValid = false;
-                }
-            });
-            
-            return isValid;
-        }
-        
-        function validateField(event) {
-            const input = event.target;
-            const value = input.value.trim();
-            
-            // Limpiar errores previos
-            input.classList.remove('is-invalid', 'is-valid');
-            
-            // Validar según el tipo de campo
-            let isValid = true;
-            let errorMessage = '';
-            
-            switch (input.id) {
-                case 'username':
-                    if (!value) {
-                        isValid = false;
-                        errorMessage = 'El usuario es requerido';
-                    } else if (value.length < 3) {
-                        isValid = false;
-                        errorMessage = 'El usuario debe tener al menos 3 caracteres';
-                    }
-                    break;
-                    
-                case 'password':
-                    if (!value) {
-                        isValid = false;
-                        errorMessage = 'La contraseña es requerida';
-                    } else if (value.length < 4) {
-                        isValid = false;
-                        errorMessage = 'La contraseña debe tener al menos 4 caracteres';
-                    }
-                    break;
-            }
-            
-            // Aplicar estilos de validación
-            if (isValid) {
-                input.classList.add('is-valid');
-            } else {
-                input.classList.add('is-invalid');
-                
-                // Actualizar mensaje de error
-                const feedback = input.parentElement.querySelector('.invalid-feedback');
-                if (feedback) {
-                    feedback.textContent = errorMessage;
-                }
-            }
-            
-            return isValid;
-        }
-        
-        function clearFieldError(event) {
-            const input = event.target;
-            input.classList.remove('is-invalid');
-        }
-        
-        function setLoadingState(loading) {
-            const overlay = document.getElementById('loadingOverlay');
-            const submitButton = document.querySelector('button[type="submit"]');
-            const buttonText = document.getElementById('loginButtonText');
-            
-            if (loading) {
-                overlay.style.display = 'flex';
-                submitButton.disabled = true;
-                buttonText.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Iniciando sesión...';
-            } else {
-                overlay.style.display = 'none';
-                submitButton.disabled = false;
-                buttonText.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión';
-            }
-        }
-        
-        function togglePassword() {
-            const passwordField = document.getElementById('password');
-            const toggleIcon = document.getElementById('passwordToggleIcon');
-            
-            if (passwordField.type === 'password') {
-                passwordField.type = 'text';
-                toggleIcon.classList.remove('fa-eye');
-                toggleIcon.classList.add('fa-eye-slash');
-            } else {
-                passwordField.type = 'password';
-                toggleIcon.classList.remove('fa-eye-slash');
-                toggleIcon.classList.add('fa-eye');
-            }
-        }
-        
-        function showToast(message, type = 'info') {
-            const toastElement = document.getElementById('loginToast');
-            const toastBody = document.getElementById('toastBody');
-            
-            if (!toastElement || !toastBody) {
-                // Fallback a alert si no hay toast
-                alert(message);
-                return;
-            }
-            
-            // Configurar contenido del toast
-            toastBody.textContent = message;
-            
-            // Configurar colores según el tipo
-            const toastHeader = toastElement.querySelector('.toast-header');
-            const icon = toastHeader.querySelector('i');
-            
-            // Limpiar clases previas
-            icon.className = 'fas me-2';
-            toastHeader.className = 'toast-header';
-            
-            switch (type) {
-                case 'success':
-                    icon.classList.add('fa-check-circle', 'text-success');
-                    break;
-                case 'error':
-                    icon.classList.add('fa-exclamation-triangle', 'text-danger');
-                    break;
-                case 'warning':
-                    icon.classList.add('fa-exclamation-circle', 'text-warning');
-                    break;
-                default:
-                    icon.classList.add('fa-info-circle', 'text-primary');
-            }
-            
-            // Mostrar toast
-            const toast = new bootstrap.Toast(toastElement);
-            toast.show();
-        }
-        
-        // Agregar estilos de animación CSS adicionales
-        const additionalStyles = `
-            .shake {
-                animation: shake 0.6s;
-            }
-            
-            @keyframes shake {
-                0%, 100% { transform: translateX(0); }
-                10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-                20%, 40%, 60%, 80% { transform: translateX(5px); }
-            }
-            
-            .form-floating.focused .form-control {
-                border-color: var(--primary-color);
-                box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-            }
-        `;
-        
-        // Inyectar estilos adicionales
-        const styleSheet = document.createElement('style');
-        styleSheet.textContent = additionalStyles;
-        document.head.appendChild(styleSheet);
-        
-        // Manejo de teclas especiales
-        document.addEventListener('keydown', function(event) {
-            // Enter en cualquier campo del formulario
-            if (event.key === 'Enter' && event.target.closest('#loginForm')) {
-                const submitButton = document.querySelector('#loginForm button[type="submit"]');
-                if (submitButton && !submitButton.disabled) {
-                    submitButton.click();
-                }
-            }
-            
-            // Escape para limpiar errores
-            if (event.key === 'Escape') {
-                const invalidInputs = document.querySelectorAll('.is-invalid');
-                invalidInputs.forEach(input => {
-                    input.classList.remove('is-invalid');
-                });
-            }
-        });
-        
-        console.log('✅ Página de login inicializada completamente');
-    </script>
+    }
+    
+    // Configurar campo next
+    const next = urlParams.get('next') || '/ui/dashboard';
+    const nextField = document.getElementById('nextField');
+    if (nextField) {
+        nextField.value = next;
+    }
+});
+
+console.log('✅ Página de login inicializada completamente');
+</script>
+
 </body>
 </html>

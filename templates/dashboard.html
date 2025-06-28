@@ -1,775 +1,458 @@
 {% extends "base.html" %}
-<!-- Main Content -->
- {% block extra_css %}
- <style>
-        :root {
-            --sidebar-width: 250px;
-            --primary: #007bff;
-            --success: #28a745;
-            --danger: #dc3545;
-            --warning: #ffc107;
-            --info: #17a2b8;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8f9fa;
-        }
-        
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: var(--sidebar-width);
-            height: 100vh;
-            background: linear-gradient(135deg, #343a40, #495057);
-            color: white;
-            transition: transform 0.3s ease;
-            z-index: 1000;
-            overflow-y: auto;
-        }
-        
-        .sidebar.hidden {
-            transform: translateX(-100%);
-        }
-        
-        .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin: 4px 12px;
-            transition: all 0.2s ease;
-        }
-        
-        .sidebar .nav-link:hover {
-            color: white;
-            background: rgba(255,255,255,0.1);
-        }
-        
-        .sidebar .nav-link.active {
-            background: var(--primary);
-            color: white;
-        }
-        
-        .sidebar-toggle {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 1001;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            width: 45px;
-            height: 45px;
-            cursor: pointer;
-        }
-        
-        .main-content {
-            margin-left: var(--sidebar-width);
-            min-height: 100vh;
-            padding: 20px;
-            transition: margin-left 0.3s ease;
-        }
-        
-        .main-content.expanded {
-            margin-left: 0;
-        }
-        
-        .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-        }
-        
-        .card-header {
-            background: linear-gradient(135deg, var(--primary), #0056b3);
-            color: white;
-            border-radius: 12px 12px 0 0 !important;
-            border: none;
-        }
-        
-        .btn {
-            border-radius: 8px;
-            transition: all 0.2s ease;
-        }
-        
-        .btn:hover {
-            transform: translateY(-1px);
-        }
-        
-        .table {
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .table thead th {
-            background: #343a40;
-            color: white;
-            border: none;
-            font-weight: 600;
-            padding: 15px;
-        }
-        
-        .table tbody tr {
-            transition: all 0.2s ease;
-        }
-        
-        .table tbody tr:hover {
-            background: rgba(0, 123, 255, 0.05);
-            transform: scale(1.001);
-        }
-        
-        .table tbody td {
-            padding: 12px 15px;
-            vertical-align: middle;
-        }
-        
-        .badge {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-weight: 500;
-            font-size: 0.75rem;
-        }
-        
-        .input-group {
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .form-control, .form-select {
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
-            transition: all 0.2s ease;
-        }
-        
-        .form-control:focus, .form-select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-        }
-        
-        .quick-filters {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .quick-filter-btn {
-            margin: 2px;
-            font-size: 0.8rem;
-            padding: 4px 8px;
-        }
-        
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 100%;
-                transform: translateX(-100%);
-            }
-            
-            .sidebar:not(.hidden) {
-                transform: translateX(0);
-            }
-            
-            .main-content {
-                margin-left: 0;
-                padding: 15px;
-            }
-            
-            .d-mobile-none {
-                display: none !important;
-            }
-            
-            .table-responsive {
-                font-size: 0.9rem;
-            }
-        }
-        
-        .loading-spinner {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #6c757d;
-        }
-        
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 15px;
-            opacity: 0.5;
-        }
-    </style>
+
+{% block title %}Dashboard - VideoSystem{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .stat-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+
+    .recent-activity {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .activity-item {
+        border-left: 3px solid #007bff;
+        background-color: #f8f9fa;
+        margin-bottom: 10px;
+        transition: background-color 0.2s ease;
+    }
+
+    .activity-item:hover {
+        background-color: #e9ecef;
+    }
+
+    .quick-action-btn {
+        height: 100px;
+        border-radius: 10px;
+        border: 2px dashed #dee2e6;
+        transition: all 0.2s ease;
+    }
+
+    .quick-action-btn:hover {
+        border-color: #007bff;
+        background-color: #f8f9ff;
+        transform: scale(1.02);
+    }
+</style>
 {% endblock %}
+
 {% block content %}
-    <main class="main-content" id="mainContent">
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                    <h1 class="h2">Dashboard</h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary">
-                                <i class="fas fa-download"></i> Exportar
+<div class="container-fluid">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card dashboard-card bg-primary text-white">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2">
+                                <i class="fas fa-tachometer-alt me-2"></i>
+                                ¡Bienvenido al Dashboard!
+                            </h2>
+                            <p class="mb-0 opacity-75">
+                                {% if user %}
+                                    Hola {{ user.username }}, aquí tienes un resumen de tu sistema de videos.
+                                {% else %}
+                                    Gestiona tus videos, playlists y dispositivos desde aquí.
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <i class="fas fa-video stat-icon"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card dashboard-card text-center">
+                <div class="card-body">
+                    <div class="text-primary stat-icon">
+                        <i class="fas fa-video"></i>
+                    </div>
+                    <div class="stat-number text-primary" id="totalVideos">--</div>
+                    <h6 class="card-title text-muted">Videos Totales</h6>
+                    <a href="/ui/videos" class="btn btn-sm btn-outline-primary">Ver Videos</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card dashboard-card text-center">
+                <div class="card-body">
+                    <div class="text-success stat-icon">
+                        <i class="fas fa-list"></i>
+                    </div>
+                    <div class="stat-number text-success" id="totalPlaylists">--</div>
+                    <h6 class="card-title text-muted">Playlists</h6>
+                    <a href="/ui/playlists" class="btn btn-sm btn-outline-success">Ver Playlists</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card dashboard-card text-center">
+                <div class="card-body">
+                    <div class="text-info stat-icon">
+                        <i class="fas fa-tv"></i>
+                    </div>
+                    <div class="stat-number text-info" id="totalDevices">--</div>
+                    <h6 class="card-title text-muted">Dispositivos</h6>
+                    <a href="/ui/devices" class="btn btn-sm btn-outline-info">Ver Dispositivos</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card dashboard-card text-center">
+                <div class="card-body">
+                    <div class="text-warning stat-icon">
+                        <i class="fas fa-hdd"></i>
+                    </div>
+                    <div class="stat-number text-warning" id="totalStorage">--</div>
+                    <h6 class="card-title text-muted">Almacenamiento</h6>
+                    <small class="text-muted">Espacio usado</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>
+                        Acciones Rápidas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <button class="btn quick-action-btn w-100" onclick="location.href='/ui/videos'">
+                                <div>
+                                    <i class="fas fa-plus-circle fa-2x text-primary mb-2"></i>
+                                    <div class="fw-bold">Subir Video</div>
+                                    <small class="text-muted">Agregar nuevo contenido</small>
+                                </div>
                             </button>
                         </div>
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <button class="btn quick-action-btn w-100" onclick="location.href='/ui/playlists'">
+                                <div>
+                                    <i class="fas fa-list-ul fa-2x text-success mb-2"></i>
+                                    <div class="fw-bold">Nueva Playlist</div>
+                                    <small class="text-muted">Crear lista de reproducción</small>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <button class="btn quick-action-btn w-100" onclick="location.href='/ui/devices'">
+                                <div>
+                                    <i class="fas fa-tv fa-2x text-info mb-2"></i>
+                                    <div class="fw-bold">Gestionar Dispositivos</div>
+                                    <small class="text-muted">Configurar Raspberry Pi</small>
+                                </div>
+                            </button>
+                        </div>
+                        {% if user and user.is_admin %}
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <button class="btn quick-action-btn w-100" onclick="location.href='/ui/users'">
+                                <div>
+                                    <i class="fas fa-users fa-2x text-warning mb-2"></i>
+                                    <div class="fw-bold">Gestionar Usuarios</div>
+                                    <small class="text-muted">Administrar accesos</small>
+                                </div>
+                            </button>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
 
-                <!-- Stats Cards -->
-                <div class="row mb-4">
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="card border-left-primary">
-                            <div class="card-body">
-                                <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                            Videos Totales</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800">0</div>
-                                    </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-film fa-2x text-gray-300"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="card border-left-success">
-                            <div class="card-body">
-                                <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                            Dispositivos Activos</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800">0</div>
-                                    </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-tv fa-2x text-gray-300"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="card border-left-info">
-                            <div class="card-body">
-                                <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                            Listas de Reproducción</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800">0</div>
-                                    </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-list fa-2x text-gray-300"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {% if user and user.is_admin %}
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="card border-left-warning">
-                            <div class="card-body">
-                                <div class="row no-gutters align-items-center">
-                                    <div class="col mr-2">
-                                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                            Usuarios</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800">1</div>
-                                    </div>
-                                    <div class="col-auto">
-                                        <i class="fas fa-users fa-2x text-gray-300"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
+    <!-- Recent Activity & System Status -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card dashboard-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        Actividad Reciente
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshActivity()">
+                        <i class="fas fa-sync-alt me-1"></i>Actualizar
+                    </button>
                 </div>
-                <!-- Quick Actions -->
-                <div class="row">
-                    <div class="col-lg-6">
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <i class="fas fa-plus"></i> Acciones Rápidas
-                            </div>
-                            <div class="card-body">
-                                <div class="d-grid gap-2">
-                                    <a href="/ui/videos/upload" class="btn btn-primary">
-                                        <i class="fas fa-upload"></i> Subir Video
-                                    </a>
-                                    <a href="/ui/playlists/create" class="btn btn-success">
-                                        <i class="fas fa-plus"></i> Crear Lista de Reproducción
-                                    </a>
-                                    <a href="/ui/devices/register" class="btn btn-info">
-                                        <i class="fas fa-tv"></i> Registrar Dispositivo
-                                    </a>
-                                    {% if user and user.is_admin %}
-                                    <a href="/ui/users/create" class="btn btn-warning">
-                                        <i class="fas fa-user-plus"></i> Crear Usuario
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </div>
+                <div class="card-body recent-activity" id="recentActivity">
+                    <!-- Activity items will be loaded here -->
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
+                        <p>Cargando actividad reciente...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-heartbeat me-2"></i>
+                        Estado del Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted">API Status</small>
+                            <span class="badge bg-success" id="apiStatus">Online</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-success" style="width: 100%"></div>
                         </div>
                     </div>
 
-                    <div class="col-lg-6">
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <i class="fas fa-chart-area"></i> Estado del Sistema
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted">Dispositivos Activos</small>
+                            <span class="badge bg-info" id="activeDevices">0/0</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-info" style="width: 0%" id="deviceProgress"></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted">Uso de Almacenamiento</small>
+                            <span class="badge bg-warning" id="storageUsage">0%</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-warning" style="width: 0%" id="storageProgress"></div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <button class="btn btn-sm btn-outline-secondary w-100" onclick="checkSystemHealth()">
+                            <i class="fas fa-stethoscope me-1"></i>Verificar Sistema
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="card dashboard-card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Estadísticas Rápidas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <div class="h5 mb-0 text-primary" id="todayUploads">0</div>
+                                <small class="text-muted">Subidas Hoy</small>
                             </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-6">
-                                        <div class="text-center">
-                                            <div class="text-success">
-                                                <i class="fas fa-check-circle fa-2x"></i>
-                                            </div>
-                                            <small>Sistema Operativo</small>
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="text-center">
-                                            <div class="text-success">
-                                                <i class="fas fa-database fa-2x"></i>
-                                            </div>
-                                            <small>Base de Datos</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="h5 mb-0 text-success" id="activePlaylist">0</div>
+                            <small class="text-muted">Playlists Activas</small>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-                <!-- Recent Activity -->
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-clock"></i> Actividad Reciente
-                    </div>
-                    <div class="card-body">
-                        <div class="text-center text-muted">
-                            <i class="fas fa-info-circle"></i>
-                            <p>No hay actividad reciente para mostrar.</p>
-                            <small>La actividad aparecerá aquí cuando empieces a usar el sistema.</small>
-                        </div>
-                    </div>
-                </div>
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+    setInterval(updateSystemStatus, 30000); // Update every 30 seconds
+});
 
- <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Variables globales
-        let videos = [];
-        let playlistVideos = [];
-        let currentPlaylistId = {{ playlist.id if playlist else 'null' }};
-        let draggedElement = null;
-        let sidebarHidden = false;
+function loadDashboardData() {
+    console.log('Cargando datos del dashboard...');
+    
+    // Load statistics
+    loadStatistics();
+    
+    // Load recent activity
+    loadRecentActivity();
+    
+    // Update system status
+    updateSystemStatus();
+}
 
-        // Inicialización
-        document.addEventListener('DOMContentLoaded', function() {
-            loadVideos();
-            initializeDragAndDrop();
-            initializeSearch();
-            updatePlaylistHeader();
-            updateLayoutOnResize(); // Ajustar layout inicial
+async function loadStatistics() {
+    try {
+        // Load videos count
+        const videosResponse = await fetch('/api/videos?limit=1');
+        if (videosResponse.ok) {
+            const videosData = await videosResponse.json();
+            document.getElementById('totalVideos').textContent = videosData.length || 0;
+        }
+
+        // Load playlists count
+        const playlistsResponse = await fetch('/api/playlists?limit=1');
+        if (playlistsResponse.ok) {
+            const playlistsData = await playlistsResponse.json();
+            document.getElementById('totalPlaylists').textContent = playlistsData.length || 0;
+        }
+
+        // Load devices count
+        const devicesResponse = await fetch('/api/devices');
+        if (devicesResponse.ok) {
+            const devicesData = await devicesResponse.json();
+            document.getElementById('totalDevices').textContent = devicesData.length || 0;
             
-            {% if playlist %}
-            loadExistingPlaylist();
-            {% endif %}
+            // Update device status
+            const activeDevices = devicesData.filter(d => d.is_online).length;
+            document.getElementById('activeDevices').textContent = `${activeDevices}/${devicesData.length}`;
+            
+            if (devicesData.length > 0) {
+                const percentage = (activeDevices / devicesData.length) * 100;
+                document.getElementById('deviceProgress').style.width = percentage + '%';
+            }
+        }
+
+    } catch (error) {
+        console.error('Error cargando estadísticas:', error);
+        showToast('Error cargando estadísticas del dashboard', 'error');
+    }
+}
+
+function loadRecentActivity() {
+    const activityContainer = document.getElementById('recentActivity');
+    
+    // Simulated recent activity - replace with real API call
+    const activities = [
+        {
+            type: 'upload',
+            message: 'Nuevo video subido: "Video de demostración"',
+            time: '5 minutos',
+            icon: 'fa-video',
+            color: 'primary'
+        },
+        {
+            type: 'playlist',
+            message: 'Playlist "Mi Lista" actualizada',
+            time: '15 minutos',
+            icon: 'fa-list',
+            color: 'success'
+        },
+        {
+            type: 'device',
+            message: 'Dispositivo "RaspberryPi-01" conectado',
+            time: '1 hora',
+            icon: 'fa-tv',
+            color: 'info'
+        },
+        {
+            type: 'system',
+            message: 'Sistema iniciado correctamente',
+            time: '2 horas',
+            icon: 'fa-power-off',
+            color: 'warning'
+        }
+    ];
+
+    let html = '';
+    activities.forEach(activity => {
+        html += `
+            <div class="activity-item p-3 rounded mb-2">
+                <div class="d-flex align-items-center">
+                    <div class="text-${activity.color} me-3">
+                        <i class="fas ${activity.icon}"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold">${activity.message}</div>
+                        <small class="text-muted">Hace ${activity.time}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    activityContainer.innerHTML = html;
+}
+
+function updateSystemStatus() {
+    // Update API status
+    fetch('/api/videos?limit=1')
+        .then(response => {
+            const statusElement = document.getElementById('apiStatus');
+            if (response.ok) {
+                statusElement.textContent = 'Online';
+                statusElement.className = 'badge bg-success';
+            } else {
+                statusElement.textContent = 'Error';
+                statusElement.className = 'badge bg-danger';
+            }
+        })
+        .catch(() => {
+            const statusElement = document.getElementById('apiStatus');
+            statusElement.textContent = 'Offline';
+            statusElement.className = 'badge bg-danger';
         });
 
-        // Toggle Sidebar
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-            const toggleIcon = document.getElementById('sidebarToggleIcon');
-            const toggleButton = document.getElementById('sidebarToggle');
-            
-            sidebarHidden = !sidebarHidden;
-            
-            if (sidebarHidden) {
-                sidebar.classList.add('hidden');
-                mainContent.classList.add('expanded');
-                toggleIcon.className = 'fas fa-bars';
-                toggleButton.classList.add('sidebar-hidden');
-            } else {
-                sidebar.classList.remove('hidden');
-                mainContent.classList.remove('expanded');
-                toggleIcon.className = 'fas fa-times';
-                toggleButton.classList.remove('sidebar-hidden');
-            }
-        }
+    // Simulate storage usage
+    const storageUsage = Math.floor(Math.random() * 80) + 10; // 10-90%
+    document.getElementById('storageUsage').textContent = storageUsage + '%';
+    document.getElementById('storageProgress').style.width = storageUsage + '%';
+    document.getElementById('totalStorage').textContent = storageUsage + '%';
+}
 
-        // Manejo de redimensionamiento de ventana
-        window.addEventListener('resize', function() {
-            // Mantener la funcionalidad en todas las resoluciones
-            // No forzar cambios de layout automáticos
-            updateLayoutOnResize();
-        });
+function refreshActivity() {
+    showToast('Actualizando actividad...', 'info');
+    loadRecentActivity();
+}
 
-        function updateLayoutOnResize() {
-            const width = window.innerWidth;
-            const playlistEditor = document.querySelector('.playlist-editor');
-            
-            // Ajustar altura dinámicamente según el viewport
-            if (playlistEditor) {
-                const headerHeight = document.querySelector('.border-bottom').offsetHeight || 80;
-                const formHeight = document.querySelector('.card').offsetHeight || 120;
-                const availableHeight = window.innerHeight - headerHeight - formHeight - 60;
-                
-                playlistEditor.style.height = `${Math.max(400, availableHeight)}px`;
-            }
-            
-            // Asegurar que los paneles mantengan proporción adecuada
-            const videoPanel = document.querySelector('.video-search-panel');
-            const playlistPanel = document.querySelector('.playlist-builder-panel');
-            
-            if (videoPanel && playlistPanel) {
-                if (width <= 992) {
-                    // En pantallas medianas/pequeñas, ajustar alturas individuales
-                    videoPanel.style.height = width <= 576 ? '300px' : '350px';
-                    playlistPanel.style.height = width <= 576 ? '400px' : '450px';
-                } else {
-                    // En pantallas grandes, mantener altura completa
-                    videoPanel.style.height = '100%';
-                    playlistPanel.style.height = '100%';
-                }
-            }
-        }
+function checkSystemHealth() {
+    showToast('Verificando estado del sistema...', 'info');
+    updateSystemStatus();
+    loadStatistics();
+    setTimeout(() => {
+        showToast('Verificación completada', 'success');
+    }, 1500);
+}
 
-        // Cargar videos desde la API
-        async function loadVideos() {
-            try {
-                const spinner = document.getElementById('videoLoadingSpinner');
-                const emptyState = document.getElementById('videoEmptyState');
-                const videoLibrary = document.getElementById('videoLibrary');
-                
-                spinner.style.display = 'block';
-                
-                const response = await fetch('/api/videos');
-                const data = await response.json();
-                
-                videos = data.videos || [];
-                
-                spinner.style.display = 'none';
-                
-                if (videos.length === 0) {
-                    emptyState.style.display = 'block';
-                } else {
-                    renderVideoLibrary();
-                }
-            } catch (error) {
-                console.error('Error al cargar videos:', error);
-                document.getElementById('videoLoadingSpinner').style.display = 'none';
-                document.getElementById('videoEmptyState').style.display = 'block';
-            }
-        }
-
-        // Renderizar biblioteca de videos
-        function renderVideoLibrary(filteredVideos = null) {
-            const videoLibrary = document.getElementById('videoLibrary');
-            const videosToRender = filteredVideos || videos;
-            
-            videoLibrary.innerHTML = '';
-            
-            videosToRender.forEach(video => {
-                const videoElement = createVideoElement(video);
-                videoLibrary.appendChild(videoElement);
-            });
-        }
-
-        // Crear elemento de video
-        function createVideoElement(video) {
-            const div = document.createElement('div');
-            div.className = 'video-item';
-            div.draggable = true;
-            div.dataset.videoId = video.id;
-            
-            div.innerHTML = `
-                <div class="video-title">${video.title || video.filename}</div>
-                <div class="video-meta">
-                    <span class="video-duration">${formatDuration(video.duration || 0)}</span>
-                    <small class="ms-2">${formatFileSize(video.file_size || 0)}</small>
-                </div>
-            `;
-            
-            // Event listeners para drag & drop
-            div.addEventListener('dragstart', handleDragStart);
-            div.addEventListener('dragend', handleDragEnd);
-            
-            return div;
-        }
-
-        // Inicializar drag & drop
-        function initializeDragAndDrop() {
-            const dropZone = document.getElementById('dropZone');
-            const playlistContent = document.getElementById('playlistContent');
-            
-            // Drop zone events
-            dropZone.addEventListener('dragover', handleDragOver);
-            dropZone.addEventListener('drop', handleDrop);
-            
-            // Playlist content events
-            playlistContent.addEventListener('dragover', handleDragOver);
-            playlistContent.addEventListener('drop', handleDrop);
-        }
-
-        // Manejadores de drag & drop
-        function handleDragStart(e) {
-            draggedElement = this;
-            this.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'copy';
-        }
-
-        function handleDragEnd(e) {
-            this.classList.remove('dragging');
-            draggedElement = null;
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-        }
-
-        function handleDrop(e) {
-            e.preventDefault();
-            
-            if (draggedElement) {
-                const videoId = parseInt(draggedElement.dataset.videoId);
-                const video = videos.find(v => v.id === videoId);
-                
-                if (video && !playlistVideos.find(pv => pv.video_id === videoId)) {
-                    addVideoToPlaylist(video);
-                }
-            }
-        }
-
-        // Agregar video a la playlist
-        function addVideoToPlaylist(video) {
-            const position = playlistVideos.length + 1;
-            const playlistVideo = {
-                video_id: video.id,
-                position: position,
-                video: video
-            };
-            
-            playlistVideos.push(playlistVideo);
-            renderPlaylist();
-            updatePlaylistInfo();
-        }
-
-        // Renderizar playlist
-        function renderPlaylist() {
-            const dropZone = document.getElementById('dropZone');
-            const playlistItems = document.getElementById('playlistItems');
-            
-            if (playlistVideos.length === 0) {
-                dropZone.classList.remove('has-items');
-                playlistItems.innerHTML = '';
-            } else {
-                dropZone.classList.add('has-items');
-                
-                playlistItems.innerHTML = '';
-                playlistVideos.forEach((playlistVideo, index) => {
-                    const itemElement = createPlaylistItem(playlistVideo, index);
-                    playlistItems.appendChild(itemElement);
-                });
-            }
-        }
-
-        // Crear elemento de playlist
-        function createPlaylistItem(playlistVideo, index) {
-            const div = document.createElement('div');
-            div.className = 'playlist-item';
-            div.dataset.position = index;
-            
-            div.innerHTML = `
-                <div class="position-indicator">${index + 1}</div>
-                <div class="drag-handle">
-                    <i class="fas fa-grip-vertical"></i>
-                </div>
-                <div class="flex-grow-1">
-                    <div class="video-title">${playlistVideo.video.title || playlistVideo.video.filename}</div>
-                    <div class="video-meta">
-                        <span class="video-duration">${formatDuration(playlistVideo.video.duration || 0)}</span>
-                        <small class="ms-2">${formatFileSize(playlistVideo.video.file_size || 0)}</small>
-                    </div>
-                </div>
-                <div class="remove-btn" onclick="removeFromPlaylist(${index})">
-                    <i class="fas fa-trash"></i>
-                </div>
-            `;
-            
-            return div;
-        }
-
-        // Remover video de la playlist
-        function removeFromPlaylist(index) {
-            playlistVideos.splice(index, 1);
-            renderPlaylist();
-            updatePlaylistInfo();
-        }
-
-        // Actualizar información de la playlist
-        function updatePlaylistInfo() {
-            const videoCount = document.getElementById('videoCount');
-            const totalDuration = document.getElementById('totalDuration');
-            const saveButton = document.getElementById('saveButton');
-            
-            videoCount.textContent = `${playlistVideos.length} video${playlistVideos.length !== 1 ? 's' : ''}`;
-            
-            const totalSeconds = playlistVideos.reduce((sum, pv) => sum + (pv.video.duration || 0), 0);
-            totalDuration.textContent = formatDuration(totalSeconds);
-            
-            saveButton.disabled = playlistVideos.length === 0;
-        }
-
-        // Actualizar header de la playlist
-        function updatePlaylistHeader() {
-            const titleInput = document.getElementById('playlistTitle');
-            const headerTitle = document.getElementById('playlistHeaderTitle');
-            
-            titleInput.addEventListener('input', function() {
-                headerTitle.textContent = this.value || 'Nueva Lista de Reproducción';
-            });
-        }
-
-        // Inicializar búsqueda
-        function initializeSearch() {
-            const searchInput = document.getElementById('videoSearch');
-            
-            searchInput.addEventListener('input', function() {
-                const searchTerm = this.value.toLowerCase();
-                
-                if (searchTerm.trim() === '') {
-                    renderVideoLibrary();
-                } else {
-                    const filtered = videos.filter(video => 
-                        (video.title || video.filename).toLowerCase().includes(searchTerm)
-                    );
-                    renderVideoLibrary(filtered);
-                }
-            });
-        }
-
-        // Limpiar búsqueda
-        function clearSearch() {
-            document.getElementById('videoSearch').value = '';
-            renderVideoLibrary();
-        }
-
-        // Guardar playlist
-        async function savePlaylist() {
-            const title = document.getElementById('playlistTitle').value.trim();
-            const description = document.getElementById('playlistDescription').value.trim();
-            
-            if (!title) {
-                alert('Por favor ingresa un título para la lista de reproducción');
-                return;
-            }
-            
-            if (playlistVideos.length === 0) {
-                alert('Agrega al menos un video a la lista de reproducción');
-                return;
-            }
-            
-            try {
-                const payload = {
-                    title: title,
-                    description: description,
-                    videos: playlistVideos.map((pv, index) => ({
-                        video_id: pv.video_id,
-                        position: index + 1
-                    }))
-                };
-                
-                const url = currentPlaylistId 
-                    ? `/api/playlists/${currentPlaylistId}`
-                    : '/api/playlists';
-                    
-                const method = currentPlaylistId ? 'PUT' : 'POST';
-                
-                const response = await fetch(url, {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    alert('Lista de reproducción guardada exitosamente');
-                    
-                    if (!currentPlaylistId) {
-                        currentPlaylistId = result.id;
-                    }
-                } else {
-                    throw new Error('Error al guardar la lista de reproducción');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al guardar la lista de reproducción');
-            }
-        }
-
-        // Cargar playlist existente
-        async function loadExistingPlaylist() {
-            if (!currentPlaylistId) return;
-            
-            try {
-                const response = await fetch(`/api/playlists/${currentPlaylistId}`);
-                const playlist = await response.json();
-                
-                document.getElementById('playlistTitle').value = playlist.title;
-                document.getElementById('playlistDescription').value = playlist.description || '';
-                
-                playlistVideos = playlist.videos || [];
-                renderPlaylist();
-                updatePlaylistInfo();
-                updatePlaylistHeader();
-            } catch (error) {
-                console.error('Error al cargar playlist:', error);
-            }
-        }
-
-        // Limpiar playlist
-        function clearPlaylist() {
-            if (confirm('¿Estás seguro de que quieres limpiar toda la lista?')) {
-                playlistVideos = [];
-                renderPlaylist();
-                updatePlaylistInfo();
-            }
-        }
-
-        // Funciones de utilidad
-        function formatDuration(seconds) {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const secs = Math.floor(seconds % 60);
-            
-            if (hours > 0) {
-                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-            } else {
-                return `${minutes}:${secs.toString().padStart(2, '0')}`;
-            }
-        }
-
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 B';
-            
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-        }
-    </script> 
+// Override the base template function
+function initializePageSpecific() {
+    console.log('Dashboard específico inicializado');
+}
+</script>
 {% endblock %}

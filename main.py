@@ -1,4 +1,4 @@
-# main.py - Versión con autenticación por cookies corregida
+# main.py - Versión corregida y limpia
 
 from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
@@ -18,13 +18,13 @@ from models.database import engine
 
 # Importar los routers
 from router import videos, playlists, raspberry, ui, devices, device_playlists, services_enhanced as services, device_service_api,playlists_api
-from router.auth_fixed import router as auth_router
+from router.auth import router as auth_router
 from router.users import router as users_router
 from router.playlist_checker_api import router as playlist_checker_router
 from router.ui_auth import router as ui_auth_router
 from utils.list_checker import start_playlist_checker
 from utils.ping_checker import start_background_ping_checker
-from middleware.auth_middleware import AuthMiddleware
+
 # Crear las tablas en la base de datos
 models.Base.metadata.create_all(bind=engine)
 
@@ -44,28 +44,37 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# ==========================================
+# FUNCIÓN DE AUTENTICACIÓN CORREGIDA
+# ==========================================
+
 def is_authenticated(request: Request) -> bool:
-    from router.auth_fixed import verify_session
+    """Verificar si el usuario tiene una sesión válida por cookie - VERSIÓN CORREGIDA"""
+    from router.auth import verify_session  # ✅ CORRECCIÓN: Importar del archivo correcto
     
-    session_cookie = request.cookies.get("session")
-    if not session_cookie:
+    session_token = request.cookies.get("session")
+    
+    if not session_token:
+        print("🚫 No hay token de sesión")
         return False
     
-    session_data = verify_session(session_cookie)
-    return session_data is not None
+    # Usar la función verify_session del sistema de autenticación corregido
+    session_data = verify_session(session_token)
+    is_valid = session_data is not None
+    
+    # Log para debug
+    if is_valid:
+        username = session_data.get('username', 'unknown')
+        print(f"🔐 Sesión válida para: {username}")
+    else:
+        print(f"🚫 Sesión inválida o expirada: {session_token[:10]}...")
+    
+    return is_valid
 
-app.add_middleware(AuthMiddleware)
-
-# Función para verificar si el usuario está autenticado por cookie
-def is_authenticated(request: Request) -> bool:
-    """Verificar si el usuario tiene una sesión válida por cookie"""
-    session_cookie = request.cookies.get("session")
-    if session_cookie and len(session_cookie) > 10:
-        # Verificación básica - en producción validar JWT o sesión en BD
-        return True
-    return False
-
+# ==========================================
 # RUTAS DE REDIRECCIÓN
+# ==========================================
+
 @app.get("/login")
 async def redirect_login():
     """Redireccionar /login a /ui/login"""
@@ -75,20 +84,36 @@ async def redirect_login():
 async def redirect_root(request: Request):
     """Redireccionar / según el estado de autenticación"""
     if is_authenticated(request):
-        # Si está autenticado, ir al dashboard
         return RedirectResponse(url="/ui/dashboard", status_code=302)
     else:
-        # Si no está autenticado, ir al login
         return RedirectResponse(url="/ui/login", status_code=302)
 
-# Página de dashboard simple
+# ==========================================
+# DASHBOARD CORREGIDO
+# ==========================================
+
 @app.get("/ui/dashboard")
 async def dashboard(request: Request):
-    """Dashboard principal"""
+    """Dashboard principal - VERSIÓN CORREGIDA"""
+    
+    # Verificar autenticación usando la función corregida
     if not is_authenticated(request):
+        print("❌ Dashboard: Usuario no autenticado, redirigiendo a login")
         return RedirectResponse(url="/ui/login", status_code=302)
     
-    # Templates básico para el dashboard
+    print("✅ Dashboard: Usuario autenticado, mostrando dashboard")
+    
+    # Obtener datos de usuario desde la sesión
+    from router.auth import verify_session  # ✅ CORRECCIÓN: Mismo archivo que is_authenticated
+    session_token = request.cookies.get("session")
+    session_data = verify_session(session_token) if session_token else None
+    
+    user_data = {
+        "username": session_data.get('username', 'Usuario') if session_data else 'Usuario',
+        "is_admin": True  # Por ahora asumir admin
+    }
+    
+    # Templates para el dashboard
     from fastapi.templating import Jinja2Templates
     templates = Jinja2Templates(directory="templates")
     
@@ -97,9 +122,13 @@ async def dashboard(request: Request):
         {
             "request": request,
             "title": "Dashboard",
-            "user": {"username": "admin", "is_admin": True}  # Mock user data
+            "user": user_data
         }
     )
+
+# ==========================================
+# CONFIGURACIÓN DE MIDDLEWARE
+# ==========================================
 
 # Configurar CORS
 app.add_middleware(
@@ -109,6 +138,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ==========================================
+# CONFIGURACIÓN DE ARCHIVOS ESTÁTICOS
+# ==========================================
 
 # Crear directorios si no existen
 UPLOAD_DIR = "uploads"
@@ -125,7 +158,10 @@ app.mount("/playlists", StaticFiles(directory=PLAYLIST_DIR), name="playlists")
 
 templates = Jinja2Templates(directory='templates')
 
-# Incluir routers en orden
+# ==========================================
+# INCLUIR ROUTERS
+# ==========================================
+
 app.include_router(ui_auth_router)      # /ui/login, /ui/register, etc.
 app.include_router(auth_router)         # Rutas de autenticación API originales
 app.include_router(users_router)        # Gestión de usuarios original
@@ -140,10 +176,10 @@ app.include_router(services.router)
 app.include_router(device_service_api.router)
 app.include_router(playlist_checker_router)
 
+# ==========================================
+# MIDDLEWARE DE AUTENTICACIÓN UNIFICADO
+# ==========================================
 
-# start_background_ping_checker(app)
-# start_playlist_checker(app)
-# Middleware de autenticación corregido que reconoce cookies
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     """
@@ -158,10 +194,15 @@ async def auth_middleware(request: Request, call_next):
         "/ui/register",
         "/ui/logout",
         "/static/",
-        "/api/videos" 
-        # "/docs", 
-        # "/redoc", 
-        # "/openapi.json",
+        "/docs", 
+        "/redoc", 
+        "/openapi.json",
+        # ✅ Rutas de autenticación API
+        "/api/login",
+        "/api/logout",
+        "/test-auth",
+        "/debug/sessions",
+        # Rutas existentes
         "/api/devices",
         "/api/raspberry/"
     ]
@@ -172,68 +213,55 @@ async def auth_middleware(request: Request, call_next):
             response = await call_next(request)
             return response
         
-        # Para rutas protegidas de UI, verificar autenticación por cookie O token
+        # Para rutas protegidas de UI, verificar autenticación por cookie
         if path.startswith("/ui/"):
-            # Verificar cookie de sesión primero
             if is_authenticated(request):
                 response = await call_next(request)
                 return response
-            
-            # Si no hay cookie, verificar header Authorization
-            auth_header = request.headers.get("Authorization")
-            if auth_header and auth_header.startswith("Bearer "):
-                response = await call_next(request)
-                return response
-            
-            # Sin autenticación, redireccionar a login
-            login_url = "/ui/login"
-            return RedirectResponse(url=login_url, status_code=302)
+            else:
+                return RedirectResponse(url="/ui/login", status_code=302)
         
-        # Para rutas API, verificar token o cookie
-        elif path.startswith("/api/") and not any(path.startswith(p) for p in ["/api/devices", "/api/raspberry/", "/api/ui/videos", "/api/ui/playlists", "/api/videos/"]):
-            # Verificar cookie primero
+        # Para rutas API protegidas
+        elif path.startswith("/api/"):
             if is_authenticated(request):
                 response = await call_next(request)
                 return response
-                
-            # Verificar header Authorization
-            auth_header = request.headers.get("Authorization")
-            if auth_header and auth_header.startswith("Bearer "):
-                response = await call_next(request)
-                return response
-            
-            # Sin autenticación para API, devolver 401
-            return JSONResponse(
-                content={"detail": "Token de acceso requerido"},
-                status_code=401,
-                headers={"WWW-Authenticate": "Bearer"}
-            )
+            else:
+                return JSONResponse(
+                    content={"detail": "Token de acceso requerido"},
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Bearer"}
+                )
         
         # Continuar con la solicitud para cualquier otra ruta
         response = await call_next(request)
         return response
     
     except Exception as e:
-        # Registrar el error para depuración
         logger.error(f"Error en auth_middleware: {str(e)}")
         
-        # Determinar si es una respuesta API o UI para manejar el error adecuadamente
         if path.startswith("/api/"):
             return JSONResponse(
                 content={"detail": "Error de servidor: " + str(e)},
                 status_code=500
             )
         else:
-            # Para rutas UI, redirigir a una página de error o mostrar un mensaje
             return JSONResponse(
                 content={"detail": "Error de servidor"},
                 status_code=500
             )
 
-# Evento de inicio
+# ==========================================
+# EVENTOS DE APLICACIÓN
+# ==========================================
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("Aplicación iniciada correctamente")
+
+# ==========================================
+# PUNTO DE ENTRADA
+# ==========================================
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
