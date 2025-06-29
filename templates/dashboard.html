@@ -137,64 +137,22 @@
                     </div>
                     <div class="stat-number text-warning" id="totalStorage">--</div>
                     <h6 class="card-title text-muted">Almacenamiento</h6>
-                    <small class="text-muted">Espacio usado</small>
+                    <button class="btn btn-sm btn-outline-warning" onclick="checkSystemHealth()">
+                        <i class="fas fa-sync-alt me-1"></i>Actualizar
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Quick Actions -->
+    <!-- Main Content Row -->
     <div class="row mb-4">
-        <div class="col-12">
-            <div class="card dashboard-card">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-bolt me-2"></i>
-                        Acciones Rápidas
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <button class="btn quick-action-btn w-100" onclick="location.href='/ui/videos'">
-                                <div>
-                                    <i class="fas fa-plus-circle fa-2x text-primary mb-2"></i>
-                                    <div class="fw-bold">Subir Video</div>
-                                    <small class="text-muted">Agregar nuevo contenido</small>
-                                </div>
-                            </button>
-                        </div>
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <button class="btn quick-action-btn w-100" onclick="location.href='/ui/playlists'">
-                                <div>
-                                    <i class="fas fa-list-ul fa-2x text-success mb-2"></i>
-                                    <div class="fw-bold">Nueva Playlist</div>
-                                    <small class="text-muted">Crear lista de reproducción</small>
-                                </div>
-                            </button>
-                        </div>
-                        <div class="col-lg-3 col-md-6 mb-3">
-                            <button class="btn quick-action-btn w-100" onclick="location.href='/ui/devices'">
-                                <div>
-                                    <i class="fas fa-tv fa-2x text-info mb-2"></i>
-                                    <div class="fw-bold">Gestionar Dispositivos</div>
-                                    <small class="text-muted">Configurar Raspberry Pi</small>
-                                </div>
-                            </button>
-                        </div>  
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Recent Activity & System Status -->
-    <div class="row">
-        <div class="col-lg-8">
-            <div class="card dashboard-card">
+        <!-- Recent Activity -->
+        <div class="col-lg-8 mb-4">
+            <div class="card dashboard-card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="fas fa-clock me-2"></i>
+                        <i class="fas fa-history me-2"></i>
                         Actividad Reciente
                     </h5>
                     <button class="btn btn-sm btn-outline-primary" onclick="refreshActivity()">
@@ -202,31 +160,30 @@
                     </button>
                 </div>
                 <div class="card-body recent-activity" id="recentActivity">
-                    <!-- Activity items will be loaded here -->
-                    <div class="text-center text-muted py-4">
-                        <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
-                        <p>Cargando actividad reciente...</p>
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando actividad reciente...</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-4">
-            <div class="card dashboard-card">
+        <!-- System Status -->
+        <div class="col-lg-4 mb-4">
+            <div class="card dashboard-card h-100">
                 <div class="card-header">
                     <h5 class="mb-0">
-                        <i class="fas fa-heartbeat me-2"></i>
+                        <i class="fas fa-server me-2"></i>
                         Estado del Sistema
                     </h5>
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <small class="text-muted">API Status</small>
-                            <span class="badge bg-success" id="apiStatus">Online</span>
-                        </div>
-                        <div class="progress" style="height: 6px;">
-                            <div class="progress-bar bg-success" style="width: 100%"></div>
+                            <small class="text-muted">API</small>
+                            <span class="badge bg-secondary" id="apiStatus">Desconocido</span>
                         </div>
                     </div>
 
@@ -287,6 +244,9 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<!-- Primero cargar el script de corrección para dashboard -->
+<script src="/static/js/dashboard.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     loadDashboardData();
@@ -308,36 +268,9 @@ function loadDashboardData() {
 
 async function loadStatistics() {
     try {
-        // Load videos count
-        const videosResponse = await fetch('/api/videos?limit=1');
-        if (videosResponse.ok) {
-            const videosData = await videosResponse.json();
-            document.getElementById('totalVideos').textContent = videosData.length || 0;
-        }
-
-        // Load playlists count
-        const playlistsResponse = await fetch('/api/playlists?limit=1');
-        if (playlistsResponse.ok) {
-            const playlistsData = await playlistsResponse.json();
-            document.getElementById('totalPlaylists').textContent = playlistsData.length || 0;
-        }
-
-        // Load devices count
-        const devicesResponse = await fetch('/api/devices');
-        if (devicesResponse.ok) {
-            const devicesData = await devicesResponse.json();
-            document.getElementById('totalDevices').textContent = devicesData.length || 0;
-            
-            // Update device status
-            const activeDevices = devicesData.filter(d => d.is_online).length;
-            document.getElementById('activeDevices').textContent = `${activeDevices}/${devicesData.length}`;
-            
-            if (devicesData.length > 0) {
-                const percentage = (activeDevices / devicesData.length) * 100;
-                document.getElementById('deviceProgress').style.width = percentage + '%';
-            }
-        }
-
+        // Esta función ahora está implementada de forma segura en dashboard-fix.js
+        // Para asegurar la compatibilidad, mantenemos esta función pero la implementación
+        // real está en el script de corrección
     } catch (error) {
         console.error('Error cargando estadísticas:', error);
         showToast('Error cargando estadísticas del dashboard', 'error');
@@ -400,29 +333,7 @@ function loadRecentActivity() {
 }
 
 function updateSystemStatus() {
-    // Update API status
-    fetch('/api/videos?limit=1')
-        .then(response => {
-            const statusElement = document.getElementById('apiStatus');
-            if (response.ok) {
-                statusElement.textContent = 'Online';
-                statusElement.className = 'badge bg-success';
-            } else {
-                statusElement.textContent = 'Error';
-                statusElement.className = 'badge bg-danger';
-            }
-        })
-        .catch(() => {
-            const statusElement = document.getElementById('apiStatus');
-            statusElement.textContent = 'Offline';
-            statusElement.className = 'badge bg-danger';
-        });
-
-    // Simulate storage usage
-    const storageUsage = Math.floor(Math.random() * 80) + 10; // 10-90%
-    document.getElementById('storageUsage').textContent = storageUsage + '%';
-    document.getElementById('storageProgress').style.width = storageUsage + '%';
-    document.getElementById('totalStorage').textContent = storageUsage + '%';
+    // Esta función ahora está implementada de forma segura en dashboard-fix.js
 }
 
 function refreshActivity() {

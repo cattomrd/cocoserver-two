@@ -1,197 +1,234 @@
 {% extends "base.html" %}
 
+{% block title %}Gestión de Videos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .video-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .video-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .video-thumbnail {
+        width: 100px;
+        height: 75px;
+        object-fit: cover;
+        border-radius: 8px;
+    }
+    
+    .play-video-btn {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+    
+    .play-video-btn:hover {
+        background-color: #0d6efd;
+        color: white;
+    }
+    
+    .pagination-info {
+        font-size: 0.875rem;
+    }
+    
+    .expired-video {
+        background-color: rgba(255, 99, 71, 0.1);
+    }
+    
+    .table td {
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-    <div class="container-fluid px-3 py-4" style="max-width: auto; width: auto;">  
-        <!-- Formulario de subida de videos -->
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
-                        <h1 class="h2">
-                            <i class="fas fa-film text-primary"></i>
-                            Gestión Videos
-                        </h1>
-                        <button type="button" class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#uploadForm">
-                            <i class="fas fa-plus"></i> Mostrar/Ocultar
-                        </button>
-                    </div>
-                    <div id="uploadForm" class="collapse">
-                        <div class="card-body">
-                            <form id="videoUploadForm">
-                                <div class="mb-3">
-                                    <label for="videoTitle" class="form-label">Título</label>
-                                    <input type="text" class="form-control" id="videoTitle" name="title" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="videoDescription" class="form-label">Descripción</label>
-                                    <textarea class="form-control" id="videoDescription" name="description" rows="3"></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="videoExpiration" class="form-label">Fecha de Expiración (opcional)</label>
-                                    <input type="datetime-local" class="form-control" id="videoExpiration" name="expiration_date">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="videoFile" class="form-label">Archivo de Video</label>
-                                    <input type="file" class="form-control" id="videoFile" name="file" accept="video/*" required>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="progress d-none" id="uploadProgress" style="height: 25px;">
-                                        <div class="progress-bar" role="progressbar" style="width: 0%; font-size: 1rem;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-                                    </div>
-                                </div>
-                                <button type="submit" class="btn btn-primary btn-lg">Subir Video</button>
-                            </form>
+<main class="container-fluid py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+        <div>
+            <h1 class="h3 mb-2 text-primary">
+                <i class="fas fa-video me-2"></i>Gestión de Videos
+            </h1>
+            <p class="text-muted mb-0">Sube, edita y organiza tus videos</p>
+        </div>
+        <div class="mt-3 mt-md-0">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadVideoModal">
+                <i class="fas fa-upload me-1"></i> Subir Nuevo Video
+            </button>
+            <button type="button" class="btn btn-outline-secondary ms-2" onclick="loadVideos()">
+                <i class="fas fa-sync-alt me-1"></i> Actualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal para subir video -->
+    <div class="modal fade" id="uploadVideoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Subir Nuevo Video</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="videoUploadForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="videoTitle" class="form-label">Título</label>
+                            <input type="text" class="form-control" id="videoTitle" name="title" required>
                         </div>
-                    </div>
+                        <div class="mb-3">
+                            <label for="videoDescription" class="form-label">Descripción</label>
+                            <textarea class="form-control" id="videoDescription" name="description" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="videoExpiration" class="form-label">Fecha de Expiración (opcional)</label>
+                            <input type="datetime-local" class="form-control" id="videoExpiration" name="expiration_date">
+                        </div>
+                        <div class="mb-3">
+                            <label for="videoFile" class="form-label">Archivo de Video</label>
+                            <input class="form-control" type="file" id="videoFile" name="file" accept="video/*" required>
+                        </div>
+                        <div class="mb-3">
+                            <div class="progress d-none" id="uploadProgress" style="height: 25px;">
+                                <div class="progress-bar" role="progressbar" style="width: 0%; font-size: 1rem;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg">Subir Video</button>
+                    </form>
                 </div>
             </div>
         </div>
-        
-        <!-- Controles de búsqueda y filtros -->
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <div class="input-group">
-                    <input type="text" id="videoSearchInput" class="form-control" placeholder="Buscar videos por título o descripción...">
-                    <button class="btn btn-outline-primary" type="button" id="clearVideoSearch">
-                        <i class="fas fa-times"></i> Limpiar
-                    </button>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <select class="form-select" id="videoFilterExpiration">
-                    <option value="all">Todos los videos</option>
-                    <option value="active">Videos activos</option>
-                    <option value="expired">Videos expirados</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <select class="form-select" id="videoPageSizeSelect">
-                    <option value="25" selected>25 por página</option>
-                    <option value="50">50 por página</option>
-                    <option value="100">100 por página</option>
-                    <option value="200">200 por página</option>
-                    <option value="500">Todos los videos</option>
-                </select>
+    </div>
+    
+    <!-- Controles de búsqueda y filtros -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="input-group">
+                <input type="text" id="videoSearchInput" class="form-control" placeholder="Buscar videos por título o descripción...">
+                <button class="btn btn-outline-primary" type="button" id="clearVideoSearch">
+                    <i class="fas fa-times"></i> Limpiar
+                </button>
             </div>
         </div>
+        <div class="col-md-3">
+            <select class="form-select" id="videoFilterExpiration">
+                <option value="all">Todos los videos</option>
+                <option value="active">Videos activos</option>
+                <option value="expired">Videos expirados</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="videoPageSizeSelect">
+                <option value="25" selected>25 por página</option>
+                <option value="50">50 por página</option>
+                <option value="100">100 por página</option>
+                <option value="200">200 por página</option>
+                <option value="500">Todos los videos</option>
+            </select>
+        </div>
+    </div>
 
-        <!-- Información de resultados y paginación superior -->
-        <div class="row mb-2">
-            <div class="col-md-6">
-                <span id="videoCountBadge" class="badge bg-info fs-6">0 videos</span>
+    <!-- Información de resultados y paginación superior -->
+    <div class="row mb-2">
+        <div class="col-md-6">
+            <span id="videoCountBadge" class="badge bg-info fs-6">0 videos</span>
+        </div>
+        <div class="col-md-6 text-end">
+            <small class="text-muted" id="videoPaginationInfo">
+                Mostrando 0 - 0 de 0 resultados
+            </small>
+        </div>
+    </div>
+
+    <!-- Tabla de videos con paginación -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-video me-2"></i>Biblioteca de Videos
+            </h5>
+            <div class="d-flex align-items-center">
+                <button class="btn btn-sm btn-outline-secondary me-2" 
+                        id="firstVideoPageBtn" 
+                        onclick="goToFirstVideoPage()" 
+                        title="Primera página">
+                    <i class="fas fa-angle-double-left"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary me-2" 
+                        id="prevVideoPageBtn" 
+                        onclick="goToPrevVideoPage()" 
+                        title="Página anterior">
+                    <i class="fas fa-angle-left"></i>
+                </button>
+                <span class="me-2">Página</span>
+                <input type="number" 
+                       id="videoPageInput" 
+                       class="form-control form-control-sm me-2" 
+                       style="width: 70px;" 
+                       min="1" 
+                       value="1"
+                       onchange="goToVideoPage(this.value)">
+                <button class="btn btn-sm btn-outline-secondary me-2" 
+                        id="nextVideoPageBtn" 
+                        onclick="goToNextVideoPage()" 
+                        title="Página siguiente">
+                    <i class="fas fa-angle-right"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" 
+                        id="lastVideoPageBtn" 
+                        onclick="goToLastVideoPage()" 
+                        title="Última página">
+                    <i class="fas fa-angle-double-right"></i>
+                </button>
             </div>
-            <div class="col-md-6 text-end">
-                <small class="text-muted" id="videoPaginationInfo">
-                    Mostrando 0 - 0 de 0 resultados
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col" style="width: 25%">Título</th>
+                        <th scope="col" style="width: 25%">Descripción</th>
+                        <th scope="col" style="width: 15%">Fecha de Creación</th>
+                        <th scope="col" style="width: 15%">Expiración</th>
+                        <th scope="col" style="width: 10%">Estado</th>
+                        <th scope="col" style="width: 10%">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="videosList">
+                    <tr>
+                        <td colspan="6" class="text-center py-3" id="videosLoading">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p class="mt-2">Cargando videos...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer">
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted" id="videoPaginationFooter">
+                    Página 1 de 1 <span class="text-primary">(0-0 de 0)</span>
                 </small>
-            </div>
-        </div>
-
-        <!-- Tabla de videos con paginación -->
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="fas fa-video me-2"></i>Biblioteca de Videos
-                </h5>
-                <div class="d-flex align-items-center">
-                    <button class="btn btn-sm btn-outline-secondary me-2" 
-                            id="firstVideoPageBtn" 
-                            onclick="goToFirstVideoPage()" 
-                            title="Primera página">
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="goToFirstVideoPage()">
                         <i class="fas fa-angle-double-left"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary me-2" 
-                            id="prevVideoPageBtn" 
-                            onclick="goToPrevVideoPage()" 
-                            title="Página anterior">
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="goToPrevVideoPage()">
                         <i class="fas fa-angle-left"></i>
                     </button>
-                    <span class="me-2">Página</span>
-                    <input type="number" 
-                           id="videoPageInput" 
-                           class="form-control form-control-sm me-2" 
-                           style="width: 70px;" 
-                           min="1" 
-                           value="1"
-                           onchange="goToVideoPage(this.value)">
-                    <button class="btn btn-sm btn-outline-secondary me-2" 
-                            id="nextVideoPageBtn" 
-                            onclick="goToNextVideoPage()" 
-                            title="Página siguiente">
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="goToNextVideoPage()">
                         <i class="fas fa-angle-right"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary" 
-                            id="lastVideoPageBtn" 
-                            onclick="goToLastVideoPage()" 
-                            title="Última página">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="goToLastVideoPage()">
                         <i class="fas fa-angle-double-right"></i>
                     </button>
-                    <small class="text-muted ms-2">de <span id="totalVideoPages">1</span></small>
-                </div>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive" style="min-height: 300px;">
-                    <table class="table table-striped table-hover mb-0" id="videosTable">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>
-                                    <button class="btn btn-link text-white text-decoration-none p-0" 
-                                            onclick="sortVideoTable('title')" 
-                                            title="Ordenar por título">
-                                        Título <i class="fas fa-sort ms-1"></i>
-                                    </button>
-                                </th>
-                                <th>Descripción</th>
-                                <th>
-                                    <button class="btn btn-link text-white text-decoration-none p-0" 
-                                            onclick="sortVideoTable('upload_date')" 
-                                            title="Ordenar por fecha de subida">
-                                        Subida <i class="fas fa-sort ms-1"></i>
-                                    </button>
-                                </th>
-                                <th>
-                                    <button class="btn btn-link text-white text-decoration-none p-0" 
-                                            onclick="sortVideoTable('expiration_date')" 
-                                            title="Ordenar por fecha de expiración">
-                                        Expiración <i class="fas fa-sort ms-1"></i>
-                                    </button>
-                                </th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="videosList">
-                            <tr>
-                                <td colspan="6" class="text-center py-3" id="videosLoading">
-                                    <div class="spinner-border text-primary" role="status">
-                                        <span class="visually-hidden">Cargando...</span>
-                                    </div>
-                                    <p class="mt-2">Cargando videos...</p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="card-footer">
-                <div class="d-flex justify-content-between align-items-center">
-                    <small class="text-muted" id="videoPaginationFooter">
-                        Página 1 de 1 <span class="text-primary">(0-0 de 0)</span>
-                    </small>
-                    <div>
-                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="goToFirstVideoPage()">
-                            <i class="fas fa-angle-double-left"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="goToPrevVideoPage()">
-                            <i class="fas fa-angle-left"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="goToNextVideoPage()">
-                            <i class="fas fa-angle-right"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="goToLastVideoPage()">
-                            <i class="fas fa-angle-double-right"></i>
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -230,369 +267,414 @@
         </div>
     </div>
 
-<!-- Modal para reproducir video (optimizado) -->
-<div class="modal fade" id="playVideoModal" tabindex="-1" aria-labelledby="playVideoModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="playVideoModalLabel">Reproduciendo video</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-0">
-                <div class="ratio ratio-16x9">
-                    <video id="videoPlayer" class="w-100" controls autoplay controlsList="nodownload">
-                        <source src="" type="video/mp4" id="videoSource">
-                        Tu navegador no soporta la reproducción de videos HTML5.
-                    </video>
+    <!-- Modal para reproducir video (optimizado) -->
+    <div class="modal fade" id="playVideoModal" tabindex="-1" aria-labelledby="playVideoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="playVideoModalLabel">Reproduciendo video</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="bg-light p-3">
-                    <div class="d-flex justify-content-center align-items-center">
-                        <div class="btn-group" role="group" aria-label="Controles de velocidad">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('videoPlayer').playbackRate = 0.5;">
-                                <i class="fas fa-backward"></i> 0.5x
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('videoPlayer').playbackRate = 1;">
-                                <i class="fas fa-sync"></i> 1x
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('videoPlayer').playbackRate = 1.5;">
-                                <i class="fas fa-forward"></i> 1.5x
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('videoPlayer').playbackRate = 2;">
-                                <i class="fas fa-fast-forward"></i> 2x
-                            </button>
-                        </div>
+                <div class="modal-body p-0">
+                    <div class="ratio ratio-16x9">
+                        <video id="videoPlayer" class="w-100" controls autoplay controlsList="nodownload">
+                            <source src="" type="video/mp4" id="videoSource">
+                            Tu navegador no soporta la reproducción de videos HTML5.
+                        </video>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer d-flex justify-content-between">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-1"></i>Cerrar
-                </button>
-                <a id="downloadVideoBtn" href="#" class="btn btn-primary" download>
-                    <i class="fas fa-download me-1"></i>Descargar Video
-                </a>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" id="downloadPlayingVideo">
+                        <i class="fas fa-download me-1"></i> Descargar
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-</div>
+</main>
 {% endblock %}
 
 {% block extra_scripts %}
-    <style>
-        .table th button {
-            border: none !important;
-            background: none !important;
-            font-weight: bold !important;
-            color: inherit !important;
-        }
-        .table th button:hover {
-            background-color: rgba(255, 255, 255, 0.1) !important;
-            color: inherit !important;
-        }
-        .table th button:focus {
-            box-shadow: none !important;
-            color: inherit !important;
-        }
-        .table-warning {
-            --bs-table-bg: #fff3cd;
-        }
-    </style>
+<!-- Primero cargar el script de corrección de safeFetch -->
+<script src="/static/js/main-fix.js"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/main.js"></script>
-    
-    <script>
-        // Función para reproducir video
-// Función optimizada para reproducir video
-function playVideo(videoId) {
-    // Validar que recibimos un ID válido
-    if (!videoId) {
-        console.error('Error: No se proporcionó un ID de video válido');
-        return;
+<script>
+    // Variables de estado
+    window.videoPagination = {
+        currentPage: 1,
+        pageSize: 25,
+        totalItems: 0,
+        totalPages: 1,
+        filteredData: [],
+        searchTerm: '',
+        filter: 'all',
+        sortField: 'title',
+        sortOrder: 'asc'
+    };
+
+    // Funciones de paginación
+    function goToFirstVideoPage() {
+        if (window.videoPagination.currentPage > 1) {
+            window.videoPagination.currentPage = 1;
+            displayCurrentPage();
+        }
     }
-    
-    try {
-        // Construir la URL de descarga correcta
-        const videoUrl = `/api/videos/${videoId}/download`;
-        console.log(`Reproduciendo video ID ${videoId}, URL: ${videoUrl}`);
+
+    function goToPrevVideoPage() {
+        if (window.videoPagination.currentPage > 1) {
+            window.videoPagination.currentPage--;
+            displayCurrentPage();
+        }
+    }
+
+    function goToNextVideoPage() {
+        if (window.videoPagination.currentPage < window.videoPagination.totalPages) {
+            window.videoPagination.currentPage++;
+            displayCurrentPage();
+        }
+    }
+
+    function goToLastVideoPage() {
+        if (window.videoPagination.currentPage < window.videoPagination.totalPages) {
+            window.videoPagination.currentPage = window.videoPagination.totalPages;
+            displayCurrentPage();
+        }
+    }
+
+    function goToVideoPage(page) {
+        page = parseInt(page);
+        if (!isNaN(page) && page >= 1 && page <= window.videoPagination.totalPages) {
+            window.videoPagination.currentPage = page;
+            displayCurrentPage();
+        } else {
+            // Restaurar valor anterior en input
+            document.getElementById('videoPageInput').value = window.videoPagination.currentPage;
+        }
+    }
+
+    // Función para aplicar filtros y mostrar página actual
+    function applyFiltersAndDisplayPage() {
+        const allVideos = window.allVideos || [];
+        const pagination = window.videoPagination;
         
-        // Establecer la URL del video
-        const videoSource = document.getElementById('videoSource');
-        if (videoSource) {
-            videoSource.src = videoUrl;
+        // Aplicar filtros
+        let filtered = [...allVideos];
+        
+        // Filtrar por estado de expiración
+        if (pagination.filter === 'active') {
+            filtered = filtered.filter(video => !isExpired(video.expiration_date));
+        } else if (pagination.filter === 'expired') {
+            filtered = filtered.filter(video => isExpired(video.expiration_date));
         }
         
-        // Establecer la URL de descarga
-        const downloadBtn = document.getElementById('downloadVideoBtn');
+        // Filtrar por término de búsqueda
+        if (pagination.searchTerm) {
+            const term = pagination.searchTerm.toLowerCase();
+            filtered = filtered.filter(video => 
+                (video.title && video.title.toLowerCase().includes(term)) || 
+                (video.description && video.description.toLowerCase().includes(term))
+            );
+        }
+        
+        // Guardar datos filtrados
+        pagination.filteredData = filtered;
+        pagination.totalItems = filtered.length;
+        pagination.totalPages = Math.ceil(pagination.totalItems / pagination.pageSize) || 1;
+        
+        // Asegurar que la página actual es válida
+        if (pagination.currentPage > pagination.totalPages) {
+            pagination.currentPage = pagination.totalPages;
+        }
+        
+        // Mostrar la página actual
+        displayCurrentPage();
+        
+        // Actualizar información de paginación
+        updatePaginationInfo();
+        updatePaginationButtons();
+    }
+
+    // Función para mostrar la página actual
+    function displayCurrentPage() {
+        const pagination = window.videoPagination;
+        const videosList = document.getElementById('videosList');
+        
+        if (!videosList) {
+            console.error('Elemento videosList no encontrado');
+            return;
+        }
+        
+        const filtered = pagination.filteredData;
+        
+        if (filtered.length === 0) {
+            videosList.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4">
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No se encontraron videos que coincidan con los criterios
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        // Calcular índices para la página actual
+        const startIndex = (pagination.currentPage - 1) * pagination.pageSize;
+        const endIndex = Math.min(startIndex + pagination.pageSize, filtered.length);
+        const pageData = filtered.slice(startIndex, endIndex);
+        
+        // Crear filas HTML
+        let html = '';
+        
+        pageData.forEach(video => {
+            const isVideoExpired = isExpired(video.expiration_date);
+            
+            html += `
+                <tr class="${isVideoExpired ? 'table-danger' : ''}">
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <button class="btn btn-sm btn-outline-primary play-video-btn" onclick="playVideo(${video.id})" title="Reproducir">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">${video.title || 'Sin título'}</h6>
+                                <small class="text-muted">${video.filename || ''}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${video.description || '<span class="text-muted">Sin descripción</span>'}</td>
+                    <td>${formatDate(video.created_at)}</td>
+                    <td>${video.expiration_date ? formatDate(video.expiration_date) : '<span class="text-muted">Sin expiración</span>'}</td>
+                    <td>
+                        <span class="badge ${isVideoExpired ? 'bg-danger' : 'bg-success'}">
+                            ${isVideoExpired ? 'Expirado' : 'Activo'}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="downloadVideo(${video.id})" title="Descargar">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="editVideo(${video.id})" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="deleteVideo(${video.id})" title="Eliminar">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        videosList.innerHTML = html;
+        
+        // Actualizar inputs de paginación
+        const pageInput = document.getElementById('videoPageInput');
+        if (pageInput) {
+            pageInput.value = pagination.currentPage;
+        }
+    }
+
+    // Función para actualizar información de paginación
+    function updatePaginationInfo() {
+        const pagination = window.videoPagination;
+        const infoElement = document.getElementById('videoPaginationInfo');
+        const footerElement = document.getElementById('videoPaginationFooter');
+        const countBadge = document.getElementById('videoCountBadge');
+        
+        if (infoElement) {
+            const startIndex = pagination.totalItems === 0 ? 0 : (pagination.currentPage - 1) * pagination.pageSize + 1;
+            const endIndex = Math.min(startIndex + pagination.pageSize - 1, pagination.totalItems);
+            
+            infoElement.textContent = `Mostrando ${startIndex} - ${endIndex} de ${pagination.totalItems} resultados`;
+        }
+        
+        if (footerElement) {
+            footerElement.textContent = `Página ${pagination.currentPage} de ${pagination.totalPages}`;
+        }
+        
+        if (countBadge) {
+            countBadge.textContent = `${pagination.totalItems} video${pagination.totalItems !== 1 ? 's' : ''}`;
+        }
+    }
+
+    // Función para actualizar botones de paginación
+    function updatePaginationButtons() {
+        const pagination = window.videoPagination;
+        
+        // Botones de navegación
+        const firstBtn = document.getElementById('firstVideoPageBtn');
+        const prevBtn = document.getElementById('prevVideoPageBtn');
+        const nextBtn = document.getElementById('nextVideoPageBtn');
+        const lastBtn = document.getElementById('lastVideoPageBtn');
+        
+        // Deshabilitar/habilitar botones según corresponda
+        if (firstBtn) firstBtn.disabled = pagination.currentPage <= 1;
+        if (prevBtn) prevBtn.disabled = pagination.currentPage <= 1;
+        if (nextBtn) nextBtn.disabled = pagination.currentPage >= pagination.totalPages;
+        if (lastBtn) lastBtn.disabled = pagination.currentPage >= pagination.totalPages;
+    }
+
+    // Función para verificar si un video ha expirado
+    function isExpired(dateString) {
+        if (!dateString) return false;
+        try {
+            const expirationDate = new Date(dateString);
+            const now = new Date();
+            return expirationDate < now;
+        } catch (e) {
+            console.error("Error al verificar expiración:", e);
+            return false;
+        }
+    }
+
+    // Función para formatear fechas
+    function formatDate(dateString) {
+        if (!dateString) return 'Sin fecha';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) {
+                return 'Fecha inválida';
+            }
+            return date.toLocaleString('es-ES', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (e) {
+            console.error("Error al formatear fecha:", e);
+            return dateString;
+        }
+    }
+
+    // Función para reproducir un video
+    function playVideo(videoId) {
+        const player = document.getElementById('videoPlayer');
+        const source = document.getElementById('videoSource');
+        const modal = document.getElementById('playVideoModal');
+        const title = document.getElementById('playVideoModalLabel');
+        const downloadBtn = document.getElementById('downloadPlayingVideo');
+        
+        // Buscar información del video
+        const video = window.allVideos.find(v => v.id === videoId);
+        
+        if (!video) {
+            alert('Video no encontrado');
+            return;
+        }
+        
+        // Actualizar título del modal
+        if (title) {
+            title.textContent = `Reproduciendo: ${video.title || 'Video sin título'}`;
+        }
+        
+        // Configurar botón de descarga
         if (downloadBtn) {
-            downloadBtn.href = videoUrl;
+            downloadBtn.onclick = function() {
+                downloadVideo(videoId);
+            };
         }
         
-        // Recargar el elemento de video para aplicar la nueva fuente
-        const videoPlayer = document.getElementById('videoPlayer');
-        if (videoPlayer) {
-            videoPlayer.load();
-        }
+        // Construir URL segura
+        const videoUrl = `${window.location.origin}/api/videos/${videoId}/stream`;
         
-        // Abrir el modal
-        const modal = new bootstrap.Modal(document.getElementById('playVideoModal'));
-        modal.show();
-    } catch (error) {
-        console.error('Error al reproducir video:', error);
-        alert('No se pudo reproducir el video. Por favor, inténtelo de nuevo.');
+        // Configurar video
+        if (source) source.src = videoUrl;
+        if (player) player.load();
+        
+        // Mostrar modal
+        const modalInstance = new bootstrap.Modal(modal);
+        modalInstance.show();
     }
-}
 
-// Función optimizada para limpiar el reproductor cuando se cierra el modal
-function setupVideoModalEvents() {
-    const videoModal = document.getElementById('playVideoModal');
-    if (!videoModal) return;
-    
-    videoModal.addEventListener('hidden.bs.modal', function() {
-        const videoPlayer = document.getElementById('videoPlayer');
-        if (videoPlayer) {
-            videoPlayer.pause();
-            videoPlayer.currentTime = 0;
-            // Limpiar la fuente para evitar que se siga descargando en segundo plano
-            document.getElementById('videoSource').src = '';
-            videoPlayer.load();
+    // Inicializar eventos
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Videos V2 - Inicializando...');
+        
+        // Configurar cambio de tamaño de página
+        const pageSizeSelect = document.getElementById('videoPageSizeSelect');
+        if (pageSizeSelect) {
+            pageSizeSelect.addEventListener('change', function() {
+                window.videoPagination.pageSize = parseInt(this.value) || 25;
+                window.videoPagination.currentPage = 1;
+                applyFiltersAndDisplayPage();
+            });
         }
+        
+        // Configurar búsqueda
+        const searchInput = document.getElementById('videoSearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                if (this.value.length >= 3 || this.value.length === 0) {
+                    window.videoPagination.searchTerm = this.value;
+                    window.videoPagination.currentPage = 1;
+                    applyFiltersAndDisplayPage();
+                }
+            });
+        }
+        
+        // Botón limpiar búsqueda
+        const clearSearchBtn = document.getElementById('clearVideoSearch');
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', function() {
+                if (searchInput) {
+                    searchInput.value = '';
+                    window.videoPagination.searchTerm = '';
+                    window.videoPagination.currentPage = 1;
+                    applyFiltersAndDisplayPage();
+                }
+            });
+        }
+        
+        // Formulario de subida
+        const uploadForm = document.getElementById('videoUploadForm');
+        if (uploadForm) {
+            uploadForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                if (typeof window.uploadVideo === 'function') {
+                    window.uploadVideo(this);
+                } else {
+                    alert('La función de subida no está disponible');
+                }
+            });
+        }
+        
+        // Botón guardar cambios
+        const saveChangesBtn = document.getElementById('saveVideoChangesBtn');
+        if (saveChangesBtn) {
+            saveChangesBtn.addEventListener('click', function() {
+                if (typeof window.saveVideoChanges === 'function') {
+                    window.saveVideoChanges();
+                } else {
+                    alert('La función de guardar cambios no está disponible');
+                }
+            });
+        }
+        
+        // Esperar a que main.js esté completamente cargado
+        setTimeout(() => {
+            if (typeof window.loadVideos === 'function') {
+                console.log('Funciones de main.js disponibles, cargando videos...');
+                window.loadVideos();
+            } else {
+                console.warn('main.js no está completamente cargado, reintentando...');
+                setTimeout(() => {
+                    if (typeof window.loadVideos === 'function') {
+                        window.loadVideos();
+                    } else {
+                        console.error('main.js no se pudo cargar correctamente');
+                    }
+                }, 1000);
+            }
+        }, 300);
     });
-}
-        // Función para obtener información adicional del video
-        async function fetchVideoInfo(videoId) {
-            try {
-                console.log(`Obteniendo información del video ID: ${videoId}`);
-                
-                // Verificar primero si el video existe y está disponible para descarga
-                const headResponse = await fetch(`/api/videos/${videoId}/download`, {
-                    method: 'HEAD'
-                });
-                
-                if (!headResponse.ok) {
-                    console.warn(`El video ID ${videoId} no está disponible para descarga (${headResponse.status})`);
-                } else {
-                    console.log(`Video ID ${videoId} disponible para descarga`);
-                }
-                
-                // Obtener información detallada del video
-                const infoResponse = await fetch(`/api/videos/${videoId}/info`);
-                if (!infoResponse.ok) {
-                    throw new Error(`No se pudo obtener información del video (${infoResponse.status})`);
-                }
-                
-                const videoData = await infoResponse.json();
-                console.log('Datos del video:', videoData);
-                
-                // Actualizar duración
-                if (videoData.duration || videoData.formatted_duration) {
-                    const durationElement = document.getElementById('videoDurationValue');
-                    if (durationElement) {
-                        durationElement.textContent = videoData.formatted_duration || formatDuration(videoData.duration);
-                    }
-                }
-                
-                // Actualizar tamaño
-                if (videoData.file_size || videoData.formatted_file_size) {
-                    const sizeElement = document.getElementById('videoSizeValue');
-                    if (sizeElement) {
-                        sizeElement.textContent = videoData.formatted_file_size || formatFileSize(videoData.file_size);
-                    }
-                }
-                
-                // Actualizar descripción si no se proporcionó al abrir el modal
-                const descElement = document.getElementById('playingVideoDescription');
-                if (descElement && descElement.textContent === 'Sin descripción' && videoData.description) {
-                    descElement.textContent = videoData.description;
-                }
-                
-                // Actualizar nombre del archivo (obtenido desde la info)
-                const fileName = videoData.file_name || 
-                                (videoData.file_path ? videoData.file_path.split('/').pop() : 'video.mp4');
-                
-                // Actualizar botón de descarga con el nombre de archivo correcto
-                const downloadBtn = document.getElementById('downloadVideoBtn');
-                if (downloadBtn) {
-                    // Usar el título si está disponible, o el nombre del archivo como respaldo
-                    downloadBtn.download = videoData.title || fileName;
-                }
-                
-                return videoData;
-                
-            } catch (error) {
-                console.error('Error al obtener información del video:', error);
-                // Mostrar un mensaje al usuario
-                const errorElement = document.createElement('div');
-                errorElement.className = 'alert alert-danger mt-3';
-                errorElement.innerHTML = `
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Error al cargar información del video:</strong> ${error.message}
-                `;
-                
-                // Añadir el mensaje de error al modal si es posible
-                const modalBody = document.querySelector('#playVideoModal .modal-body');
-                if (modalBody) {
-                    modalBody.appendChild(errorElement);
-                }
-                
-                return null;
-            }
-        }
-        // Función para formatear el tamaño del archivo
-        function formatFileSize(bytes) {
-            if (!bytes) return '-- MB';
-            
-            const units = ['B', 'KB', 'MB', 'GB'];
-            let size = bytes;
-            let unitIndex = 0;
-            
-            while (size >= 1024 && unitIndex < units.length - 1) {
-                size /= 1024;
-                unitIndex++;
-            }
-            
-            return `${size.toFixed(2)} ${units[unitIndex]}`;
-        }
-
-        // SOLUCIÓN CORREGIDA: Función para añadir botones de reproducción
-        // Evita duplicaciones verificando si ya existe un botón de reproducción
- function addPlayButtonsToVideoTable() {
-    // Evitar procesamiento duplicado
-    if (window.isAddingPlayButtons) return;
-    window.isAddingPlayButtons = true;
-    
-    try {
-        console.log('Añadiendo botones de reproducción...');
-        
-        // Seleccionar todas las filas que contienen datos de videos
-        const videoRows = document.querySelectorAll('#videosList tr:not(:has(#videosLoading))');
-        let buttonsAdded = 0;
-        
-        videoRows.forEach(row => {
-            // Verificar que la fila tiene celdas
-            if (!row.cells || row.cells.length < 6) return;
-            
-            // Buscar la celda de acciones (última celda)
-            const actionsCell = row.cells[row.cells.length - 1];
-            if (!actionsCell) return;
-            
-            // Buscar el grupo de botones
-            const btnGroup = actionsCell.querySelector('.btn-group');
-            if (!btnGroup) return;
-            
-            // Verificar si ya existe un botón de reproducción para evitar duplicados
-            if (btnGroup.querySelector('[data-play-button="true"]')) return;
-            
-            // Buscar el ID del video usando atributos data-*
-            let videoId = row.getAttribute('data-video-id');
-            
-            // Si no hay data-video-id, intentar extraerlo de otros elementos
-            if (!videoId) {
-                // Intentar obtener de botones de edición o eliminación
-                const actionBtn = btnGroup.querySelector('button[onclick*="Video("]');
-                if (actionBtn) {
-                    const match = actionBtn.getAttribute('onclick').match(/Video\((\d+)/);
-                    if (match && match[1]) videoId = match[1];
-                }
-                
-                // Intentar obtener de enlaces de descarga
-                if (!videoId) {
-                    const downloadLink = btnGroup.querySelector('a[href*="/videos/"]');
-                    if (downloadLink) {
-                        const match = downloadLink.href.match(/\/videos\/(\d+)/);
-                        if (match && match[1]) videoId = match[1];
-                    }
-                }
-            }
-            
-            // Si encontramos un ID, crear el botón de reproducción
-            if (videoId) {
-                // Crear el botón
-                const playBtn = document.createElement('button');
-                playBtn.className = 'btn btn-outline-primary btn-sm';
-                playBtn.innerHTML = '<i class="fas fa-play"></i>';
-                playBtn.title = 'Reproducir video';
-                playBtn.setAttribute('data-play-button', 'true');
-                
-                // Usar una función anónima para evitar problemas con el ámbito de las variables
-                playBtn.onclick = function() {
-                    playVideo(videoId);
-                };
-                
-                // Insertar al principio del grupo de botones
-                btnGroup.insertBefore(playBtn, btnGroup.firstChild);
-                buttonsAdded++;
-            }
-        });
-        
-        console.log(`Proceso completado: ${buttonsAdded} botones de reproducción añadidos`);
-    } catch (error) {
-        console.error('Error al añadir botones de reproducción:', error);
-    } finally {
-        window.isAddingPlayButtons = false;
-    }
-}
-
-
-        // Observador para detectar cambios en la tabla y añadir botones
-        function setupTableObserver() {
-            // Evitar inicializar múltiples observadores
-            if (window.tableObserverSetup) return;
-            window.tableObserverSetup = true;
-            
-            // Seleccionar el contenedor de la tabla
-            const tableContainer = document.getElementById('videosList');
-            if (!tableContainer) return;
-            
-            console.log('Configurando observador de tabla para botones de reproducción...');
-            
-            // Configurar un observador para detectar cambios en la tabla
-            const observer = new MutationObserver(function(mutations) {
-                // Solo procesar los cambios si no estamos ya añadiendo botones
-                if (!window.isAddingPlayButtons) {
-                    // Esperar un poco para asegurarse de que todos los cambios se han aplicado
-                    setTimeout(addPlayButtonsToVideoTable, 100);
-                }
-            });
-            
-            // Iniciar la observación
-            observer.observe(tableContainer, { 
-                childList: true, 
-                subtree: true,
-                attributes: false,
-                characterData: false
-            });
-            
-            // También intentar añadir botones inmediatamente por si la tabla ya está cargada
-            setTimeout(addPlayButtonsToVideoTable, 500);
-        }
-        
-        // Inicializar cuando el DOM esté listo
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Videos V2 - Inicializando...');
-            
-            // Configurar el observador de la tabla una sola vez
-            setupTableObserver();
-            
-            // Esperar a que main.js esté completamente cargado
-            setTimeout(() => {
-                // Verificar que las funciones principales estén disponibles
-                if (typeof window.loadVideos === 'function') {
-                    console.log('Funciones de main.js disponibles, cargando videos...');
-                    window.loadVideos();
-                } else {
-                    console.warn('main.js no está completamente cargado, reintentando...');
-                    setTimeout(() => {
-                        if (typeof window.loadVideos === 'function') {
-                            window.loadVideos();
-                        } else {
-                            console.error('main.js no se pudo cargar correctamente');
-                        }
-                    }, 1000);
-                }
-            }, 300);
-        });
-        
-        console.log('Videos V2 template cargado - main.js manejará la funcionalidad');
-    </script>
+</script>
 {% endblock %}
