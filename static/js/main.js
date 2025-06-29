@@ -1,291 +1,334 @@
-// =============================================
-// MAIN.JS CORREGIDO Y MEJORADO - V2.0
-// =============================================
+/**
+ * MAIN.JS - Archivo principal del sistema
+ * Versión corregida sin errores de Mixed Content
+ */
 
-// ===== CONFIGURACIÓN GLOBAL =====
-const API_URL = '/api';
+console.log('🚀 Iniciando sistema principal...');
 
-// Variables globales - Asegurar que están en window
-window.allVideos = [];
-window.allPlaylists = [];
-window.currentPlaylistId = null;
+// ==========================================
+// VARIABLES GLOBALES
+// ==========================================
 
-// Variables de paginación de videos
-window.videoPagination = {
-    currentPage: 1,
-    pageSize: 25,
-    totalItems: 0,
-    totalPages: 1,
-    filteredData: [],
-    searchTerm: '',
-    filter: 'all',
-    sortField: 'title',
-    sortOrder: 'asc'
-};
+let videos = [];
+let playlists = [];
+let devices = [];
+let currentPage = 1;
+let pageSize = 10;
+let totalPages = 1;
 
-// Aliases para compatibilidad
-let allVideos = window.allVideos;
-let allPlaylists = window.allPlaylists;
-let currentPlaylistId = window.currentPlaylistId;
-let videoPagination = window.videoPagination;
+// ==========================================
+// CONFIGURACIÓN DE API - USANDO API_CONFIG GLOBAL
+// ==========================================
 
-console.log('Main.js v2.0 - Inicializando...');
+/**
+ * Verificar que API_CONFIG esté disponible, si no, crear configuración de emergencia
+ */
+function ensureApiConfig() {
+    if (typeof window.API_CONFIG === 'undefined') {
+        console.warn('⚠️ API_CONFIG no encontrado, creando configuración de emergencia...');
+        
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        const apiUrl = `${protocol}//${host}/api`;
+        
+        window.API_CONFIG = {
+            BASE_URL: apiUrl,
+            VIDEOS: { 
+                LIST: `${apiUrl}/videos`,
+                GET_BY_ID: (id) => `${apiUrl}/videos/${id}`,
+                DELETE: (id) => `${apiUrl}/videos/${id}`
+            },
+            PLAYLISTS: {
+                LIST: `${apiUrl}/playlists`,
+                GET_BY_ID: (id) => `${apiUrl}/playlists/${id}`,
+                DELETE: (id) => `${apiUrl}/playlists/${id}`
+            },
+            DEVICES: {
+                LIST: `${apiUrl}/devices`,
+                GET_BY_ID: (id) => `${apiUrl}/devices/${id}`,
+                DELETE: (id) => `${apiUrl}/devices/${id}`
+            }
+        };
+    }
+    return window.API_CONFIG;
+}
 
-// ===== FUNCIONES HELPER MEJORADAS =====
+// Asegurar configuración disponible
+const API_CONFIG = ensureApiConfig();
 
-function safeElementOperation(elementId, operation) {
+// ==========================================
+// INICIALIZACIÓN DEL SISTEMA
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📋 Inicializando interfaz principal...');
+    
+    // Determinar qué vista estamos cargando basado en la URL o elementos presentes
+    const currentPath = window.location.pathname;
+    
+    if (currentPath.includes('videos') || document.getElementById('videosList')) {
+        console.log('📺 Cargando vista de videos...');
+        loadVideos();
+    }
+    
+    if (currentPath.includes('playlists') || document.getElementById('playlistsList')) {
+        console.log('🎵 Cargando vista de playlists...');
+        loadPlaylists();
+    }
+    
+    if (currentPath.includes('devices') || document.getElementById('devicesList')) {
+        console.log('📱 Cargando vista de dispositivos...');
+        loadDevices();
+    }
+    
+    // Configurar event listeners globales
+    setupGlobalEventListeners();
+    
+    console.log('✅ Sistema principal inicializado');
+});
+
+// ==========================================
+// FUNCIONES DE CARGA DE DATOS
+// ==========================================
+
+/**
+ * Cargar lista de videos
+ */
+async function loadVideos() {
+    console.log('📺 Cargando videos...');
+    
+    const videosList = document.getElementById('videosList');
+    const videosLoading = document.getElementById('videosLoading');
+    
+    if (!videosList) {
+        console.log('📺 Elemento videosList no encontrado, salteando carga');
+        return;
+    }
+    
+    // Mostrar loading
+    if (videosLoading) {
+        videosLoading.style.display = 'block';
+    }
+    
     try {
-        const element = document.getElementById(elementId);
-        if (element) {
-            operation(element);
-            return true;
-        } else {
-            console.warn(`Elemento no encontrado: ${elementId}`);
+        const response = await safeFetch(API_CONFIG.VIDEOS.LIST);
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: No se pudieron cargar los videos`);
         }
-        return false;
+        
+        const data = await response.json();
+        videos = Array.isArray(data) ? data : (data.videos || []);
+        
+        console.log('✅ Videos cargados:', videos.length);
+        
+        renderVideos();
+        showToast(`${videos.length} videos cargados correctamente`, 'success');
+        
     } catch (error) {
-        console.error(`Error al operar con elemento ${elementId}:`, error);
-        return false;
-    }
-}
-
-function isExpired(dateString) {
-    if (!dateString) return false;
-    try {
-        const expirationDate = new Date(dateString);
-        const now = new Date();
-        return expirationDate < now;
-    } catch (e) {
-        console.error("Error al verificar expiración:", e);
-        return false;
-    }
-}
-
-function formatDate(dateString) {
-    if (!dateString) return 'Sin fecha';
-    try {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) {
-            return 'Fecha inválida';
-        }
-        return date.toLocaleString('es-ES', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    } catch (e) {
-        console.error("Error al formatear fecha:", e);
-        return 'Error de formato';
-    }
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function showToast(message, type = 'success') {
-    console.log(`Toast (${type}): ${message}`);
-    
-    if (window.bootstrap && typeof bootstrap.Toast === 'function') {
-        try {
-            const container = document.querySelector('.toast-container') || (() => {
-                const newContainer = document.createElement('div');
-                newContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
-                newContainer.style.zIndex = '9999';
-                document.body.appendChild(newContainer);
-                return newContainer;
-            })();
-            
-            const toastEl = document.createElement('div');
-            const bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-info';
-            toastEl.className = `toast align-items-center text-white ${bgClass} border-0`;
-            toastEl.setAttribute('role', 'alert');
-            toastEl.setAttribute('aria-live', 'assertive');
-            toastEl.setAttribute('aria-atomic', 'true');
-            
-            toastEl.innerHTML = `
-                <div class="d-flex">
-                    <div class="toast-body">
-                        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
-                        ${message}
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-            `;
-            
-            container.appendChild(toastEl);
-            
-            const toast = new bootstrap.Toast(toastEl, {
-                autohide: true,
-                delay: type === 'error' ? 7000 : 4000
-            });
-            toast.show();
-            
-            toastEl.addEventListener('hidden.bs.toast', () => {
-                toastEl.remove();
-            });
-        } catch (e) {
-            console.error("Error al crear toast de Bootstrap:", e);
-            alert(message);
-        }
-    } else {
-        alert(message);
-    }
-}
-
-// ===== FUNCIONES DE PAGINACIÓN CORREGIDAS =====
-
-window.applyFiltersAndDisplayPage = function() {
-    console.log('=== APLICANDO FILTROS ===');
-    
-    // Verificar que allVideos existe y es un array
-    if (!window.allVideos || !Array.isArray(window.allVideos)) {
-        console.warn('allVideos no está disponible o no es un array');
-        window.allVideos = [];
-        allVideos = window.allVideos;
-    }
-    
-    if (window.allVideos.length === 0) {
-        console.warn('No hay videos cargados');
-        const videosList = document.getElementById('videosList');
+        console.error('❌ Error cargando videos:', error);
+        
         if (videosList) {
             videosList.innerHTML = `
                 <tr>
                     <td colspan="6" class="text-center py-5">
-                        <div class="text-muted">
-                            <i class="fas fa-info-circle fa-3x mb-3"></i>
-                            <p class="mb-0">No hay videos disponibles</p>
-                            <p class="small">Sube tu primer video para comenzar</p>
+                        <div class="alert alert-danger mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Error al cargar videos</strong><br>
+                            ${error.message}
                         </div>
                     </td>
                 </tr>
             `;
         }
-        updatePaginationInfo();
-        updatePaginationButtons();
+        
+        showToast(`Error al cargar videos: ${error.message}`, 'error');
+    } finally {
+        if (videosLoading) {
+            videosLoading.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Cargar lista de playlists
+ */
+async function loadPlaylists() {
+    console.log('🎵 Cargando playlists...');
+    
+    const playlistsList = document.getElementById('playlistsList');
+    const playlistsLoading = document.getElementById('playlistsLoading');
+    
+    if (!playlistsList) {
+        console.log('🎵 Elemento playlistsList no encontrado, salteando carga');
         return;
     }
     
-    let filtered = [...window.allVideos];
-
-    // Aplicar filtro de estado
-    if (videoPagination.filter === 'active') {
-        filtered = filtered.filter(video => !video.expiration_date || new Date(video.expiration_date) >= new Date());
-    } else if (videoPagination.filter === 'expired') {
-        filtered = filtered.filter(video => video.expiration_date && new Date(video.expiration_date) < new Date());
+    // Mostrar loading
+    if (playlistsLoading) {
+        playlistsLoading.style.display = 'block';
     }
-
-    // Aplicar filtro de búsqueda
-    if (videoPagination.searchTerm && videoPagination.searchTerm.trim()) {
-        const searchLower = videoPagination.searchTerm.toLowerCase();
-        filtered = filtered.filter(video => 
-            (video.title || '').toLowerCase().includes(searchLower) ||
-            (video.description || '').toLowerCase().includes(searchLower) ||
-            (video.filename || '').toLowerCase().includes(searchLower)
-        );
-    }
-
-    // Ordenar los datos
-    filtered.sort((a, b) => {
-        let aValue = a[videoPagination.sortField] || '';
-        let bValue = b[videoPagination.sortField] || '';
+    
+    try {
+        const response = await safeFetch(API_CONFIG.PLAYLISTS.LIST);
         
-        if (videoPagination.sortField.includes('date') || videoPagination.sortField.includes('_date')) {
-            aValue = new Date(aValue || 0);
-            bValue = new Date(bValue || 0);
-        } else {
-            aValue = aValue.toString().toLowerCase();
-            bValue = bValue.toString().toLowerCase();
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: No se pudieron cargar las playlists`);
         }
         
-        if (videoPagination.sortOrder === 'desc') {
-            return bValue > aValue ? 1 : -1;
+        const data = await response.json();
+        playlists = Array.isArray(data) ? data : (data.playlists || []);
+        
+        console.log('✅ Playlists cargadas:', playlists.length);
+        
+        renderPlaylists();
+        showToast(`${playlists.length} playlists cargadas correctamente`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Error cargando playlists:', error);
+        
+        if (playlistsList) {
+            playlistsList.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-5">
+                        <div class="alert alert-danger mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Error al cargar listas</strong><br>
+                            ${error.message}
+                        </div>
+                    </td>
+                </tr>
+            `;
         }
-        return aValue > bValue ? 1 : -1;
-    });
-
-    videoPagination.filteredData = filtered;
-    videoPagination.totalItems = filtered.length;
-    videoPagination.totalPages = Math.ceil(videoPagination.totalItems / videoPagination.pageSize);
-    
-    // Ajustar página actual si es necesario
-    if (videoPagination.currentPage > videoPagination.totalPages && videoPagination.totalPages > 0) {
-        videoPagination.currentPage = videoPagination.totalPages;
+        
+        showToast(`Error al cargar listas: ${error.message}`, 'error');
+    } finally {
+        if (playlistsLoading) {
+            playlistsLoading.style.display = 'none';
+        }
     }
-    if (videoPagination.currentPage < 1) {
-        videoPagination.currentPage = 1;
-    }
+}
 
-    // Actualizar display
-    displayCurrentPage();
-    updatePaginationInfo();
-    updatePaginationButtons();
+/**
+ * Cargar lista de dispositivos
+ */
+async function loadDevices() {
+    console.log('📱 Cargando dispositivos...');
     
-    console.log(`Filtros aplicados: ${filtered.length} de ${window.allVideos.length} videos`);
-};
+    const devicesList = document.getElementById('devicesList');
+    const devicesLoading = document.getElementById('devicesLoading');
+    
+    if (!devicesList) {
+        console.log('📱 Elemento devicesList no encontrado, salteando carga');
+        return;
+    }
+    
+    // Mostrar loading
+    if (devicesLoading) {
+        devicesLoading.style.display = 'block';
+    }
+    
+    try {
+        const response = await safeFetch(API_CONFIG.DEVICES.LIST);
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: No se pudieron cargar los dispositivos`);
+        }
+        
+        const data = await response.json();
+        devices = Array.isArray(data) ? data : (data.devices || []);
+        
+        console.log('✅ Dispositivos cargados:', devices.length);
+        
+        renderDevices();
+        showToast(`${devices.length} dispositivos cargados correctamente`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Error cargando dispositivos:', error);
+        
+        if (devicesList) {
+            devicesList.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-5">
+                        <div class="alert alert-danger mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Error al cargar dispositivos</strong><br>
+                            ${error.message}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+        
+        showToast(`Error al cargar dispositivos: ${error.message}`, 'error');
+    } finally {
+        if (devicesLoading) {
+            devicesLoading.style.display = 'none';
+        }
+    }
+}
 
-window.displayCurrentPage = function() {
-    const startIndex = (videoPagination.currentPage - 1) * videoPagination.pageSize;
-    const endIndex = Math.min(startIndex + videoPagination.pageSize, videoPagination.totalItems);
-    const pageData = videoPagination.filteredData.slice(startIndex, endIndex);
+// ==========================================
+// FUNCIONES DE RENDERIZADO
+// ==========================================
 
+/**
+ * Renderizar lista de videos
+ */
+function renderVideos() {
     const videosList = document.getElementById('videosList');
-    if (!videosList) {
-        console.error('videosList no encontrado');
-        return;
-    }
+    if (!videosList) return;
     
-    if (pageData.length === 0) {
+    if (videos.length === 0) {
         videosList.innerHTML = `
             <tr>
                 <td colspan="6" class="text-center py-5">
                     <div class="text-muted">
-                        <i class="fas fa-search fa-3x mb-3"></i>
-                        <p class="mb-0">No se encontraron videos</p>
-                        ${videoPagination.searchTerm ? '<p class="small">Intenta con otros términos de búsqueda</p>' : ''}
+                        <i class="fas fa-video fa-3x mb-3"></i>
+                        <p class="mb-0">No hay videos disponibles</p>
+                        <small>Sube tu primer video para comenzar</small>
                     </div>
                 </td>
             </tr>
         `;
         return;
     }
-
-    const rows = pageData.map(video => {
-        const videoExpired = video.expiration_date && isExpired(video.expiration_date);
+    
+    const videosHTML = videos.map(video => {
+        const duration = formatDuration(video.duration);
+        const uploadDate = formatDate(video.upload_date);
+        
         return `
-            <tr class="${videoExpired ? 'table-warning' : ''}">
+            <tr class="video-row" data-video-id="${video.id}">
                 <td>
-                    <strong>${escapeHtml(video.title || video.filename || 'Sin título')}</strong>
-                    ${video.filename && video.title !== video.filename ? 
-                        `<br><small class="text-muted">${escapeHtml(video.filename)}</small>` : ''}
+                    <div class="d-flex align-items-center">
+                        <div class="video-thumbnail me-3">
+                            <i class="fas fa-play-circle fa-2x text-primary"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-1">${escapeHtml(video.title)}</h6>
+                            <small class="text-muted">ID: ${video.id}</small>
+                        </div>
+                    </div>
                 </td>
                 <td>
-                    <span class="text-muted">${escapeHtml(video.description || 'Sin descripción')}</span>
+                    <span class="text-muted">${video.description ? escapeHtml(video.description) : 'Sin descripción'}</span>
                 </td>
                 <td>
-                    <small class="text-muted">${formatDate(video.upload_date || video.created_at)}</small>
+                    <small class="text-muted">${duration}</small>
                 </td>
                 <td>
-                    ${video.expiration_date ? 
-                        `<span class="badge ${videoExpired ? 'bg-danger' : 'bg-info'}">
-                            ${videoExpired ? 'Expirado' : 'Expira'}: ${formatDate(video.expiration_date)}
-                        </span>` : 
-                        '<span class="text-muted">Sin expiración</span>'}
+                    <small class="text-muted">${uploadDate}</small>
                 </td>
                 <td>
-                    <span class="badge ${videoExpired ? 'bg-danger' : 'bg-success'}">
-                        ${videoExpired ? 'Expirado' : 'Activo'}
+                    <span class="badge ${video.is_active ? 'bg-success' : 'bg-secondary'}">
+                        ${video.is_active ? 'Activo' : 'Inactivo'}
                     </span>
                 </td>
                 <td>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" onclick="downloadVideo(${video.id})" title="Descargar">
-                            <i class="fas fa-download"></i>
+                        <button class="btn btn-outline-primary" onclick="previewVideo(${video.id})" title="Vista previa">
+                            <i class="fas fa-eye"></i>
                         </button>
                         <button class="btn btn-outline-secondary" onclick="editVideo(${video.id})" title="Editar">
                             <i class="fas fa-edit"></i>
@@ -298,753 +341,476 @@ window.displayCurrentPage = function() {
             </tr>
         `;
     }).join('');
+    
+    videosList.innerHTML = videosHTML;
+}
 
-    videosList.innerHTML = rows;
-};
-
-window.updatePaginationInfo = function() {
-    const startItem = videoPagination.totalItems > 0 ? 
-        (videoPagination.currentPage - 1) * videoPagination.pageSize + 1 : 0;
-    const endItem = Math.min(videoPagination.currentPage * videoPagination.pageSize, videoPagination.totalItems);
+/**
+ * Renderizar lista de playlists
+ */
+function renderPlaylists() {
+    const playlistsList = document.getElementById('playlistsList');
+    if (!playlistsList) return;
     
-    safeElementOperation('videoCountBadge', element => {
-        element.textContent = `${videoPagination.totalItems} video${videoPagination.totalItems !== 1 ? 's' : ''}`;
-    });
-    
-    safeElementOperation('videoPaginationInfo', element => {
-        element.textContent = `Mostrando ${startItem} - ${endItem} de ${videoPagination.totalItems} resultados`;
-    });
-};
-
-window.updatePaginationButtons = function() {
-    safeElementOperation('firstVideoPageBtn', element => {
-        element.disabled = videoPagination.currentPage <= 1;
-    });
-    
-    safeElementOperation('prevVideoPageBtn', element => {
-        element.disabled = videoPagination.currentPage <= 1;
-    });
-    
-    safeElementOperation('nextVideoPageBtn', element => {
-        element.disabled = videoPagination.currentPage >= videoPagination.totalPages;
-    });
-    
-    safeElementOperation('lastVideoPageBtn', element => {
-        element.disabled = videoPagination.currentPage >= videoPagination.totalPages;
-    });
-    
-    safeElementOperation('videoPageInput', element => {
-        element.value = videoPagination.currentPage;
-        element.max = videoPagination.totalPages || 1;
-    });
-    
-    safeElementOperation('totalVideoPages', element => {
-        element.textContent = videoPagination.totalPages || 1;
-    });
-    
-    safeElementOperation('videoPaginationFooter', element => {
-        const startItem = videoPagination.totalItems > 0 ?
-            (videoPagination.currentPage - 1) * videoPagination.pageSize + 1 : 0;
-        const endItem = Math.min(videoPagination.currentPage * videoPagination.pageSize, videoPagination.totalItems);
-        element.innerHTML = `
-            Página ${videoPagination.currentPage} de ${videoPagination.totalPages || 1} 
-            <span class="text-primary">(${startItem}-${endItem} de ${videoPagination.totalItems})</span>
-        `;
-    });
-};
-
-// ===== FUNCIONES DE NAVEGACIÓN =====
-
-window.goToVideoPage = function(page) {
-    page = parseInt(page);
-    if (page >= 1 && page <= videoPagination.totalPages && page !== videoPagination.currentPage) {
-        videoPagination.currentPage = page;
-        displayCurrentPage();
-        updatePaginationInfo();
-        updatePaginationButtons();
-    }
-};
-
-window.goToFirstVideoPage = function() {
-    window.goToVideoPage(1);
-};
-
-window.goToPrevVideoPage = function() {
-    if (videoPagination.currentPage > 1) {
-        window.goToVideoPage(videoPagination.currentPage - 1);
-    }
-};
-
-window.goToNextVideoPage = function() {
-    if (videoPagination.currentPage < videoPagination.totalPages) {
-        window.goToVideoPage(videoPagination.currentPage + 1);
-    }
-};
-
-window.goToLastVideoPage = function() {
-    window.goToVideoPage(videoPagination.totalPages);
-};
-
-window.sortVideoTable = function(field) {
-    if (videoPagination.sortField === field) {
-        videoPagination.sortOrder = videoPagination.sortOrder === 'asc' ? 'desc' : 'asc';
-    } else {
-        videoPagination.sortField = field;
-        videoPagination.sortOrder = 'asc';
-    }
-    
-    applyFiltersAndDisplayPage();
-    
-    // Actualizar iconos de ordenamiento
-    document.querySelectorAll('#videosTable th .fas').forEach(icon => {
-        icon.className = 'fas fa-sort ms-1';
-    });
-    
-    const currentButton = document.querySelector(`button[onclick="sortVideoTable('${field}')"] .fas`);
-    if (currentButton) {
-        currentButton.className = `fas fa-sort-${videoPagination.sortOrder === 'asc' ? 'up' : 'down'} ms-1`;
-    }
-};
-
-// ===== GESTIÓN DE VIDEOS CORREGIDA =====
-
-window.loadVideos = async function(filter = 'all') {
-    console.log('=== CARGANDO VIDEOS ===');
-    
-    const videosList = document.getElementById('videosList');
-    if (!videosList) {
-        console.error("Elemento videosList no encontrado");
-        return;
-    }
-    
-    try {
-        // Mostrar indicador de carga
-        videosList.innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center py-3">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Cargando...</span>
-                    </div>
-                    <p class="mt-2">Cargando videos...</p>
-                </td>
-            </tr>
-        `;
-        
-        // Cargar videos desde la API
-        console.log('Solicitando videos a:', `${API_URL}/videos/`);
-        const response = await fetch(`${API_URL}/videos/`);
-        
-        if (!response.ok) {
-            throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
-        }
-        
-        const responseData = await response.json();
-        console.log('Respuesta de la API:', responseData);
-        
-        // Manejar diferentes formatos de respuesta
-        if (Array.isArray(responseData)) {
-            window.allVideos = responseData;
-        } else if (responseData.items && Array.isArray(responseData.items)) {
-            window.allVideos = responseData.items;
-        } else if (responseData.data && Array.isArray(responseData.data)) {
-            window.allVideos = responseData.data;
-        } else {
-            throw new Error('Formato de respuesta no válido');
-        }
-        
-        allVideos = window.allVideos;
-        
-        console.log(`Videos cargados: ${window.allVideos.length}`);
-        
-        // Configurar filtro inicial
-        videoPagination.filter = filter;
-        videoPagination.currentPage = 1;
-        
-        // Aplicar filtros
-        setTimeout(() => {
-            applyFiltersAndDisplayPage();
-        }, 100);
-        
-        console.log('=== VIDEOS CARGADOS CORRECTAMENTE ===');
-        
-    } catch (error) {
-        console.error('Error al cargar videos:', error);
-        videosList.innerHTML = `
+    if (playlists.length === 0) {
+        playlistsList.innerHTML = `
             <tr>
                 <td colspan="6" class="text-center py-5">
-                    <div class="alert alert-danger mb-0">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Error al cargar videos</strong><br>
-                        ${error.message}<br>
-                        <small class="text-muted">Verifica la conexión a la API: ${API_URL}/videos/</small>
+                    <div class="text-muted">
+                        <i class="fas fa-list-alt fa-3x mb-3"></i>
+                        <p class="mb-0">No hay listas de reproducción</p>
+                        <small>Crea tu primera lista para comenzar</small>
                     </div>
                 </td>
             </tr>
         `;
-        
-        // Inicializar array vacío en caso de error
-        window.allVideos = [];
-        allVideos = window.allVideos;
-        
-        // Actualizar paginación incluso en error
-        updatePaginationInfo();
-        updatePaginationButtons();
+        return;
     }
-};
-
-// ===== FUNCIÓN DE DESCARGA MEJORADA =====
-window.downloadVideo = async function(videoId) {
-    console.log('Descargando video:', videoId);
     
-    try {
-        // Verificar que el video existe en la lista local
-        const video = window.allVideos.find(v => v.id === videoId);
-        if (!video) {
-            throw new Error('Video no encontrado en la lista local');
-        }
+    const playlistsHTML = playlists.map(playlist => {
+        const isActive = isPlaylistActive(playlist);
+        const isExpired = playlist.expiration_date && new Date(playlist.expiration_date) < new Date();
+        const videoCount = playlist.videos ? playlist.videos.length : 0;
+        const creationDate = formatDate(playlist.creation_date);
         
-        // Mostrar indicador de descarga
-        showToast(`Preparando descarga: ${video.title || video.filename}`, 'info');
-        
-        // Primero verificar información del video
-        const infoUrl = `${API_URL}/videos/${videoId}/info`;
-        console.log('Verificando información del video:', infoUrl);
-        
-        const infoResponse = await fetch(infoUrl);
-        if (infoResponse.ok) {
-            const videoInfo = await infoResponse.json();
-            console.log('Información del video:', videoInfo);
-            
-            if (!videoInfo.file_exists) {
-                throw new Error(`El archivo del video no existe en el servidor`);
-            }
-            
-            if (videoInfo.is_expired) {
-                throw new Error(`El video ha expirado: ${videoInfo.expiration_date}`);
-            }
-        } else {
-            console.warn('No se pudo verificar información del video, continuando con descarga...');
-        }
-        
-        // URL de descarga
-        const downloadUrl = `${API_URL}/videos/${videoId}/download`;
-        console.log('URL de descarga:', downloadUrl);
-        
-        // Verificar que el endpoint responde
-        const headResponse = await fetch(downloadUrl, { method: 'HEAD' });
-        if (!headResponse.ok) {
-            if (headResponse.status === 404) {
-                throw new Error('Video no encontrado en el servidor (404)');
-            } else if (headResponse.status === 403) {
-                throw new Error('Video expirado o sin permisos (403)');
-            } else {
-                throw new Error(`Error del servidor: ${headResponse.status} ${headResponse.statusText}`);
-            }
-        }
-        
-        // Crear elemento de descarga temporal
-        const downloadLink = document.createElement('a');
-        downloadLink.href = downloadUrl;
-        downloadLink.download = video.filename || `video_${videoId}`;
-        downloadLink.style.display = 'none';
-        
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        
-        showToast(`Descarga iniciada: ${video.title || video.filename}`, 'success');
-        
-    } catch (error) {
-        console.error('Error al descargar video:', error);
-        showToast(`Error al descargar video: ${error.message}`, 'error');
-        
-        // Mostrar información adicional de diagnóstico
-        if (error.message.includes('404') || error.message.includes('no encontrado')) {
-            showToast('Ejecuta el diagnóstico de videos para más información', 'info');
-        }
+        return `
+            <tr class="playlist-row" data-playlist-id="${playlist.id}">
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="playlist-thumbnail me-3">
+                            <i class="fas fa-list-alt fa-2x text-primary"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-1">${escapeHtml(playlist.title)}</h6>
+                            <small class="text-muted">ID: ${playlist.id}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="text-muted">${playlist.description ? escapeHtml(playlist.description) : 'Sin descripción'}</span>
+                </td>
+                <td>
+                    <small class="text-muted">${creationDate}</small>
+                    ${playlist.expiration_date ? `<br><small class="text-${isExpired ? 'danger' : 'info'}">${isExpired ? 'Expiró' : 'Expira'}: ${formatDate(playlist.expiration_date)}</small>` : ''}
+                </td>
+                <td>
+                    <span class="badge bg-info">${videoCount}</span>
+                </td>
+                <td>
+                    <span class="badge ${isActive && !isExpired ? 'bg-success' : isExpired ? 'bg-danger' : 'bg-secondary'}">
+                        ${isExpired ? 'Expirada' : isActive ? 'Activa' : 'Inactiva'}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="openPlaylistDetail(${playlist.id})" title="Ver detalles">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="editPlaylist(${playlist.id})" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="deletePlaylist(${playlist.id})" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    
+    playlistsList.innerHTML = playlistsHTML;
+}
+
+/**
+ * Renderizar lista de dispositivos
+ */
+function renderDevices() {
+    const devicesList = document.getElementById('devicesList');
+    if (!devicesList) return;
+    
+    if (devices.length === 0) {
+        devicesList.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center py-5">
+                    <div class="text-muted">
+                        <i class="fas fa-mobile-alt fa-3x mb-3"></i>
+                        <p class="mb-0">No hay dispositivos registrados</p>
+                        <small>Registra tu primer dispositivo para comenzar</small>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
     }
-};
-
-// ===== FUNCIÓN DE SUBIDA CORREGIDA =====
-window.uploadVideo = async function(formData) {
-    console.log('=== INICIANDO SUBIDA DE VIDEO CORREGIDA ===');
     
-    const progressBar = document.querySelector('#uploadProgress .progress-bar');
-    const progressContainer = document.getElementById('uploadProgress');
+    const devicesHTML = devices.map(device => {
+        const lastSeen = device.last_seen ? formatDate(device.last_seen) : 'Nunca';
+        const isOnline = device.is_online || false;
+        
+        return `
+            <tr class="device-row" data-device-id="${device.id}">
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="device-icon me-3">
+                            <i class="fas fa-mobile-alt fa-2x text-primary"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-1">${escapeHtml(device.name)}</h6>
+                            <small class="text-muted">${device.identifier}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="text-muted">${device.description ? escapeHtml(device.description) : 'Sin descripción'}</span>
+                </td>
+                <td>
+                    <small class="text-muted">${lastSeen}</small>
+                </td>
+                <td>
+                    <span class="badge ${isOnline ? 'bg-success' : 'bg-secondary'}">
+                        ${isOnline ? 'En línea' : 'Desconectado'}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="viewDevice(${device.id})" title="Ver detalles">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="editDevice(${device.id})" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="deleteDevice(${device.id})" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
     
-    try {
-        if (progressContainer) {
-            progressContainer.classList.remove('d-none');
-            if (progressBar) {
-                progressBar.style.width = '0%';
-                progressBar.textContent = '0%';
-                progressBar.setAttribute('aria-valuenow', '0');
-            }
-        }
-        
-        // Verificar que formData tenga los campos necesarios
-        const title = formData.get('title');
-        const file = formData.get('file');
-        
-        if (!title || !title.trim()) {
-            throw new Error('El título es obligatorio');
-        }
-        
-        if (!file || file.size === 0) {
-            throw new Error('Debe seleccionar un archivo de video');
-        }
-        
-        console.log('Datos del formulario:');
-        console.log('- Título:', title);
-        console.log('- Archivo:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
-        console.log('- Descripción:', formData.get('description') || 'Sin descripción');
-        console.log('- Expiración:', formData.get('expiration_date') || 'Sin expiración');
-        
-        // IMPORTANTE: Crear un nuevo FormData con SOLO los campos válidos según el modelo Video
-        const cleanFormData = new FormData();
-        
-        // Agregar solo los campos permitidos
-        cleanFormData.append('title', title);
-        cleanFormData.append('file', file);
-        
-        // Campos opcionales (solo si existen y no son vacíos)
-        if (formData.get('description')) {
-            cleanFormData.append('description', formData.get('description'));
-        }
-        
-        if (formData.get('expiration_date')) {
-            cleanFormData.append('expiration_date', formData.get('expiration_date'));
-        }
-        
-        // DEPURACIÓN: Verificar que no haya 'filename' u otros campos no válidos
-        console.log('=== VERIFICANDO CAMPOS DE FORMDATA LIMPIO ===');
-        for (const pair of cleanFormData.entries()) {
-            console.log(`Campo: ${pair[0]}, Tipo: ${typeof pair[1]}`);
-            if (pair[0] === 'filename') {
-                console.error('⚠️ ADVERTENCIA: Se detectó campo "filename" que no debería existir');
-                // Eliminar el campo problemático
-                cleanFormData.delete('filename');
-            }
-        }
-        
-        // IMPORTANTE: Verificar que no se incluyó el campo 'filename'
-        if (cleanFormData.has('filename')) {
-            console.error('⚠️ ERROR: Se ha detectado el campo "filename" que causa el error.');
-            cleanFormData.delete('filename');
-            console.log('Campo "filename" eliminado del FormData.');
-        }
-        
-        return new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', `${window.location.origin}/api/videos/`, true);
-            
-            // Progreso de subida
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable && progressBar) {
-                    const percentComplete = Math.round((e.loaded / e.total) * 100);
-                    progressBar.style.width = percentComplete + '%';
-                    progressBar.textContent = percentComplete + '%';
-                    progressBar.setAttribute('aria-valuenow', percentComplete);
-                    console.log(`Progreso de subida: ${percentComplete}%`);
-                }
-            };
-            
-            xhr.onload = () => {
-                console.log('Respuesta del servidor:', xhr.status, xhr.statusText);
-                
-                if (xhr.status === 200 || xhr.status === 201) {
-                    let responseData;
-                    try {
-                        responseData = JSON.parse(xhr.responseText);
-                        console.log('Video subido exitosamente:', responseData);
-                    } catch (e) {
-                        console.warn('No se pudo parsear respuesta JSON, pero la subida fue exitosa');
-                    }
-                    
-                    showToast('Video subido correctamente', 'success');
-                    
-                    // Limpiar formulario
-                    if (document.getElementById('videoUploadForm')) {
-                        document.getElementById('videoUploadForm').reset();
-                    }
-                    
-                    // Cerrar formulario colapsable
-                    const uploadForm = document.getElementById('uploadForm');
-                    if (uploadForm && window.bootstrap) {
-                        try {
-                            const collapse = bootstrap.Collapse.getInstance(uploadForm);
-                            if (collapse) {
-                                collapse.hide();
-                            }
-                        } catch (e) {
-                            console.warn("No se pudo cerrar el formulario automáticamente:", e);
-                        }
-                    }
-                    
-                    // Recargar videos después de un breve delay
-                    setTimeout(() => {
-                        if (typeof window.loadVideos === 'function') {
-                            window.loadVideos();
-                        }
-                    }, 1000);
-                    
-                    resolve(responseData);
-                } else {
-                    console.log('Respuesta del servidor:', xhr.status, xhr.statusText);
-                    console.log('Texto de respuesta:', xhr.responseText);
-                    
-                    let errorMessage = 'Error al crear video';
-                    try {
-                        const errorData = JSON.parse(xhr.responseText);
-                        errorMessage = errorData.detail || errorMessage;
-                    } catch (e) {
-                        console.warn('No se pudo parsear respuesta de error');
-                    }
-                    
-                    console.error('Error en la subida:', errorMessage);
-                    showToast(errorMessage, 'error');
-                    
-                    reject(new Error(errorMessage));
-                }
-                
-                // Ocultar barra de progreso
-                if (progressContainer) {
-                    setTimeout(() => {
-                        progressContainer.classList.add('d-none');
-                    }, 1000);
-                }
-            };
-            
-            xhr.onerror = () => {
-                console.error('Error de red al subir el video');
-                showToast('Error de red al subir el video', 'error');
-                
-                if (progressContainer) {
-                    progressContainer.classList.add('d-none');
-                }
-                
-                reject(new Error('Error de red al subir el video'));
-            };
-            
-            // IMPORTANTE: Usar el FormData limpio (sin campos no válidos)
-            console.log('Enviando petición de subida con FormData limpio...');
-            xhr.send(cleanFormData);
-        });
-        
-    } catch (error) {
-        console.error('Error al preparar la subida:', error);
-        showToast(`Error: ${error.message}`, 'error');
-        
-        if (progressContainer) {
-            progressContainer.classList.add('d-none');
-        }
-        
-        throw error;
-    }
-};
+    devicesList.innerHTML = devicesHTML;
+}
 
-// ===== FUNCIONES DE EDICIÓN Y ELIMINACIÓN =====
+// ==========================================
+// FUNCIONES DE ACCIÓN - VIDEOS
+// ==========================================
 
-window.editVideo = async function(videoId) {
-    console.log("Editando video:", videoId);
+/**
+ * Vista previa de video
+ */
+function previewVideo(videoId) {
+    console.log('▶️ Vista previa de video:', videoId);
     
-    try {
-        const video = window.allVideos.find(v => v.id === videoId);
-        if (!video) {
-            throw new Error('Video no encontrado en los datos cargados');
-        }
-        
-        // Llenar formulario de edición
-        safeElementOperation('editVideoId', element => element.value = video.id);
-        safeElementOperation('editVideoTitle', element => element.value = video.title || '');
-        safeElementOperation('editVideoDescription', element => element.value = video.description || '');
-        
-        // Manejar fecha de expiración
-        safeElementOperation('editVideoExpiration', element => {
-            if (video.expiration_date) {
-                try {
-                    const date = new Date(video.expiration_date);
-                    if (!isNaN(date.getTime())) {
-                        const localDatetime = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-                            .toISOString()
-                            .slice(0, 16);
-                        element.value = localDatetime;
-                    } else {
-                        element.value = '';
-                    }
-                } catch (e) {
-                    console.error("Error al procesar fecha de expiración:", e);
-                    element.value = '';
-                }
-            } else {
-                element.value = '';
-            }
-        });
-        
-        // Mostrar modal
-        const editModal = document.getElementById('editVideoModal');
-        if (!editModal) {
-            throw new Error('No se encontró el modal de edición de videos');
-        }
-        
-        if (window.bootstrap) {
-            const modal = new bootstrap.Modal(editModal);
-            modal.show();
-            
-            // Enfocar el primer campo después de mostrar el modal
-            setTimeout(() => {
-                const titleInput = document.getElementById('editVideoTitle');
-                if (titleInput) titleInput.focus();
-            }, 300);
-        } else {
-            throw new Error('Bootstrap no está disponible');
-        }
-        
-    } catch (error) {
-        console.error('Error al preparar el video para edición:', error);
-        showToast(`Error: ${error.message}`, 'error');
-    }
-};
-
-window.saveVideoChanges = async function() {
-    console.log("Guardando cambios de video...");
+    const modal = document.getElementById('videoPreviewModal');
+    const videoPlayer = document.getElementById('previewVideoPlayer');
     
-    try {
-        const videoId = document.getElementById('editVideoId')?.value;
-        const title = document.getElementById('editVideoTitle')?.value?.trim();
-        const description = document.getElementById('editVideoDescription')?.value?.trim();
-        const expirationDate = document.getElementById('editVideoExpiration')?.value;
-        
-        if (!videoId) {
-            throw new Error('ID de video no válido');
-        }
-        
-        if (!title) {
-            throw new Error('El título no puede estar vacío');
-        }
-        
-        const updateData = {
-            title,
-            description: description || null,
-            expiration_date: expirationDate || null
-        };
-        
-        console.log('Datos a actualizar:', updateData);
-        
-        const response = await fetch(`${API_URL}/videos/${videoId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(updateData),
-        });
-        
-        if (!response.ok) {
-            let errorMessage = `Error (${response.status}): ${response.statusText}`;
-            
-            try {
-                const errorData = await response.json();
-                errorMessage = errorData.detail || errorMessage;
-            } catch (e) {
-                console.warn('No se pudo parsear error de respuesta');
-            }
-            
-            throw new Error(errorMessage);
-        }
-        
-        const updatedVideo = await response.json();
-        console.log('Video actualizado:', updatedVideo);
-        
-        // Cerrar modal
-        const modalElement = document.getElementById('editVideoModal');
-        if (modalElement && window.bootstrap) {
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) {
-                modal.hide();
-            }
-        }
-        
-        showToast('Video actualizado correctamente', 'success');
-        
-        // Recargar videos
-        setTimeout(() => {
-            loadVideos();
-        }, 500);
-        
-    } catch (error) {
-        console.error('Error al guardar cambios del video:', error);
-        showToast(`Error al guardar cambios: ${error.message}`, 'error');
-    }
-};
-
-window.deleteVideo = async function(videoId) {
-    const video = window.allVideos.find(v => v.id === videoId);
-    const videoName = video ? (video.title || video.filename || `Video ${videoId}`) : `Video ${videoId}`;
-    
-    if (!confirm(`¿Estás seguro de que deseas eliminar "${videoName}"?\n\nEsta acción no se puede deshacer.`)) {
+    if (!modal || !videoPlayer) {
+        showToast('Reproductor de video no disponible', 'error');
         return;
     }
     
     try {
-        console.log('Eliminando video:', videoId);
+        // Usar URL segura para el video
+        const videoUrl = API_CONFIG.VIDEOS.STREAM ? API_CONFIG.VIDEOS.STREAM(videoId) : 
+                         `${API_CONFIG.BASE_URL}/videos/${videoId}/stream`;
         
-        const response = await fetch(`${API_URL}/videos/${videoId}`, {
-            method: 'DELETE',
+        videoPlayer.src = videoUrl;
+        videoPlayer.load();
+        
+        // Mostrar modal
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        // Reproducir automáticamente
+        videoPlayer.play().catch(e => console.log('Reproducción automática bloqueada por el navegador'));
+    } catch (error) {
+        console.error('Error inicializando preview:', error);
+        showToast('No se pudo inicializar el reproductor de video', 'error');
+    }
+}
+
+/**
+ * Editar video
+ */
+function editVideo(videoId) {
+    console.log('✏️ Editando video:', videoId);
+    window.location.href = `/ui/edit_video?id=${videoId}`;
+}
+
+/**
+ * Eliminar video
+ */
+async function deleteVideo(videoId) {
+    const video = videos.find(v => v.id === videoId);
+    if (!video) return;
+    
+    const confirmMessage = `¿Estás seguro de que quieres eliminar el video "${video.title}"?\n\nEsta acción no se puede deshacer.`;
+    
+    if (!confirm(confirmMessage)) return;
+    
+    try {
+        showToast('Eliminando video...', 'info');
+        
+        const response = await safeFetch(API_CONFIG.VIDEOS.DELETE(videoId), {
+            method: 'DELETE'
         });
         
         if (!response.ok) {
-            let errorMessage = `Error (${response.status}): ${response.statusText}`;
-            try {
-                const errorData = await response.json();
-                errorMessage = errorData.detail || errorMessage;
-            } catch (e) {
-                console.warn('No se pudo parsear error de respuesta');
-            }
-            throw new Error(errorMessage);
+            throw new Error(`Error ${response.status}: No se pudo eliminar el video`);
         }
         
-        showToast(`Video "${videoName}" eliminado correctamente`, 'success');
+        showToast('Video eliminado correctamente', 'success');
         
-        // Recargar videos
-        setTimeout(() => {
-            loadVideos();
-        }, 500);
+        // Recargar la lista
+        await loadVideos();
         
     } catch (error) {
-        console.error('Error al eliminar video:', error);
-        showToast(`Error al eliminar el video: ${error.message}`, 'error');
+        console.error('❌ Error eliminando video:', error);
+        showToast(`Error al eliminar video: ${error.message}`, 'error');
     }
-};
-
-// ===== FUNCIONES ESPECÍFICAS PARA TEMPLATES =====
-
-// Estas funciones son llamadas por los templates y deben sobrescribir los placeholders
-
-window.filterVideos = function(searchTerm) {
-    console.log('Aplicando filtro de búsqueda:', searchTerm);
-    videoPagination.searchTerm = (searchTerm || '').toLowerCase().trim();
-    videoPagination.currentPage = 1;
-    applyFiltersAndDisplayPage();
-};
-
-window.filterVideosByExpiration = function(filter) {
-    console.log('Aplicando filtro de expiración:', filter);
-    videoPagination.filter = filter || 'all';
-    videoPagination.currentPage = 1;
-    applyFiltersAndDisplayPage();
-};
-
-window.setVideoPageSize = function(pageSize) {
-    console.log('Configurando tamaño de página:', pageSize);
-    videoPagination.pageSize = parseInt(pageSize) || 25;
-    videoPagination.currentPage = 1;
-    applyFiltersAndDisplayPage();
-};
-
-// ===== EVENT LISTENERS CORREGIDOS =====
-
-function setupVideoEventListeners() {
-    console.log('Configurando event listeners de videos...');
-    
-    // Remover listeners existentes primero para evitar duplicados
-    removeVideoEventListeners();
-    
-    // Búsqueda de videos con debounce
-    const videoSearchInput = document.getElementById('videoSearchInput');
-    if (videoSearchInput) {
-        const searchHandler = debounce((e) => {
-            const searchTerm = e.target.value.toLowerCase().trim();
-            console.log('Buscando videos desde input:', searchTerm);
-            window.filterVideos(searchTerm);
-        }, 300);
-        
-        videoSearchInput.addEventListener('input', searchHandler);
-        videoSearchInput._searchHandler = searchHandler; // Guardar referencia para cleanup
-    }
-
-    // Limpiar búsqueda
-    const clearVideoSearch = document.getElementById('clearVideoSearch');
-    if (clearVideoSearch) {
-        const clearHandler = () => {
-            console.log('Limpiando búsqueda de videos');
-            const searchInput = document.getElementById('videoSearchInput');
-            if (searchInput) {
-                searchInput.value = '';
-                window.filterVideos('');
-            }
-        };
-        
-        clearVideoSearch.addEventListener('click', clearHandler);
-        clearVideoSearch._clearHandler = clearHandler;
-    }
-
-    // Filtro de estado
-    const videoFilterExpiration = document.getElementById('videoFilterExpiration');
-    if (videoFilterExpiration) {
-        const filterHandler = (e) => {
-            console.log('Cambiando filtro de videos desde select:', e.target.value);
-            window.filterVideosByExpiration(e.target.value);
-        };
-        
-        videoFilterExpiration.addEventListener('change', filterHandler);
-        videoFilterExpiration._filterHandler = filterHandler;
-    }
-
-    // Selector de tamaño de página
-    const videoPageSizeSelect = document.getElementById('videoPageSizeSelect');
-    if (videoPageSizeSelect) {
-        const pageSizeHandler = (e) => {
-            const newSize = parseInt(e.target.value);
-            console.log('Cambiando tamaño de página desde select:', newSize);
-            window.setVideoPageSize(newSize);
-        };
-        
-        videoPageSizeSelect.addEventListener('change', pageSizeHandler);
-        videoPageSizeSelect._pageSizeHandler = pageSizeHandler;
-    }
-
-    // Input de página
-    const videoPageInput = document.getElementById('videoPageInput');
-    if (videoPageInput) {
-        const pageInputHandler = (e) => {
-            const page = parseInt(e.target.value);
-            if (page && page >= 1 && page <= videoPagination.totalPages) {
-                goToVideoPage(page);
-            }
-        };
-        
-        videoPageInput.addEventListener('change', pageInputHandler);
-        videoPageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                pageInputHandler(e);
-            }
-        });
-        videoPageInput._pageInputHandler = pageInputHandler;
-    }
-    
-    console.log('Event listeners de videos configurados correctamente');
 }
 
-function removeVideoEventListeners() {
-    // Remover listeners existentes para evitar duplicados
-    const elements = [
-        { id: 'videoSearchInput', handler: '_searchHandler' },
-        { id: 'clearVideoSearch', handler: '_clearHandler' },
-        { id: 'videoFilterExpiration', handler: '_filterHandler' },
-        { id: 'videoPageSizeSelect', handler: '_pageSizeHandler' },
-        { id: 'videoPageInput', handler: '_pageInputHandler' }
-    ];
+// ==========================================
+// FUNCIONES DE ACCIÓN - PLAYLISTS
+// ==========================================
+
+/**
+ * Ver detalles de playlist
+ */
+function openPlaylistDetail(playlistId) {
+    console.log('👁️ Abriendo detalles de playlist:', playlistId);
+    window.location.href = `/ui/playlist_detail?id=${playlistId}`;
+}
+
+/**
+ * Editar playlist
+ */
+function editPlaylist(playlistId) {
+    console.log('✏️ Editando playlist:', playlistId);
+    window.location.href = `/ui/edit_playlist?id=${playlistId}`;
+}
+
+/**
+ * Eliminar playlist
+ */
+async function deletePlaylist(playlistId) {
+    const playlist = playlists.find(p => p.id === playlistId);
+    if (!playlist) return;
     
-    elements.forEach(({ id, handler }) => {
-        const element = document.getElementById(id);
-        if (element && element[handler]) {
-            element.removeEventListener(element[handler].eventType || 'input', element[handler]);
-            delete element[handler];
+    const confirmMessage = `¿Estás seguro de que quieres eliminar la playlist "${playlist.title}"?\n\nEsta acción no se puede deshacer.`;
+    
+    if (!confirm(confirmMessage)) return;
+    
+    try {
+        showToast('Eliminando playlist...', 'info');
+        
+        const response = await safeFetch(API_CONFIG.PLAYLISTS.DELETE(playlistId), {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: No se pudo eliminar la playlist`);
         }
+        
+        showToast('Playlist eliminada correctamente', 'success');
+        
+        // Recargar la lista
+        await loadPlaylists();
+        
+    } catch (error) {
+        console.error('❌ Error eliminando playlist:', error);
+        showToast(`Error al eliminar playlist: ${error.message}`, 'error');
+    }
+}
+
+// ==========================================
+// FUNCIONES DE ACCIÓN - DISPOSITIVOS
+// ==========================================
+
+/**
+ * Ver detalles de dispositivo
+ */
+function viewDevice(deviceId) {
+    console.log('👁️ Viendo dispositivo:', deviceId);
+    window.location.href = `/ui/device_detail?id=${deviceId}`;
+}
+
+/**
+ * Editar dispositivo
+ */
+function editDevice(deviceId) {
+    console.log('✏️ Editando dispositivo:', deviceId);
+    window.location.href = `/ui/edit_device?id=${deviceId}`;
+}
+
+/**
+ * Eliminar dispositivo
+ */
+async function deleteDevice(deviceId) {
+    const device = devices.find(d => d.id === deviceId);
+    if (!device) return;
+    
+    const confirmMessage = `¿Estás seguro de que quieres eliminar el dispositivo "${device.name}"?\n\nEsta acción no se puede deshacer.`;
+    
+    if (!confirm(confirmMessage)) return;
+    
+    try {
+        showToast('Eliminando dispositivo...', 'info');
+        
+        const response = await safeFetch(API_CONFIG.DEVICES.DELETE(deviceId), {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: No se pudo eliminar el dispositivo`);
+        }
+        
+        showToast('Dispositivo eliminado correctamente', 'success');
+        
+        // Recargar la lista
+        await loadDevices();
+        
+    } catch (error) {
+        console.error('❌ Error eliminando dispositivo:', error);
+        showToast(`Error al eliminar dispositivo: ${error.message}`, 'error');
+    }
+}
+
+// ==========================================
+// EVENT LISTENERS GLOBALES
+// ==========================================
+
+function setupGlobalEventListeners() {
+    // Búsqueda en tiempo real para videos
+    const videoSearchInput = document.getElementById('videoSearchInput');
+    if (videoSearchInput) {
+        videoSearchInput.addEventListener('input', debounce(filterVideos, 300));
+    }
+    
+    // Búsqueda en tiempo real para playlists
+    const playlistSearchInput = document.getElementById('playlistSearchInput');
+    if (playlistSearchInput) {
+        playlistSearchInput.addEventListener('input', debounce(filterPlaylists, 300));
+    }
+    
+    // Búsqueda en tiempo real para dispositivos
+    const deviceSearchInput = document.getElementById('deviceSearchInput');
+    if (deviceSearchInput) {
+        deviceSearchInput.addEventListener('input', debounce(filterDevices, 300));
+    }
+    
+    // Botones de actualización
+    const refreshButtons = document.querySelectorAll('[data-action="refresh"]');
+    refreshButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const type = this.getAttribute('data-type');
+            switch (type) {
+                case 'videos': loadVideos(); break;
+                case 'playlists': loadPlaylists(); break;
+                case 'devices': loadDevices(); break;
+                default: location.reload();
+            }
+        });
     });
 }
 
-// Función debounce para optimizar búsquedas
+// ==========================================
+// FUNCIONES DE FILTRADO
+// ==========================================
+
+function filterVideos(event) {
+    const searchTerm = event.target.value.toLowerCase().trim();
+    console.log('🔍 Filtrando videos:', searchTerm);
+    
+    const filteredVideos = videos.filter(video => 
+        video.title.toLowerCase().includes(searchTerm) ||
+        (video.description && video.description.toLowerCase().includes(searchTerm))
+    );
+    
+    // Temporalmente reemplazar la lista global para el renderizado
+    const originalVideos = videos;
+    videos = filteredVideos;
+    renderVideos();
+    videos = originalVideos;
+}
+
+function filterPlaylists(event) {
+    const searchTerm = event.target.value.toLowerCase().trim();
+    console.log('🔍 Filtrando playlists:', searchTerm);
+    
+    const filteredPlaylists = playlists.filter(playlist => 
+        playlist.title.toLowerCase().includes(searchTerm) ||
+        (playlist.description && playlist.description.toLowerCase().includes(searchTerm))
+    );
+    
+    // Temporalmente reemplazar la lista global para el renderizado
+    const originalPlaylists = playlists;
+    playlists = filteredPlaylists;
+    renderPlaylists();
+    playlists = originalPlaylists;
+}
+
+function filterDevices(event) {
+    const searchTerm = event.target.value.toLowerCase().trim();
+    console.log('🔍 Filtrando dispositivos:', searchTerm);
+    
+    const filteredDevices = devices.filter(device => 
+        device.name.toLowerCase().includes(searchTerm) ||
+        device.identifier.toLowerCase().includes(searchTerm) ||
+        (device.description && device.description.toLowerCase().includes(searchTerm))
+    );
+    
+    // Temporalmente reemplazar la lista global para el renderizado
+    const originalDevices = devices;
+    devices = filteredDevices;
+    renderDevices();
+    devices = originalDevices;
+}
+
+// ==========================================
+// FUNCIONES UTILITARIAS
+// ==========================================
+
+function isPlaylistActive(playlist) {
+    return playlist.is_active === true || playlist.is_active === 1;
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+function formatDuration(seconds) {
+    if (!seconds || seconds === 0) return '0:00';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+        return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -1057,479 +823,63 @@ function debounce(func, wait) {
     };
 }
 
-// ===== GESTIÓN DE PLAYLISTS =====
-
-window.loadPlaylists = async function(filter = 'all') {
-    console.log("Cargando playlists con filtro:", filter);
-    
-    const playlistsList = document.getElementById('playlistsList');
-    if (!playlistsList) {
-        console.error("Elemento playlistsList no encontrado");
-        return;
+function showToast(message, type = 'info', duration = 3000) {
+    // Crear contenedor de toasts si no existe
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
     }
     
-    try {
-        playlistsList.innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center py-3">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Cargando...</span>
-                    </div>
-                    <p class="mt-2">Cargando listas de reproducción...</p>
-                </td>
-            </tr>
-        `;
-        
-        const response = await fetch(`${API_URL}/playlists/`);
-        
-        if (!response.ok) {
-            throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
-        }
-        
-        window.allPlaylists = await response.json();
-        allPlaylists = window.allPlaylists;
-        
-        if (!Array.isArray(window.allPlaylists)) {
-            throw new Error("Formato de datos inválido");
-        }
-        
-        console.log(`Playlists cargadas: ${window.allPlaylists.length}`);
-        
-        // Aplicar filtro si existe función de paginación de playlists
-        if (typeof window.loadPlaylistsWithPagination === 'function') {
-            return window.loadPlaylistsWithPagination(filter);
-        }
-        
-        // Fallback: mostrar playlists básico
-        let filteredPlaylists = window.allPlaylists;
-        if (filter === 'active') {
-            filteredPlaylists = window.allPlaylists.filter(playlist => 
-                playlist.is_active && (!playlist.expiration_date || !isExpired(playlist.expiration_date))
-            );
-        } else if (filter === 'inactive') {
-            filteredPlaylists = window.allPlaylists.filter(playlist => 
-                !playlist.is_active || (playlist.expiration_date && isExpired(playlist.expiration_date))
-            );
-        }
-        
-        safeElementOperation('playlistCountBadge', element => {
-            element.textContent = `${filteredPlaylists.length} listas`;
-        });
-        
-        if (filteredPlaylists.length === 0) {
-            playlistsList.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center py-5">
-                        <div class="text-muted">
-                            <i class="fas fa-list fa-3x mb-3"></i>
-                            <p class="mb-0">No hay listas de reproducción disponibles</p>
-                            <p class="small">¡Crea tu primera lista!</p>
-                        </div>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-        
-        const playlistsHTML = filteredPlaylists.map(playlist => {
-            const isActive = playlist.is_active && (!playlist.expiration_date || !isExpired(playlist.expiration_date));
-            const videoCount = playlist.videos ? playlist.videos.length : 0;
-            
-            return `
-                <tr class="${isActive ? '' : 'table-warning'}">
-                    <td>
-                        <strong>${escapeHtml(playlist.title || 'Sin título')}</strong>
-                    </td>
-                    <td>
-                        <span class="text-muted">${escapeHtml(playlist.description || 'Sin descripción')}</span>
-                    </td>
-                    <td>
-                        <span class="badge bg-info">${videoCount} videos</span>
-                    </td>
-                    <td>
-                        ${playlist.expiration_date ? 
-                            `<small class="text-muted">${isExpired(playlist.expiration_date) ? 'Expiró' : 'Expira'}: ${formatDate(playlist.expiration_date)}</small>` : 
-                            '<small class="text-muted">Sin expiración</small>'}
-                    </td>
-                    <td>
-                        <span class="badge ${isActive ? 'bg-success' : 'bg-danger'}">
-                            ${isActive ? 'Activa' : 'Inactiva'}
-                        </span>
-                    </td>
-                    <td>
-                        <button class="btn btn-primary btn-sm" onclick="openPlaylistDetail(${playlist.id})">
-                            <i class="fas fa-eye"></i> Ver Detalles
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-        
-        playlistsList.innerHTML = playlistsHTML;
-        
-    } catch (error) {
-        console.error('Error al cargar playlists:', error);
-        
-        playlistsList.innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center py-5">
-                    <div class="alert alert-danger mb-0">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Error al cargar listas</strong><br>
-                        ${error.message}
-                    </div>
-                </td>
-            </tr>
-        `;
-        
-        showToast(`Error al cargar listas: ${error.message}`, 'error');
-    }
-};
-
-// ===== FUNCIONES PLACEHOLDER PARA PLAYLISTS =====
-// (Las funciones completas de playlists están en el archivo original)
-
-window.openPlaylistDetail = window.openPlaylistDetail || function(playlistId) {
-    console.log('openPlaylistDetail placeholder - ID:', playlistId);
-    showToast('Función de detalles de playlist no implementada', 'error');
-};
-
-window.createPlaylist = window.createPlaylist || function(playlistData) {
-    console.log('createPlaylist placeholder');
-    showToast('Función de crear playlist no implementada', 'error');
-};
-
-// ===== INICIALIZACIÓN MEJORADA =====
-
-// ===== INICIALIZACIÓN MEJORADA =====
-
-// Función para sobrescribir placeholders del template
-function overridePlaceholderFunctions() {
-    console.log('Sobrescribiendo funciones placeholder...');
+    const toastId = 'toast-' + Date.now();
+    const iconMap = {
+        success: 'fas fa-check-circle',
+        error: 'fas fa-exclamation-triangle',
+        warning: 'fas fa-exclamation-circle',
+        info: 'fas fa-info-circle'
+    };
     
-    // Forzar sobrescritura de funciones placeholder de videos_v2.html
-    window.filterVideos = function(searchTerm) {
-        console.log('Aplicando filtro de búsqueda:', searchTerm);
-        videoPagination.searchTerm = (searchTerm || '').toLowerCase().trim();
-        videoPagination.currentPage = 1;
-        applyFiltersAndDisplayPage();
-    };
-
-    window.filterVideosByExpiration = function(filter) {
-        console.log('Aplicando filtro de expiración:', filter);
-        videoPagination.filter = filter || 'all';
-        videoPagination.currentPage = 1;
-        applyFiltersAndDisplayPage();
-    };
-
-    window.setVideoPageSize = function(pageSize) {
-        console.log('Configurando tamaño de página:', pageSize);
-        videoPagination.pageSize = parseInt(pageSize) || 25;
-        videoPagination.currentPage = 1;
-        applyFiltersAndDisplayPage();
-    };
-
-    window.uploadVideo = uploadVideo;
-    window.saveVideoChanges = saveVideoChanges;
+    const toast = document.createElement('div');
+    toast.id = toastId;
+    toast.className = `toast show align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0 mb-2`;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="${iconMap[type] || iconMap.info} me-2"></i>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="closeToast('${toastId}')"></button>
+        </div>
+    `;
     
-    console.log('Funciones placeholder sobrescritas correctamente');
+    container.appendChild(toast);
+    
+    setTimeout(() => closeToast(toastId), duration);
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('=== INICIALIZANDO APLICACIÓN ===');
-    
-    // Sobrescribir funciones placeholder PRIMERO
-    overridePlaceholderFunctions();
-    
-    // Verificar Bootstrap
-    if (!window.bootstrap) {
-        console.error('Bootstrap no está disponible');
-        showToast('Bootstrap no está cargado correctamente', 'error');
+function closeToast(toastId) {
+    const toast = document.getElementById(toastId);
+    if (toast) {
+        toast.remove();
     }
-    
-    // Detectar página actual
-    const currentPath = window.location.pathname;
-    console.log('Página actual:', currentPath);
-    
-    // Configurar según el tipo de página
-    if (currentPath.includes('/videos') || document.getElementById('videosList')) {
-        console.log('Configurando página de videos...');
-        
-        // Configurar formulario de subida
-        const videoUploadForm = document.getElementById('videoUploadForm');
-        if (videoUploadForm) {
-            videoUploadForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                console.log('Procesando subida de video...');
-                
-                const formData = new FormData(this);
-                
-                // Validar campos requeridos
-                const title = formData.get('title');
-                const file = formData.get('file');
-                
-                if (!title || !title.trim()) {
-                    showToast('El título es obligatorio', 'error');
-                    return;
-                }
-                
-                if (!file || file.size === 0) {
-                    showToast('Debe seleccionar un archivo de video', 'error');
-                    return;
-                }
-                
-                // Validar tamaño de archivo (ej: máximo 500MB)
-                const maxSize = 500 * 1024 * 1024; // 500MB
-                if (file.size > maxSize) {
-                    showToast('El archivo es demasiado grande. Máximo 500MB', 'error');
-                    return;
-                }
-                
-                uploadVideo(formData).catch(error => {
-                    console.error('Error en subida:', error);
-                });
-            });
-        }
-        
-        // Configurar botones de edición
-        const saveVideoBtn = document.getElementById('saveVideoChangesBtn');
-        if (saveVideoBtn) {
-            saveVideoBtn.addEventListener('click', saveVideoChanges);
-        }
-        
-        // Cargar videos y configurar listeners
-        setTimeout(() => {
-            loadVideos();
-            setupVideoEventListeners();
-        }, 200); // Aumentar delay para asegurar sobrescritura
-        
-    } else if (currentPath.includes('/playlists') || document.getElementById('playlistsList')) {
-        console.log('Configurando página de playlists...');
-        
-        // Cargar playlists
-        setTimeout(() => {
-            loadPlaylists();
-        }, 100);
-        
-    } else if (document.querySelector('.nav-pills') || document.querySelector('[data-bs-toggle="tab"]')) {
-        console.log('Configurando página con pestañas...');
-        
-        // Configurar navegación por pestañas
-        document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
-            tab.addEventListener('shown.bs.tab', function(e) {
-                const target = e.target.getAttribute('data-bs-target') || e.target.getAttribute('href');
-                console.log('Pestaña activada:', target);
-                
-                if (target === '#videos') {
-                    setTimeout(() => {
-                        overridePlaceholderFunctions(); // Sobrescribir de nuevo
-                        loadVideos();
-                        setupVideoEventListeners();
-                    }, 200);
-                } else if (target === '#playlists') {
-                    setTimeout(() => {
-                        loadPlaylists();
-                    }, 100);
-                }
-            });
-        });
-        
-        // Cargar datos de la pestaña activa
-        const activeTab = document.querySelector('.nav-link.active');
-        if (activeTab) {
-            const target = activeTab.getAttribute('data-bs-target') || activeTab.getAttribute('href');
-            if (target === '#videos') {
-                setTimeout(() => {
-                    overridePlaceholderFunctions();
-                    loadVideos();
-                    setupVideoEventListeners();
-                }, 200);
-            } else if (target === '#playlists') {
-                setTimeout(() => {
-                    loadPlaylists();
-                }, 100);
-            }
-        }
-    }
-    
-    // Configurar formularios generales
-    const playlistCreateForm = document.getElementById('playlistCreateForm');
-    if (playlistCreateForm) {
-        playlistCreateForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            console.log('Creando playlist...');
-            if (typeof createPlaylist === 'function') {
-                createPlaylist();
-            } else {
-                showToast('Función de crear playlist no disponible', 'error');
-            }
-        });
-    }
-    
-    console.log('=== APLICACIÓN INICIALIZADA ===');
-});
+}
 
-// También sobrescribir inmediatamente al cargar el script
-setTimeout(overridePlaceholderFunctions, 100);
-
-// ===== FUNCIÓN DE DIAGNÓSTICO MEJORADA =====
-
-window.debugVideoSystem = function() {
-    console.log('=== DIAGNÓSTICO DEL SISTEMA DE VIDEOS ===');
-    console.log('API_URL:', API_URL);
-    console.log('allVideos.length:', window.allVideos.length);
-    console.log('videoPagination:', videoPagination);
-    console.log('Elementos del DOM:');
-    console.log('- videosList:', !!document.getElementById('videosList'));
-    console.log('- videoSearchInput:', !!document.getElementById('videoSearchInput'));
-    console.log('- videoFilterExpiration:', !!document.getElementById('videoFilterExpiration'));
-    console.log('- videoUploadForm:', !!document.getElementById('videoUploadForm'));
-    console.log('Funciones disponibles:');
-    console.log('- loadVideos:', typeof window.loadVideos);
-    console.log('- uploadVideo:', typeof window.uploadVideo);
-    console.log('- downloadVideo:', typeof window.downloadVideo);
-    console.log('- editVideo:', typeof window.editVideo);
-    console.log('- deleteVideo:', typeof window.deleteVideo);
-    console.log('- applyFiltersAndDisplayPage:', typeof window.applyFiltersAndDisplayPage);
-    console.log('=== FIN DIAGNÓSTICO ===');
-};
-
-window.diagnoseVideoSystem = async function() {
-    console.log('=== EJECUTANDO DIAGNÓSTICO COMPLETO ===');
-    
-    try {
-        showToast('Ejecutando diagnóstico del sistema...', 'info');
-        
-        const response = await fetch(`${API_URL}/videos/debug/diagnose`);
-        if (!response.ok) {
-            throw new Error(`Error en diagnóstico: ${response.status} ${response.statusText}`);
-        }
-        
-        const diagnosis = await response.json();
-        console.log('Diagnóstico completo:', diagnosis);
-        
-        // Mostrar resultados en consola
-        console.log('📊 RESULTADOS DEL DIAGNÓSTICO:');
-        console.log(`   Base de datos: ${diagnosis.database?.total_videos || 0} videos`);
-        console.log(`   Directorio uploads: ${diagnosis.filesystem?.upload_dir_exists ? '✅' : '❌'}`);
-        console.log(`   Archivos en uploads: ${diagnosis.filesystem?.files_count || 0}`);
-        console.log(`   Videos sin ruta: ${diagnosis.videos?.without_path || 0}`);
-        console.log(`   Archivos faltantes: ${diagnosis.videos?.missing_files || 0}`);
-        console.log(`   Videos expirados: ${diagnosis.videos?.expired || 0}`);
-        
-        if (diagnosis.issues && diagnosis.issues.length > 0) {
-            console.log('❌ PROBLEMAS ENCONTRADOS:');
-            diagnosis.issues.forEach(issue => console.log(`   - ${issue}`));
-            
-            const issuesList = diagnosis.issues.join('\n- ');
-            showToast(`Problemas encontrados:\n- ${issuesList}`, 'error');
-            
-            // Preguntar si quiere intentar reparar
-            if (confirm('Se encontraron problemas. ¿Deseas intentar repararlos automáticamente?')) {
-                await repairVideoSystem();
-            }
-        } else {
-            console.log('✅ No se encontraron problemas');
-            showToast('✅ Sistema de videos en buen estado', 'success');
-        }
-        
-        return diagnosis;
-        
-    } catch (error) {
-        console.error('Error en diagnóstico:', error);
-        showToast(`Error en diagnóstico: ${error.message}`, 'error');
-        return null;
-    }
-};
-
-window.repairVideoSystem = async function() {
-    console.log('=== REPARANDO SISTEMA DE VIDEOS ===');
-    
-    try {
-        showToast('Intentando reparar rutas de archivos...', 'info');
-        
-        const response = await fetch(`${API_URL}/videos/debug/fix-paths`, {
-            method: 'POST'
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Error en reparación: ${response.status} ${response.statusText}`);
-        }
-        
-        const result = await response.json();
-        console.log('Resultado de reparación:', result);
-        
-        if (result.fixed_count > 0) {
-            console.log(`✅ Se repararon ${result.fixed_count} rutas de archivo`);
-            showToast(`✅ Se repararon ${result.fixed_count} rutas de archivo`, 'success');
-            
-            // Recargar videos después de la reparación
-            setTimeout(() => {
-                loadVideos();
-            }, 1000);
-        } else {
-            console.log('ℹ️ No se encontraron rutas para reparar');
-            showToast('ℹ️ No se encontraron rutas para reparar', 'info');
-        }
-        
-        return result;
-        
-    } catch (error) {
-        console.error('Error en reparación:', error);
-        showToast(`Error en reparación: ${error.message}`, 'error');
-        return null;
-    }
-};
-
-window.checkVideoInfo = async function(videoId) {
-    console.log(`=== VERIFICANDO INFO DEL VIDEO ${videoId} ===`);
-    
-    try {
-        const response = await fetch(`${API_URL}/videos/${videoId}/info`);
-        if (!response.ok) {
-            throw new Error(`Error: ${response.status} ${response.statusText}`);
-        }
-        
-        const info = await response.json();
-        console.log('Información del video:', info);
-        
-        console.log(`📋 DETALLES DEL VIDEO ${videoId}:`);
-        console.log(`   Título: ${info.title}`);
-        console.log(`   Archivo: ${info.filename}`);
-        console.log(`   Ruta: ${info.file_path}`);
-        console.log(`   Existe: ${info.file_exists ? '✅' : '❌'}`);
-        console.log(`   Tamaño BD: ${info.file_size_db} bytes`);
-        console.log(`   Tamaño real: ${info.file_size_actual} bytes`);
-        console.log(`   Expirado: ${info.is_expired ? '✅' : '❌'}`);
-        
-        if (!info.file_exists) {
-            showToast(`❌ Video ${videoId}: archivo no encontrado`, 'error');
-        } else if (info.is_expired) {
-            showToast(`⏰ Video ${videoId}: ha expirado`, 'error');
-        } else {
-            showToast(`✅ Video ${videoId}: OK`, 'success');
-        }
-        
-        return info;
-        
-    } catch (error) {
-        console.error('Error al verificar video:', error);
-        showToast(`Error al verificar video ${videoId}: ${error.message}`, 'error');
-        return null;
-    }
-};
-
-// Hacer funciones disponibles globalmente - FORZAR SOBRESCRITURA
+// Exponer funciones globalmente para compatibilidad
 window.loadVideos = loadVideos;
-window.uploadVideo = uploadVideo;
-window.downloadVideo = downloadVideo;
-window.editVideo = editVideo;
-window.saveVideoChanges = saveVideoChanges;
-window.deleteVideo = deleteVideo;
 window.loadPlaylists = loadPlaylists;
-window.applyFiltersAndDisplayPage = applyFiltersAndDisplayPage;
-window.displayCurrentPage = displayCurrentPage;
-window.updatePaginationInfo = updatePaginationInfo;
-window.updatePaginationButtons = updatePaginationButtons;
+window.loadDevices = loadDevices;
+window.openPlaylistDetail = openPlaylistDetail;
+window.editPlaylist = editPlaylist;
+window.deletePlaylist = deletePlaylist;
+window.previewVideo = previewVideo;
+window.editVideo = editVideo;
+window.deleteVideo = deleteVideo;
+window.viewDevice = viewDevice;
+window.editDevice = editDevice;
+window.deleteDevice = deleteDevice;
 
-console.log('=== MAIN.JS V2.0 CARGADO COMPLETAMENTE ===');
+console.log('✅ Script principal cargado correctamente (sin Mixed Content)');

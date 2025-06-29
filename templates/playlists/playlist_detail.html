@@ -328,7 +328,7 @@
                                                     <h6 class="mb-1 video-title fw-bold">{{ video.title }}</h6>
                                                     <div class="d-flex align-items-center">
                                                         <span class="badge bg-primary me-2">{{ video.order or loop.index }}</span>
-                                                        <small class="text-muted">
+                                                        <small class="text-muted video-duration" data-duration="{{ video.duration or 0 }}">
                                                             {{ video.duration|duration_format if video.duration else '0:00' }}
                                                         </small>
                                                         {% if not video.is_active %}
@@ -583,6 +583,9 @@
     </div>
 </div>
 
+<!-- Toast container -->
+<div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 9999;"></div>
+
 <!-- Loading Indicator -->
 <div id="loadingIndicator" class="position-fixed top-0 start-0 w-100 h-100 d-none" 
      style="background-color: rgba(0,0,0,0.5); z-index: 9998;">
@@ -601,28 +604,89 @@
 {% endblock %}
 
 {% block extra_scripts %}
-    <!-- Script principal de playlist -->
-    <script src="/static/js/playlist_detail.js"></script>
+    <!-- Script principal de configuración API (DEBE IR PRIMERO) -->
+    <script src="/static/js/api-config.js"></script>
+    <script src="/static/js/playlist-functions.js"></script>
     
-    <!-- Script específico del modal de dispositivos -->
+    <!-- Scripts existentes después -->
+    <script src="/static/js/playlist_detail.js"></script>  
+    <script src="/static/js/main.js"></script>
     <script src="/static/js/device-assignment-modal.js"></script>
-    
-    <!-- Script para gestionar dispositivos asignados -->
     <script src="/static/js/assigned-devices-manager.js"></script>
     
-    <!-- Script adicional para funcionalidades específicas de vista -->
+    <!-- Script específico para esta vista (usando API_CONFIG seguro) -->
     <script>
     // ==========================================
-    // FUNCIONES ESPECÍFICAS DE LA VISTA
+    // FUNCIONES ESPECÍFICAS DE LA VISTA - VERSION SEGURA
+    // ==========================================
+    
+    /**
+     * Asegurar que API_CONFIG esté disponible
+     */
+    function ensureApiConfig() {
+        if (typeof window.API_CONFIG === 'undefined') {
+            console.warn('⚠️ API_CONFIG no encontrado, creando configuración de emergencia...');
+            
+            const protocol = window.location.protocol;
+            const host = window.location.host;
+            const apiUrl = `${protocol}//${host}/api`;
+            
+            window.API_CONFIG = {
+                BASE_URL: apiUrl,
+                PLAYLISTS: {
+                    DELETE: (id) => `${apiUrl}/playlists/${id}`,
+                    GET_BY_ID: (id) => `${apiUrl}/playlists/${id}`
+                },
+                DEVICE_PLAYLISTS: {
+                    BY_PLAYLIST: (id) => `${apiUrl}/device-playlists?playlist_id=${id}`
+                }
+            };
+        }
+        return window.API_CONFIG;
+    }
+    
+    /**
+     * Safe fetch que maneja Mixed Content automáticamente
+     */
+    function getSecureFetch() {
+        if (typeof window.safeFetch === 'function') {
+            return window.safeFetch;
+        } else {
+            // Fallback que maneja Mixed Content
+            return function(url, options = {}) {
+                if (window.location.protocol === 'https:' && url.startsWith('http://')) {
+                    url = url.replace('http://', 'https://');
+                    console.log('🔄 URL convertida a HTTPS:', url);
+                }
+                
+                const defaultOptions = {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                };
+                
+                return fetch(url, defaultOptions);
+            };
+        }
+    }
+    
+    // ==========================================
+    // FUNCIONES DE GESTIÓN DE PLAYLIST
     // ==========================================
     
     /**
      * Función para editar información de la playlist
      */
     function editPlaylistInfo() {
-        // Aquí puedes abrir un modal de edición o redirigir a página de edición
-        const editUrl = `/ui/playlists/${getPlaylistId()}/edit`;
-        window.location.href = editUrl;
+        const playlistId = getPlaylistId();
+        if (playlistId) {
+            const editUrl = `/ui/playlists/${playlistId}/edit`;
+            window.location.href = editUrl;
+        } else {
+            showToast('Error: No se pudo determinar el ID de la playlist', 'error');
+        }
     }
     
     /**
@@ -635,7 +699,7 @@
     }
     
     /**
-     * Función para eliminar playlist
+     * Función para eliminar playlist usando API_CONFIG seguro
      */
     async function deletePlaylist() {
         const playlistId = getPlaylistId();
@@ -647,11 +711,11 @@
         try {
             showLoadingState('Eliminando lista de reproducción...');
             
-            const response = await fetch(`${API_URL}/playlists/${playlistId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            const API_CONFIG = ensureApiConfig();
+            const safeFetch = getSecureFetch();
+            
+            const response = await safeFetch(API_CONFIG.PLAYLISTS.DELETE(playlistId), {
+                method: 'DELETE'
             });
 
             if (!response.ok) {
@@ -671,29 +735,43 @@
             showToast(`Error al eliminar la playlist: ${error.message}`, 'error');
         }
     }
-
-    // Hacer funciones disponibles globalmente
-    window.editPlaylistInfo = editPlaylistInfo;
-    window.confirmDeletePlaylist = confirmDeletePlaylist;
-    window.deletePlaylist = deletePlaylist;
-    window.showAddVideosModal = showAddVideosModal;
-    window.exportPlaylist = exportPlaylist;
-    window.formatDuration = formatDuration;
-    window.formatDurationsOnPage = formatDurationsOnPage;
+    
+    /**
+     * Cargar datos básicos de la playlist
+     */
+    function loadPlaylistData() {
+        const playlistId = getPlaylistId();
+        if (!playlistId) {
+            showToast('Error: No se pudo determinar el ID de la playlist', 'error');
+            return;
+        }
+        
+        // Recargar la página para obtener datos frescos
+        window.location.reload();
+    }
     
     /**
      * Mostrar modal para agregar múltiples videos
      */
     function showAddVideosModal() {
-        // Implementar modal para selección múltiple de videos
-        showToast('Función de agregar múltiples videos en desarrollo', 'info');
+        // Simular apertura del panel derecho si está colapsado
+        const availableVideosContainer = document.getElementById('availableVideosContainer');
+        if (availableVideosContainer) {
+            availableVideosContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        // Cargar videos disponibles si no están cargados
+        if (typeof window.loadAvailableVideos === 'function') {
+            window.loadAvailableVideos();
+        }
+        
+        showToast('Usa el panel de la derecha para agregar videos', 'info');
     }
     
     /**
      * Función para exportar playlist
      */
     function exportPlaylist() {
-        // Implementar opciones de exportación (JSON, CSV, PDF)
         showToast('Función de exportación en desarrollo', 'info');
     }
     
@@ -705,12 +783,15 @@
         if (!playlistId) return;
         
         try {
-            const response = await fetch(`${API_URL}/device-playlists/playlist/${playlistId}/devices`);
+            const API_CONFIG = ensureApiConfig();
+            const safeFetch = getSecureFetch();
+            
+            const response = await safeFetch(API_CONFIG.DEVICE_PLAYLISTS.BY_PLAYLIST(playlistId));
             if (response.ok) {
                 const devices = await response.json();
                 const countElement = document.getElementById('assignedDevices');
                 if (countElement) {
-                    countElement.textContent = devices.length;
+                    countElement.textContent = Array.isArray(devices) ? devices.length : 0;
                 }
                 
                 // Guardar datos para uso posterior
@@ -782,9 +863,140 @@
     }
     
     /**
-     * Inicialización adicional para la vista
+     * Mostrar/ocultar loading state
+     */
+    function showLoadingState(message = 'Procesando...') {
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        if (loadingIndicator) {
+            const messageElement = loadingIndicator.querySelector('p');
+            if (messageElement) {
+                messageElement.textContent = message;
+            }
+            loadingIndicator.classList.remove('d-none');
+        }
+    }
+    
+    function hideLoadingState() {
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        if (loadingIndicator) {
+            loadingIndicator.classList.add('d-none');
+        }
+    }
+    
+    /**
+     * Función para mostrar toasts
+     */
+    function showToast(message, type = 'info', duration = 3000) {
+        // Usar función global si está disponible
+        if (typeof window.showToast === 'function') {
+            return window.showToast(message, type, duration);
+        }
+        
+        // Implementación básica de fallback
+        let container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'position-fixed top-0 end-0 p-3';
+            container.style.zIndex = '9999';
+            document.body.appendChild(container);
+        }
+        
+        const toastId = 'toast-' + Date.now();
+        const iconMap = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-triangle',
+            warning: 'fas fa-exclamation-circle',
+            info: 'fas fa-info-circle'
+        };
+        
+        const toast = document.createElement('div');
+        toast.id = toastId;
+        toast.className = `toast show align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0 mb-2`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="${iconMap[type] || iconMap.info} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="closeToast('${toastId}')"></button>
+            </div>
+        `;
+        
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+            const toastElement = document.getElementById(toastId);
+            if (toastElement) {
+                toastElement.remove();
+            }
+        }, duration);
+    }
+    
+    function closeToast(toastId) {
+        const toast = document.getElementById(toastId);
+        if (toast) {
+            toast.remove();
+        }
+    }
+    
+    /**
+     * Obtener ID de playlist de manera segura
+     */
+    function getPlaylistId() {
+        // Usar función global si está disponible
+        if (typeof window.getPlaylistId === 'function') {
+            return window.getPlaylistId();
+        }
+        
+        // Implementación básica de fallback
+        const urlParams = new URLSearchParams(window.location.search);
+        const idFromUrl = urlParams.get('id');
+        
+        const idElement = document.getElementById('playlist-id');
+        const idFromElement = idElement ? idElement.value : null;
+        
+        return idFromUrl || idFromElement;
+    }
+    
+    // ==========================================
+    // EXPOSICIÓN DE FUNCIONES GLOBALES
+    // ==========================================
+    
+    // Hacer funciones disponibles globalmente
+    window.editPlaylistInfo = editPlaylistInfo;
+    window.confirmDeletePlaylist = confirmDeletePlaylist;
+    window.deletePlaylist = deletePlaylist;
+    window.showAddVideosModal = showAddVideosModal;
+    window.exportPlaylist = exportPlaylist;
+    window.formatDuration = formatDuration;
+    window.formatDurationsOnPage = formatDurationsOnPage;
+    window.loadPlaylistData = loadPlaylistData;
+    window.showLoadingState = showLoadingState;
+    window.hideLoadingState = hideLoadingState;
+    window.closeToast = closeToast;
+    
+    // Sobrescribir showToast global si no existe
+    if (typeof window.showToast === 'undefined') {
+        window.showToast = showToast;
+    }
+    
+    // Sobrescribir getPlaylistId global si no existe
+    if (typeof window.getPlaylistId === 'undefined') {
+        window.getPlaylistId = getPlaylistId;
+    }
+    
+    // ==========================================
+    // INICIALIZACIÓN DE LA VISTA
+    // ==========================================
+    
+    /**
+     * Inicialización cuando el DOM esté listo
      */
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('🎬 Inicializando vista de playlist detail...');
+        
         // Formatear duraciones en la página
         formatDurationsOnPage();
         
@@ -805,6 +1017,10 @@
                 window.loadAssignedDevices();
             }
         }, 1000);
+        
+        console.log('✅ Vista de playlist detail inicializada');
     });
+    
+    console.log('✅ Script específico de vista cargado (con API_CONFIG seguro)');
     </script>
 {% endblock %}
