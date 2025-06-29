@@ -2,698 +2,983 @@
 
 {% block title %}Listas de Reproducción{% endblock %}
 
-{% block content %}
-<main class="container-fluid mt-4">
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <h1 class="mb-3">
-                <i class="fas fa-list me-2"></i>Listas de Reproducción
-            </h1>
-            <p class="text-muted">Gestiona tus listas de reproducción para los dispositivos</p>
-        </div>
-        <div class="col-md-4 text-md-end">
-            <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#createPlaylistModal">
-                <i class="fas fa-plus-circle me-2"></i>Nueva Lista
-            </button>
-        </div>
-    </div>
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/playlists.css">
+<style>
+/* Estilos específicos para la vista de playlists */
+.playlist-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid #dee2e6;
+    margin-bottom: 1rem;
+}
 
-    <!-- Modal para crear nueva playlist -->
-    <div class="modal fade" id="createPlaylistModal" tabindex="-1" aria-labelledby="createPlaylistModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="createPlaylistModalLabel">Crear Nueva Lista de Reproducción</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="card">
-                        <div class="card-body">
-                            <form id="playlistCreateForm">
-                                <div class="mb-3">
-                                    <label for="playlistTitle" class="form-label">Título</label>
-                                    <input type="text" class="form-control" id="playlistTitle" name="title" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="playlistDescription" class="form-label">Descripción (opcional)</label>
-                                    <textarea class="form-control" id="playlistDescription" name="description" rows="3"></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="playlistStartDate" class="form-label">Fecha de Inicio (opcional)</label>
-                                    <input type="datetime-local" class="form-control" id="playlistStartDate" name="start_date">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="playlistExpiration" class="form-label">Fecha de Expiración (opcional)</label>
-                                    <input type="datetime-local" class="form-control" id="playlistExpiration" name="expiration_date">
-                                </div>
-                                <div class="mb-3 form-check">
-                                    <input type="checkbox" class="form-check-input" id="playlistActive" name="is_active" checked>
-                                    <label class="form-check-label" for="playlistActive">Lista Activa</label>
-                                </div>
-                                <button type="submit" class="btn btn-primary btn-lg">Crear Lista de Reproducción</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+.playlist-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
 
-    <!-- Controles de búsqueda y filtros para playlists -->
-    <div class="row mb-3 g-3">
-        <div class="col-lg-6 col-md-12">
-            <div class="input-group">
-                <input type="text" id="playlistSearchInput" class="form-control" placeholder="Buscar listas por título o descripción...">
-                <button class="btn btn-outline-primary" type="button" id="clearPlaylistSearch">
-                    <i class="fas fa-times"></i> <span class="d-none d-sm-inline">Limpiar</span>
-                </button>
-            </div>
-        </div>
-        <div class="col-lg-3 col-md-6">
-            <select class="form-select" id="playlistFilterStatus">
-                <option value="all">Todas las listas</option>
-                <option value="active">Listas activas</option>
-                <option value="inactive">Listas inactivas</option>
-            </select>
-        </div>
-        <div class="col-lg-3 col-md-6">
-            <select class="form-select" id="playlistPageSizeSelect">
-                <option value="25">25 por página</option>
-                <option value="50">50 por página</option>
-                <option value="100" selected>100 por página</option>
-                <option value="200">200 por página</option>
-                <option value="500">Todas las listas</option>
-            </select>
-        </div>
-    </div>
+.playlist-thumbnail {
+    width: 100px;
+    height: 75px;
+    object-fit: cover;
+    border-radius: 8px;
+}
 
-    <!-- Información de resultados y paginación -->
-    <div class="row mb-2 g-2">
-        <div class="col-md-6 col-12">
-            <span id="playlistCountBadge" class="badge bg-info fs-6">0 listas</span>
-        </div>
-        <div class="col-md-6 col-12 text-md-end text-start">
-            <small class="text-muted" id="playlistPaginationInfo">
-                Mostrando 0 - 0 de 0 resultados
-            </small>
-        </div>
-    </div>
+.playlist-status-badge {
+    font-size: 0.75rem;
+    padding: 0.35em 0.65em;
+}
 
-    <!-- Tabla de listas de reproducción -->
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-                <i class="fas fa-list me-2"></i>Listas de Reproducción
-            </h5>
-            <div class="d-flex justify-content-between align-items-center">
-                <button class="btn btn-outline-secondary" 
-                    id="firstPlaylistPageBtn" 
-                    onclick="goToFirstPlaylistPage()" 
-                    title="Primera página">
-                    <i class="fas fa-angle-double-left"></i>
-                </button>
-                <button class="btn btn-outline-secondary" 
-                    id="prevPlaylistPageBtn" 
-                    onclick="goToPrevPlaylistPage()" 
-                    title="Página anterior">
-                    <i class="fas fa-angle-left"></i>
-                </button>               
-                <span class="me-2">Página</span>
-                <input type="number" 
-                    id="playlistPageInput" 
-                    class="form-control form-control-sm me-2" 
-                    style="width: 70px;" 
-                    min="1" 
-                    value="1"
-                    onchange="goToPlaylistPage(this.value)">
-                <button class="btn btn-sm btn-outline-secondary me-2" 
-                    id="nextPlaylistPageBtn" 
-                    onclick="goToNextPlaylistPage()" 
-                    title="Página siguiente">
-                    <i class="fas fa-angle-right"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" 
-                    id="lastPlaylistPageBtn" 
-                    onclick="goToLastPlaylistPage()" 
-                    title="Última página">
-                    <i class="fas fa-angle-double-right"></i>
-                </button>
-            </div>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th scope="col" style="width: 25%">Título</th>
-                        <th scope="col" style="width: 20%">Descripción</th>
-                        <th scope="col" style="width: 15%">Fecha de Creación</th>
-                        <th scope="col" style="width: 15%">Expiración</th>
-                        <th scope="col" style="width: 10%">Estado</th>
-                        <th scope="col" style="width: 10%">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="playlistsList">
-                    <tr>
-                        <td colspan="7" class="text-center py-3" id="playlistsLoading">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Cargando...</span>
-                            </div>
-                            <p class="mt-2">Cargando listas de reproducción...</p>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="card-footer bg-light">
-            <div class="row align-items-center g-2">
-                <div class="col-lg-6 col-12 text-center text-lg-start">
-                    <small class="text-muted">
-                        <i class="fas fa-info-circle"></i>
-                        <span class="d-none d-sm-inline">Tip: Usa los filtros y búsqueda para encontrar listas específicas</span>
-                        <span class="d-sm-none">Usa filtros para buscar</span>
-                    </small>
-                </div>
-                <div class="col-lg-6 col-12 text-center text-lg-end">
-                    <small class="text-muted" id="playlistPaginationFooter">
-                        <!-- Información adicional de paginación -->
-                    </small>
-                </div>
-            </div>
-        </div>
-    </div> 
-</main>
+.playlist-actions .btn {
+    margin: 0 2px;
+}
 
-<!-- Modal para editar playlist -->
-<div class="modal fade" id="editPlaylistModal" tabindex="-1" aria-labelledby="editPlaylistModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="editPlaylistModalLabel">Editar Lista de Reproducción</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editPlaylistForm">
-                    <input type="hidden" id="editPlaylistId">
-                    <div class="mb-3">
-                        <label for="editPlaylistTitle" class="form-label">Título</label>
-                        <input type="text" class="form-control" id="editPlaylistTitle" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editPlaylistDescription" class="form-label">Descripción (opcional)</label>
-                        <textarea class="form-control" id="editPlaylistDescription" rows="3"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editPlaylistStartDate" class="form-label">Fecha de Inicio (opcional)</label>
-                        <input type="datetime-local" class="form-control" id="editPlaylistStartDate">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editPlaylistExpiration" class="form-label">Fecha de Expiración (opcional)</label>
-                        <input type="datetime-local" class="form-control" id="editPlaylistExpiration">
-                    </div>
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="editPlaylistActive" checked>
-                        <label class="form-check-label" for="editPlaylistActive">Lista Activa</label>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="savePlaylistChangesBtn">Guardar Cambios</button>
-            </div>
-        </div>
-    </div>
-</div>
+.video-count-badge {
+    background: linear-gradient(45deg, #007bff, #0056b3);
+    color: white;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
 
-<!-- Modal para confirmación de eliminación -->
-<div class="modal fade" id="deletePlaylistModal" tabindex="-1" aria-labelledby="deletePlaylistModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deletePlaylistModalLabel">Confirmar Eliminación</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>¿Estás seguro de que deseas eliminar la lista de reproducción <strong id="deletePlaylistName"></strong>?</p>
-                <p class="text-danger">Esta acción no se puede deshacer y eliminará la lista de todos los dispositivos asignados.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="confirmDeletePlaylistBtn">Eliminar</button>
-            </div>
-        </div>
-    </div>
-</div>
+.playlist-grid-view .playlist-item {
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: white;
+    transition: all 0.3s ease;
+}
 
+.playlist-grid-view .playlist-item:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 20px rgba(0,123,255,0.15);
+}
+
+.view-toggle-buttons .btn {
+    border-radius: 0;
+}
+
+.view-toggle-buttons .btn:first-child {
+    border-top-left-radius: 0.375rem;
+    border-bottom-left-radius: 0.375rem;
+}
+
+.view-toggle-buttons .btn:last-child {
+    border-top-right-radius: 0.375rem;
+    border-bottom-right-radius: 0.375rem;
+}
+
+@media (max-width: 768px) {
+    .playlist-actions {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .playlist-actions .btn {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+    }
+}
+
+/* Toast notifications */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9998;
+}
+</style>
 {% endblock %}
 
-{% block extra_scripts %}
+{% block content %}
+<main class="container-fluid py-4">
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="text-center text-white">
+            <div class="spinner-border spinner-border-lg" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-3">Cargando listas de reproducción...</p>
+        </div>
+    </div>
+
+    <!-- Header y controles principales -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
+                <div>
+                    <h1 class="h3 mb-2 text-primary">
+                        <i class="fas fa-list-alt me-2"></i>Mis Listas de Reproducción
+                    </h1>
+                    <p class="text-muted mb-0">Gestiona y organiza tus listas de reproducción</p>
+                </div>
+                <div class="d-flex flex-column flex-sm-row gap-2">
+                    <a href="/ui/create_playlist" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Nueva Lista
+                    </a>
+                    <button class="btn btn-outline-secondary" onclick="refreshPlaylists()">
+                        <i class="fas fa-sync-alt me-2"></i>Actualizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controles de filtrado y búsqueda -->
+    <div class="row mb-3">
+        <div class="col-lg-4 col-md-6 mb-3 mb-lg-0">
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" 
+                       class="form-control" 
+                       id="searchInput" 
+                       placeholder="Buscar por título o descripción..."
+                       autocomplete="off">
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-3 col-6">
+            <select class="form-select" id="statusFilter">
+                <option value="">Todos los estados</option>
+                <option value="active">Solo activas</option>
+                <option value="inactive">Solo inactivas</option>
+                <option value="expired">Expiradas</option>
+            </select>
+        </div>
+        <div class="col-lg-2 col-md-3 col-6">
+            <select class="form-select" id="sortBy">
+                <option value="creation_date_desc">Más recientes</option>
+                <option value="creation_date_asc">Más antiguas</option>
+                <option value="title_asc">Título A-Z</option>
+                <option value="title_desc">Título Z-A</option>
+                <option value="videos_desc">Más videos</option>
+                <option value="videos_asc">Menos videos</option>
+            </select>
+        </div>
+        <div class="col-lg-2 col-md-6 col-6">
+            <select class="form-select" id="pageSize">
+                <option value="12">12 por página</option>
+                <option value="24" selected>24 por página</option>
+                <option value="48">48 por página</option>
+                <option value="all">Todas</option>
+            </select>
+        </div>
+        <div class="col-lg-2 col-md-6 col-6">
+            <div class="btn-group view-toggle-buttons w-100" role="group">
+                <button type="button" class="btn btn-outline-secondary active" id="tableViewBtn" onclick="setView('table')">
+                    <i class="fas fa-table"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="gridViewBtn" onclick="setView('grid')">
+                    <i class="fas fa-th-large"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas rápidas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-wrap justify-content-between align-items-center bg-light p-3 rounded">
+                <div class="d-flex flex-wrap gap-3">
+                    <span id="totalPlaylistsBadge" class="badge bg-primary fs-6">
+                        <i class="fas fa-list me-1"></i>0 listas
+                    </span>
+                    <span id="activePlaylistsBadge" class="badge bg-success fs-6">
+                        <i class="fas fa-check-circle me-1"></i>0 activas
+                    </span>
+                    <span id="expiredPlaylistsBadge" class="badge bg-danger fs-6">
+                        <i class="fas fa-exclamation-triangle me-1"></i>0 expiradas
+                    </span>
+                    <span id="totalVideosBadge" class="badge bg-info fs-6">
+                        <i class="fas fa-video me-1"></i>0 videos
+                    </span>
+                </div>
+                <small class="text-muted mt-2 mt-sm-0" id="paginationInfo">
+                    Mostrando 0 - 0 de 0 resultados
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vista de tabla (por defecto) -->
+    <div id="tableView" class="playlist-view">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-dark">
+                        <i class="fas fa-table me-2 text-primary"></i>Vista de Tabla
+                    </h5>
+                    <!-- Paginación superior -->
+                    <nav aria-label="Paginación de playlists">
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-outline-secondary" id="firstPageBtn" onclick="goToPage(1)" title="Primera página">
+                                <i class="fas fa-angle-double-left"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" id="prevPageBtn" onclick="goToPrevPage()" title="Anterior">
+                                <i class="fas fa-angle-left"></i>
+                            </button>
+                            <input type="number" id="pageInput" class="form-control form-control-sm text-center" 
+                                   style="width: 60px;" min="1" value="1" onchange="goToPage(this.value)">
+                            <span class="text-muted small">de <span id="totalPages">1</span></span>
+                            <button class="btn btn-sm btn-outline-secondary" id="nextPageBtn" onclick="goToNextPage()" title="Siguiente">
+                                <i class="fas fa-angle-right"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" id="lastPageBtn" onclick="goToLastPage()" title="Última página">
+                                <i class="fas fa-angle-double-right"></i>
+                            </button>
+                        </div>
+                    </nav>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" style="width: 30%">
+                                <i class="fas fa-list me-1"></i>Lista de Reproducción
+                            </th>
+                            <th scope="col" style="width: 25%">
+                                <i class="fas fa-info-circle me-1"></i>Descripción
+                            </th>
+                            <th scope="col" style="width: 15%">
+                                <i class="fas fa-calendar me-1"></i>Creada
+                            </th>
+                            <th scope="col" style="width: 10%">
+                                <i class="fas fa-video me-1"></i>Videos
+                            </th>
+                            <th scope="col" style="width: 10%">
+                                <i class="fas fa-toggle-on me-1"></i>Estado
+                            </th>
+                            <th scope="col" style="width: 10%">
+                                <i class="fas fa-cogs me-1"></i>Acciones
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="playlistsTableBody">
+                        <!-- Los datos se cargarán dinámicamente -->
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Cargando listas de reproducción...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vista de tarjetas -->
+    <div id="gridView" class="playlist-view" style="display: none;">
+        <div class="row" id="playlistsGridContainer">
+            <!-- Los datos se cargarán dinámicamente -->
+        </div>
+    </div>
+
+    <!-- Paginación inferior -->
+    <nav aria-label="Paginación inferior" class="mt-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary" onclick="goToPage(1)">
+                    <i class="fas fa-angle-double-left"></i> Primera
+                </button>
+                <button class="btn btn-outline-secondary" onclick="goToPrevPage()">
+                    <i class="fas fa-angle-left"></i> Anterior
+                </button>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-muted" id="paginationInfoBottom">Página 1 de 1</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary" onclick="goToNextPage()">
+                    Siguiente <i class="fas fa-angle-right"></i>
+                </button>
+                <button class="btn btn-outline-secondary" onclick="goToLastPage()">
+                    Última <i class="fas fa-angle-double-right"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+</main>
+
+<!-- Scripts específicos para gestión de playlists -->
 <script>
-    // Variables de estado
-    let allPlaylists = [];
-    let filteredPlaylists = [];
-    let currentPlaylistPage = 1;
-    let playlistPageSize = 100;
-    let totalPlaylistPages = 1;
-    let currentPlaylistFilter = 'all';
-    let currentPlaylistSearchTerm = '';
-    let playlistSortField = '';
-    let playlistSortDirection = 'asc';
+/**
+ * SCRIPT PARA GESTIÓN DE PLAYLISTS - VISTA PRINCIPAL
+ * Versión corregida con soporte HTTPS
+ */
 
-    // Hacer variables compatibles con main.js
-    window.allPlaylists = allPlaylists;
-    window.currentPlaylistPage = currentPlaylistPage;
+// ==========================================
+// CONFIGURACIÓN GLOBAL
+// ==========================================
 
-    // Inicializar cuando el DOM esté listo
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('Playlist template - Inicializando...');
-        
-        // Esperar a main.js si está disponible
-        setTimeout(() => {
-            // Si main.js tiene loadPlaylists, usarlo, si no usar el local
-            if (typeof window.loadPlaylists === 'function') {
-                console.log('Usando loadPlaylists de main.js');
-                window.loadPlaylists();
-            } else {
-                console.log('Usando loadPlaylists local');
-                loadPlaylists();
-            }
-            
-            setupEventListeners();
-        }, 200);
-    });
+// Variables globales
+let playlists = [];
+let filteredPlaylists = [];
+let currentPage = 1;
+let pageSize = 24;
+let totalPages = 1;
+let currentView = 'table';
+let isLoading = false;
 
-    // Cargar listas de reproducción
-    async function loadPlaylists() {
-        console.log('Cargando playlists...');
-        
-        try {
-            const response = await fetch('/api/playlists/?limit=10000');
-            if (!response.ok) throw new Error('Error al cargar las playlists');
-            
-            allPlaylists = await response.json();
-            window.allPlaylists = allPlaylists;
-            
-            console.log(`Playlists cargadas: ${allPlaylists.length}`);
-            filterAndDisplayPlaylists();
-        } catch (error) {
-            console.error('Error:', error);
-            const playlistsList = document.getElementById('playlistsList');
-            if (playlistsList) {
-                playlistsList.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="text-center text-danger">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            Error al cargar las listas de reproducción
-                        </td>
-                    </tr>
-                `;
-            }
-        }
+// Configuración de API con soporte HTTPS automático
+const getApiUrl = () => {
+    const protocol = window.location.protocol; // 'https:' o 'http:'
+    const host = window.location.host;
+    return `${protocol}//${host}/api`;
+};
+
+const API_ENDPOINTS = {
+    playlists: `${getApiUrl()}/playlists`,
+    playlistById: (id) => `${getApiUrl()}/playlists/${id}`,
+    deletePlaylist: (id) => `${getApiUrl()}/playlists/${id}`
+};
+
+console.log('🔧 API Endpoints configurados:', API_ENDPOINTS);
+
+// ==========================================
+// INICIALIZACIÓN
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📋 Inicializando gestión de playlists...');
+    
+    // Configurar event listeners
+    setupEventListeners();
+    
+    // Cargar playlists iniciales
+    loadPlaylists();
+    
+    console.log('✅ Sistema de playlists inicializado');
+});
+
+// ==========================================
+// EVENT LISTENERS
+// ==========================================
+
+function setupEventListeners() {
+    // Búsqueda
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(handleSearch, 300));
     }
+    
+    // Filtros
+    const statusFilter = document.getElementById('statusFilter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', applyFilters);
+    }
+    
+    const sortBy = document.getElementById('sortBy');
+    if (sortBy) {
+        sortBy.addEventListener('change', applyFilters);
+    }
+    
+    const pageSizeSelect = document.getElementById('pageSize');
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', handlePageSizeChange);
+    }
+}
 
-    // Filtrar y mostrar playlists
-    function filterAndDisplayPlaylists() {
-        // Filtrar playlists
-        filteredPlaylists = allPlaylists.filter(playlist => {
-            // Filtro por estado
-            if (currentPlaylistFilter === 'active' && !playlist.is_active) return false;
-            if (currentPlaylistFilter === 'inactive' && playlist.is_active) return false;
+// ==========================================
+// FUNCIONES DE CARGA DE DATOS
+// ==========================================
+
+async function loadPlaylists() {
+    if (isLoading) return;
+    
+    console.log('📥 Cargando playlists...');
+    setLoadingState(true);
+    
+    try {
+        showToast('Cargando listas de reproducción...', 'info');
+        
+        const response = await fetch(API_ENDPOINTS.playlists);
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: No se pudieron cargar las playlists`);
+        }
+        
+        const data = await response.json();
+        playlists = Array.isArray(data) ? data : (data.playlists || []);
+        
+        console.log('✅ Playlists cargadas:', playlists.length);
+        
+        // Aplicar filtros y renderizar
+        applyFilters();
+        updateStatsBadges();
+        
+        showToast(`${playlists.length} listas cargadas correctamente`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Error cargando playlists:', error);
+        showToast(`Error al cargar listas: ${error.message}`, 'error');
+        showErrorState(error.message);
+    } finally {
+        setLoadingState(false);
+    }
+}
+
+// ==========================================
+// FUNCIONES DE FILTRADO Y BÚSQUEDA
+// ==========================================
+
+function handleSearch(event) {
+    const searchTerm = event.target.value.toLowerCase().trim();
+    console.log('🔍 Búsqueda:', searchTerm);
+    applyFilters();
+}
+
+function applyFilters() {
+    console.log('🔧 Aplicando filtros...');
+    
+    let filtered = [...playlists];
+    
+    // Filtro de búsqueda
+    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase().trim();
+    if (searchTerm) {
+        filtered = filtered.filter(playlist => 
+            playlist.title.toLowerCase().includes(searchTerm) ||
+            (playlist.description && playlist.description.toLowerCase().includes(searchTerm))
+        );
+    }
+    
+    // Filtro de estado
+    const statusFilter = document.getElementById('statusFilter')?.value;
+    if (statusFilter) {
+        filtered = filtered.filter(playlist => {
+            const isActive = isPlaylistActive(playlist);
+            const isExpired = playlist.expiration_date && new Date(playlist.expiration_date) < new Date();
             
-            // Filtro por término de búsqueda
-            if (currentPlaylistSearchTerm) {
-                const searchLower = currentPlaylistSearchTerm.toLowerCase();
-                const titleMatch = playlist.title && playlist.title.toLowerCase().includes(searchLower);
-                const descMatch = playlist.description && playlist.description.toLowerCase().includes(searchLower);
-                
-                return titleMatch || descMatch;
+            switch (statusFilter) {
+                case 'active': return isActive && !isExpired;
+                case 'inactive': return !isActive;
+                case 'expired': return isExpired;
+                default: return true;
             }
-            
-            return true;
         });
-        
-        // Calcular paginación
-        totalPlaylistPages = Math.ceil(filteredPlaylists.length / playlistPageSize) || 1;
-        if (currentPlaylistPage > totalPlaylistPages) {
-            currentPlaylistPage = totalPlaylistPages;
-        }
-        
-        // Actualizar información de paginación
-        updatePaginationInfo();
-        
-        // Mostrar resultados paginados
-        displayCurrentPage();
     }
+    
+    // Ordenamiento
+    const sortBy = document.getElementById('sortBy')?.value || 'creation_date_desc';
+    filtered = sortPlaylists(filtered, sortBy);
+    
+    filteredPlaylists = filtered;
+    currentPage = 1;
+    updatePagination();
+    renderPlaylists();
+    
+    console.log(`✅ Filtros aplicados: ${filtered.length}/${playlists.length} playlists`);
+}
 
-    // Mostrar página actual
-    function displayCurrentPage() {
-        const playlistsList = document.getElementById('playlistsList');
-        if (!playlistsList) return;
-        
-        // Calcular índices de paginación
-        const startIndex = (currentPlaylistPage - 1) * playlistPageSize;
-        const endIndex = Math.min(startIndex + playlistPageSize, filteredPlaylists.length);
-        
-        // Obtener playlists de la página actual
-        const currentPlaylists = filteredPlaylists.slice(startIndex, endIndex);
-        
-        // Generar HTML
-        if (currentPlaylists.length === 0) {
-            playlistsList.innerHTML = `
-                <tr>
-                    <td colspan="7" class="text-center py-4">
-                        <i class="fas fa-list-alt fa-3x mb-3 text-muted"></i>
-                        <p>No se encontraron listas de reproducción.</p>
-                    </td>
-                </tr>
-            `;
-            return;
+function sortPlaylists(playlists, sortBy) {
+    return playlists.sort((a, b) => {
+        switch (sortBy) {
+            case 'title_asc':
+                return a.title.localeCompare(b.title);
+            case 'title_desc':
+                return b.title.localeCompare(a.title);
+            case 'creation_date_asc':
+                return new Date(a.creation_date) - new Date(b.creation_date);
+            case 'creation_date_desc':
+                return new Date(b.creation_date) - new Date(a.creation_date);
+            case 'videos_asc':
+                return (a.videos?.length || 0) - (b.videos?.length || 0);
+            case 'videos_desc':
+                return (b.videos?.length || 0) - (a.videos?.length || 0);
+            default:
+                return new Date(b.creation_date) - new Date(a.creation_date);
         }
+    });
+}
+
+// ==========================================
+// FUNCIONES DE RENDERIZADO
+// ==========================================
+
+function renderPlaylists() {
+    if (currentView === 'table') {
+        renderTableView();
+    } else {
+        renderGridView();
+    }
+    updatePaginationInfo();
+}
+
+function renderTableView() {
+    const tbody = document.getElementById('playlistsTableBody');
+    if (!tbody) return;
+    
+    const start = (currentPage - 1) * pageSize;
+    const end = pageSize === 'all' ? filteredPlaylists.length : start + parseInt(pageSize);
+    const pageData = filteredPlaylists.slice(start, end);
+    
+    if (pageData.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-5">
+                    <div class="text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p class="mb-0">No se encontraron listas de reproducción</p>
+                        <small>Prueba ajustando los filtros de búsqueda</small>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = pageData.map(playlist => {
+        const isActive = isPlaylistActive(playlist);
+        const isExpired = playlist.expiration_date && new Date(playlist.expiration_date) < new Date();
+        const videoCount = playlist.videos?.length || 0;
         
-        // Generar filas de la tabla
-        const playlistsHTML = currentPlaylists.map((playlist, index) => {
-            const isActive = playlist.is_active && !isExpired(playlist.expiration_date);
-            const startDate = playlist.start_date ? new Date(playlist.start_date) : null;
-            const now = new Date();
-            const isPending = startDate && startDate > now;
-            
-            // Determinar estado basado en condiciones
-            let statusClass = isActive ? 'bg-success' : 'bg-danger';
-            let statusText = isActive ? 'Activa' : 'Inactiva';
-            
-            if (isPending) {
-                statusClass = 'bg-warning';
-                statusText = 'Pendiente';
-            } else if (isExpired(playlist.expiration_date)) {
-                statusClass = 'bg-danger';
-                statusText = 'Expirada';
-            }
-            
-            return `
-                <tr>
-                    <td>
-                        <a href="/ui/playlist_detail?id=${playlist.id}" class="fw-bold text-decoration-none">
-                            ${playlist.title || 'Sin título'}
-                        </a>
-                    </td>
-                    <td>${playlist.description || '<span class="text-muted">Sin descripción</span>'}</td>
-                    <td><small>${formatDate(playlist.creation_date)}</small></td>
-                    <td>
-                        ${playlist.expiration_date ? 
-                            `<small class="text-muted">${isExpired(playlist.expiration_date) ? 'Expiró' : 'Expira'}: ${formatDate(playlist.expiration_date)}</small>` : 
-                            '<small class="text-muted">Sin expiración</small>'}
-                    </td>
-                    <td>
-                        <span class="badge ${statusClass}">
-                            ${statusText}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="btn-group btn-group-sm">
-                            <a href="/ui/playlist_detail?id=${playlist.id}" class="btn btn-outline-primary">
+        return `
+            <tr class="playlist-row" data-playlist-id="${playlist.id}">
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="playlist-thumbnail me-3">
+                            <i class="fas fa-list-alt fa-2x text-primary"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-1">${escapeHtml(playlist.title)}</h6>
+                            <small class="text-muted">ID: ${playlist.id}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="text-muted">${playlist.description ? escapeHtml(playlist.description) : 'Sin descripción'}</span>
+                </td>
+                <td>
+                    <small class="text-muted">${formatDate(playlist.creation_date)}</small>
+                    ${playlist.expiration_date ? `<br><small class="text-${isExpired ? 'danger' : 'info'}">${isExpired ? 'Expiró' : 'Expira'}: ${formatDate(playlist.expiration_date)}</small>` : ''}
+                </td>
+                <td>
+                    <span class="video-count-badge">${videoCount}</span>
+                </td>
+                <td>
+                    <span class="badge ${isActive && !isExpired ? 'bg-success' : isExpired ? 'bg-danger' : 'bg-secondary'}">
+                        ${isExpired ? 'Expirada' : isActive ? 'Activa' : 'Inactiva'}
+                    </span>
+                </td>
+                <td>
+                    <div class="playlist-actions d-flex gap-1">
+                        <button class="btn btn-sm btn-primary" onclick="viewPlaylistDetail(${playlist.id})" title="Ver detalles">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="editPlaylist(${playlist.id})" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deletePlaylist(${playlist.id})" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderGridView() {
+    const container = document.getElementById('playlistsGridContainer');
+    if (!container) return;
+    
+    const start = (currentPage - 1) * pageSize;
+    const end = pageSize === 'all' ? filteredPlaylists.length : start + parseInt(pageSize);
+    const pageData = filteredPlaylists.slice(start, end);
+    
+    if (pageData.length === 0) {
+        container.innerHTML = `
+            <div class="col-12 text-center py-5">
+                <div class="text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <p class="mb-0">No se encontraron listas de reproducción</p>
+                    <small>Prueba ajustando los filtros de búsqueda</small>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = pageData.map(playlist => {
+        const isActive = isPlaylistActive(playlist);
+        const isExpired = playlist.expiration_date && new Date(playlist.expiration_date) < new Date();
+        const videoCount = playlist.videos?.length || 0;
+        
+        return `
+            <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12 mb-4">
+                <div class="card playlist-card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-list-alt me-2"></i>
+                            ${escapeHtml(playlist.title)}
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text text-muted small">
+                            ${playlist.description ? escapeHtml(playlist.description) : 'Sin descripción'}
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="video-count-badge">${videoCount} videos</span>
+                            <span class="badge ${isActive && !isExpired ? 'bg-success' : isExpired ? 'bg-danger' : 'bg-secondary'}">
+                                ${isExpired ? 'Expirada' : isActive ? 'Activa' : 'Inactiva'}
+                            </span>
+                        </div>
+                        <small class="text-muted">
+                            Creada: ${formatDate(playlist.creation_date)}
+                            ${playlist.expiration_date ? `<br><span class="text-${isExpired ? 'danger' : 'info'}">${isExpired ? 'Expiró' : 'Expira'}: ${formatDate(playlist.expiration_date)}</span>` : ''}
+                        </small>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-primary flex-fill" onclick="viewPlaylistDetail(${playlist.id})">
+                                <i class="fas fa-eye me-1"></i>Ver
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="editPlaylist(${playlist.id})" title="Editar">
                                 <i class="fas fa-edit"></i>
-                            </a>
-                            <button class="btn btn-outline-danger" onclick="confirmDeletePlaylist(${playlist.id}, '${playlist.title?.replace("'", "\\'")}')">
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deletePlaylist(${playlist.id})" title="Eliminar">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
-                    </td>
-                </tr>
-            `;
-        }).join('');
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ==========================================
+// FUNCIONES DE PAGINACIÓN
+// ==========================================
+
+function updatePagination() {
+    if (pageSize === 'all') {
+        totalPages = 1;
+    } else {
+        totalPages = Math.ceil(filteredPlaylists.length / parseInt(pageSize));
+    }
+    
+    // Actualizar elementos de paginación
+    const pageInput = document.getElementById('pageInput');
+    const totalPagesSpan = document.getElementById('totalPages');
+    
+    if (pageInput) pageInput.value = currentPage;
+    if (totalPagesSpan) totalPagesSpan.textContent = totalPages;
+    
+    // Habilitar/deshabilitar botones
+    updatePaginationButtons();
+}
+
+function updatePaginationButtons() {
+    const firstBtn = document.getElementById('firstPageBtn');
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
+    const lastBtn = document.getElementById('lastPageBtn');
+    
+    const isFirstPage = currentPage <= 1;
+    const isLastPage = currentPage >= totalPages;
+    
+    if (firstBtn) firstBtn.disabled = isFirstPage;
+    if (prevBtn) prevBtn.disabled = isFirstPage;
+    if (nextBtn) nextBtn.disabled = isLastPage;
+    if (lastBtn) lastBtn.disabled = isLastPage;
+}
+
+function updatePaginationInfo() {
+    const start = (currentPage - 1) * (pageSize === 'all' ? filteredPlaylists.length : parseInt(pageSize)) + 1;
+    const end = Math.min(currentPage * (pageSize === 'all' ? filteredPlaylists.length : parseInt(pageSize)), filteredPlaylists.length);
+    
+    const infoText = filteredPlaylists.length > 0 
+        ? `Mostrando ${start} - ${end} de ${filteredPlaylists.length} resultados`
+        : 'No hay resultados para mostrar';
+    
+    const paginationInfo = document.getElementById('paginationInfo');
+    const paginationInfoBottom = document.getElementById('paginationInfoBottom');
+    
+    if (paginationInfo) paginationInfo.textContent = infoText;
+    if (paginationInfoBottom) paginationInfoBottom.textContent = `Página ${currentPage} de ${totalPages}`;
+}
+
+// ==========================================
+// FUNCIONES DE NAVEGACIÓN
+// ==========================================
+
+function goToPage(page) {
+    const pageNum = parseInt(page);
+    if (pageNum >= 1 && pageNum <= totalPages) {
+        currentPage = pageNum;
+        renderPlaylists();
+        updatePagination();
+    }
+}
+
+function goToPrevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        renderPlaylists();
+        updatePagination();
+    }
+}
+
+function goToNextPage() {
+    if (currentPage < totalPages) {
+        currentPage++;
+        renderPlaylists();
+        updatePagination();
+    }
+}
+
+function goToLastPage() {
+    currentPage = totalPages;
+    renderPlaylists();
+    updatePagination();
+}
+
+function handlePageSizeChange(event) {
+    pageSize = event.target.value;
+    currentPage = 1;
+    updatePagination();
+    renderPlaylists();
+}
+
+// ==========================================
+// FUNCIONES DE VISTA
+// ==========================================
+
+function setView(view) {
+    currentView = view;
+    
+    const tableView = document.getElementById('tableView');
+    const gridView = document.getElementById('gridView');
+    const tableBtn = document.getElementById('tableViewBtn');
+    const gridBtn = document.getElementById('gridViewBtn');
+    
+    if (view === 'table') {
+        tableView.style.display = 'block';
+        gridView.style.display = 'none';
+        tableBtn.classList.add('active');
+        gridBtn.classList.remove('active');
+    } else {
+        tableView.style.display = 'none';
+        gridView.style.display = 'block';
+        tableBtn.classList.remove('active');
+        gridBtn.classList.add('active');
+    }
+    
+    renderPlaylists();
+}
+
+// ==========================================
+// FUNCIONES DE ACCIÓN
+// ==========================================
+
+function viewPlaylistDetail(playlistId) {
+    window.location.href = `/ui/playlist_detail?id=${playlistId}`;
+}
+
+function editPlaylist(playlistId) {
+    window.location.href = `/ui/edit_playlist?id=${playlistId}`;
+}
+
+async function deletePlaylist(playlistId) {
+    const playlist = playlists.find(p => p.id === playlistId);
+    if (!playlist) return;
+    
+    const confirmMessage = `¿Estás seguro de que quieres eliminar la playlist "${playlist.title}"?\n\nEsta acción no se puede deshacer.`;
+    
+    if (!confirm(confirmMessage)) return;
+    
+    try {
+        showToast('Eliminando playlist...', 'info');
         
-        playlistsList.innerHTML = playlistsHTML;
-    }
-
-    // Actualizar información de paginación
-    function updatePaginationInfo() {
-        // Actualizar contador de playlists
-        const countBadge = document.getElementById('playlistCountBadge');
-        if (countBadge) {
-            countBadge.textContent = `${filteredPlaylists.length} lista${filteredPlaylists.length !== 1 ? 's' : ''}`;
-        }
-        
-        // Actualizar información de paginación
-        const paginationInfo = document.getElementById('playlistPaginationInfo');
-        if (paginationInfo) {
-            const startIndex = (currentPlaylistPage - 1) * playlistPageSize + 1;
-            const endIndex = Math.min(startIndex + playlistPageSize - 1, filteredPlaylists.length);
-            
-            if (filteredPlaylists.length === 0) {
-                paginationInfo.textContent = 'No hay resultados';
-            } else {
-                paginationInfo.textContent = `Mostrando ${startIndex} - ${endIndex} de ${filteredPlaylists.length} resultado${filteredPlaylists.length !== 1 ? 's' : ''}`;
-            }
-        }
-        
-        // Actualizar información en footer
-        const paginationFooter = document.getElementById('playlistPaginationFooter');
-        if (paginationFooter) {
-            paginationFooter.textContent = `Página ${currentPlaylistPage} de ${totalPlaylistPages}`;
-        }
-        
-        // Actualizar input de página
-        const pageInput = document.getElementById('playlistPageInput');
-        if (pageInput) {
-            pageInput.value = currentPlaylistPage;
-            pageInput.max = totalPlaylistPages;
-        }
-        
-        // Habilitar/deshabilitar botones de paginación
-        const prevBtn = document.getElementById('prevPlaylistPageBtn');
-        const nextBtn = document.getElementById('nextPlaylistPageBtn');
-        const firstBtn = document.getElementById('firstPlaylistPageBtn');
-        const lastBtn = document.getElementById('lastPlaylistPageBtn');
-        
-        if (prevBtn) prevBtn.disabled = currentPlaylistPage <= 1;
-        if (nextBtn) nextBtn.disabled = currentPlaylistPage >= totalPlaylistPages;
-        if (firstBtn) firstBtn.disabled = currentPlaylistPage <= 1;
-        if (lastBtn) lastBtn.disabled = currentPlaylistPage >= totalPlaylistPages;
-    }
-
-    // Funciones de paginación
-    function goToPlaylistPage(page) {
-        page = parseInt(page);
-        if (isNaN(page) || page < 1 || page > totalPlaylistPages) return;
-        
-        currentPlaylistPage = page;
-        displayCurrentPage();
-        updatePaginationInfo();
-    }
-
-    function goToNextPlaylistPage() {
-        if (currentPlaylistPage < totalPlaylistPages) {
-            currentPlaylistPage++;
-            displayCurrentPage();
-            updatePaginationInfo();
-        }
-    }
-
-    function goToPrevPlaylistPage() {
-        if (currentPlaylistPage > 1) {
-            currentPlaylistPage--;
-            displayCurrentPage();
-            updatePaginationInfo();
-        }
-    }
-
-    function goToFirstPlaylistPage() {
-        currentPlaylistPage = 1;
-        displayCurrentPage();
-        updatePaginationInfo();
-    }
-
-    function goToLastPlaylistPage() {
-        currentPlaylistPage = totalPlaylistPages;
-        displayCurrentPage();
-        updatePaginationInfo();
-    }
-
-    // Configurar eventos
-    function setupEventListeners() {
-        // Búsqueda
-        const searchInput = document.getElementById('playlistSearchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', function(e) {
-                currentPlaylistSearchTerm = e.target.value.toLowerCase();
-                currentPlaylistPage = 1;
-                filterAndDisplayPlaylists();
-            });
-        }
-
-        // Limpiar búsqueda
-        const clearBtn = document.getElementById('clearPlaylistSearch');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', function() {
-                const searchInput = document.getElementById('playlistSearchInput');
-                if (searchInput) {
-                    searchInput.value = '';
-                    currentPlaylistSearchTerm = '';
-                    currentPlaylistPage = 1;
-                    filterAndDisplayPlaylists();
-                }
-            });
-        }
-
-        // Filtro de estado
-        const filterSelect = document.getElementById('playlistFilterStatus');
-        if (filterSelect) {
-            filterSelect.addEventListener('change', function(e) {
-                currentPlaylistFilter = e.target.value;
-                currentPlaylistPage = 1;
-                filterAndDisplayPlaylists();
-            });
-        }
-
-        // Tamaño de página
-        const pageSizeSelect = document.getElementById('playlistPageSizeSelect');
-        if (pageSizeSelect) {
-            pageSizeSelect.addEventListener('change', function(e) {
-                playlistPageSize = parseInt(e.target.value);
-                currentPlaylistPage = 1;
-                filterAndDisplayPlaylists();
-            });
-        }
-
-        // Formulario de creación
-        const createForm = document.getElementById('playlistCreateForm');
-        if (createForm) {
-            createForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                const formData = new FormData(this);
-                const playlistData = {
-                    title: formData.get('title'),
-                    description: formData.get('description') || '',
-                    start_date: formData.get('start_date') || null,
-                    expiration_date: formData.get('expiration_date') || null,
-                    is_active: formData.get('is_active') === 'on'
-                };
-                
-                await createPlaylist(playlistData);
-            });
-        }
-
-        // Confirmar eliminación
-        window.confirmDeletePlaylist = function(id, title) {
-            const nameElement = document.getElementById('deletePlaylistName');
-            if (nameElement) nameElement.textContent = title || 'seleccionada';
-            
-            const confirmBtn = document.getElementById('confirmDeletePlaylistBtn');
-            if (confirmBtn) {
-                confirmBtn.onclick = function() {
-                    deletePlaylist(id);
-                };
-            }
-            
-            // Abrir modal
-            const modal = new bootstrap.Modal(document.getElementById('deletePlaylistModal'));
-            modal.show();
-        };
-    }
-
-    // Crear playlist
-    async function createPlaylist(playlistData) {
-        try {
-            const response = await fetch('/api/playlists/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(playlistData)
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Error al crear la lista');
-            }
-            
-            const newPlaylist = await response.json();
-            
-            // Cerrar modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('createPlaylistModal'));
-            if (modal) modal.hide();
-            
-            // Limpiar formulario
-            document.getElementById('playlistCreateForm').reset();
-            
-            // Mostrar mensaje de éxito
-            showToast('Lista de reproducción creada correctamente', 'success');
-            
-            // Recargar playlists
-            await loadPlaylists();
-            
-            // Redireccionar a la página de detalle
-            window.location.href = `/ui/playlist_detail?id=${newPlaylist.id}`;
-            
-        } catch (error) {
-            console.error('Error al crear playlist:', error);
-            showToast(`Error al crear lista: ${error.message}`, 'error');
-        }
-    }
-
-    // Eliminar playlist
-    async function deletePlaylist(id) {
-        try {
-            const response = await fetch(`/api/playlists/${id}`, {
-                method: 'DELETE'
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Error al eliminar la lista');
-            }
-            
-            // Cerrar modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('deletePlaylistModal'));
-            if (modal) modal.hide();
-            
-            // Mostrar mensaje de éxito
-            showToast('Lista de reproducción eliminada correctamente', 'success');
-            
-            // Recargar playlists
-            await loadPlaylists();
-            
-        } catch (error) {
-            console.error('Error al eliminar playlist:', error);
-            showToast(`Error al eliminar lista: ${error.message}`, 'error');
-        }
-    }
-
-    // Funciones de utilidad
-    function formatDate(dateString) {
-        if (!dateString) return '';
-        
-        const date = new Date(dateString);
-        return date.toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+        const response = await fetch(API_ENDPOINTS.deletePlaylist(playlistId), {
+            method: 'DELETE'
         });
-    }
-
-    function isExpired(dateString) {
-        if (!dateString) return false;
         
-        const expirationDate = new Date(dateString);
-        const now = new Date();
-        
-        return expirationDate < now;
-    }
-
-    // Función para mostrar toasts
-    function showToast(message, type = 'info') {
-        // Usar la función global si está disponible
-        if (typeof window.showToast === 'function') {
-            window.showToast(message, type);
-            return;
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: No se pudo eliminar la playlist`);
         }
         
-        // Implementación básica fallback
-        console.log(`[${type.toUpperCase()}] ${message}`);
-        alert(message);
+        showToast('Playlist eliminada correctamente', 'success');
+        
+        // Recargar la lista
+        await loadPlaylists();
+        
+    } catch (error) {
+        console.error('❌ Error eliminando playlist:', error);
+        showToast(`Error al eliminar playlist: ${error.message}`, 'error');
     }
+}
+
+function refreshPlaylists() {
+    loadPlaylists();
+}
+
+// ==========================================
+// FUNCIONES DE ESTADÍSTICAS
+// ==========================================
+
+function updateStatsBadges() {
+    const totalBadge = document.getElementById('totalPlaylistsBadge');
+    const activeBadge = document.getElementById('activePlaylistsBadge');
+    const expiredBadge = document.getElementById('expiredPlaylistsBadge');
+    const videosBadge = document.getElementById('totalVideosBadge');
+    
+    const totalPlaylists = playlists.length;
+    const activePlaylists = playlists.filter(p => isPlaylistActive(p) && !isPlaylistExpired(p)).length;
+    const expiredPlaylists = playlists.filter(p => isPlaylistExpired(p)).length;
+    const totalVideos = playlists.reduce((sum, p) => sum + (p.videos?.length || 0), 0);
+    
+    if (totalBadge) totalBadge.innerHTML = `<i class="fas fa-list me-1"></i>${totalPlaylists} listas`;
+    if (activeBadge) activeBadge.innerHTML = `<i class="fas fa-check-circle me-1"></i>${activePlaylists} activas`;
+    if (expiredBadge) expiredBadge.innerHTML = `<i class="fas fa-exclamation-triangle me-1"></i>${expiredPlaylists} expiradas`;
+    if (videosBadge) videosBadge.innerHTML = `<i class="fas fa-video me-1"></i>${totalVideos} videos`;
+}
+
+// ==========================================
+// FUNCIONES UTILITARIAS
+// ==========================================
+
+function isPlaylistActive(playlist) {
+    return playlist.is_active === true || playlist.is_active === 1;
+}
+
+function isPlaylistExpired(playlist) {
+    return playlist.expiration_date && new Date(playlist.expiration_date) < new Date();
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function setLoadingState(loading) {
+    isLoading = loading;
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = loading ? 'flex' : 'none';
+    }
+}
+
+function showErrorState(message) {
+    const tbody = document.getElementById('playlistsTableBody');
+    const container = document.getElementById('playlistsGridContainer');
+    
+    const errorHtml = `
+        <div class="text-center py-5">
+            <div class="text-danger">
+                <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                <h5>Error al cargar datos</h5>
+                <p class="mb-3">${message}</p>
+                <button class="btn btn-outline-primary" onclick="loadPlaylists()">
+                    <i class="fas fa-sync-alt me-2"></i>Reintentar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    if (currentView === 'table' && tbody) {
+        tbody.innerHTML = `<tr><td colspan="6">${errorHtml}</td></tr>`;
+    } else if (currentView === 'grid' && container) {
+        container.innerHTML = `<div class="col-12">${errorHtml}</div>`;
+    }
+}
+
+// ==========================================
+// SISTEMA DE NOTIFICACIONES
+// ==========================================
+
+function showToast(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    
+    const toastId = 'toast-' + Date.now();
+    const iconMap = {
+        success: 'fas fa-check-circle',
+        error: 'fas fa-exclamation-triangle',
+        warning: 'fas fa-exclamation-circle',
+        info: 'fas fa-info-circle'
+    };
+    
+    const toast = document.createElement('div');
+    toast.id = toastId;
+    toast.className = `toast show align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="${iconMap[type] || iconMap.info} me-2"></i>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="closeToast('${toastId}')"></button>
+        </div>
+    `;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => closeToast(toastId), duration);
+}
+
+function closeToast(toastId) {
+    const toast = document.getElementById(toastId);
+    if (toast) {
+        toast.remove();
+    }
+}
+
+// ==========================================
+// INICIALIZACIÓN AUTOMÁTICA
+// ==========================================
+
+console.log('✅ Script de gestión de playlists cargado correctamente');
 </script>
 {% endblock %}
