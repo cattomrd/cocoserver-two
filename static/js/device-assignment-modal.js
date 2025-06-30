@@ -1,7 +1,88 @@
 /**
  * DEVICE ASSIGNMENT MODAL - Código JavaScript para el Modal de Asignación de Dispositivos
  * Gestiona la asignación de dispositivos a listas de reproducción
+ * Versión con soporte HTTPS completo
  */
+
+// ==========================================
+// FUNCIONES DE SEGURIDAD HTTPS
+// ==========================================
+
+/**
+ * Funciones de seguridad compartidas - Si no están disponibles desde otros archivos
+ */
+if (typeof getSecureBaseUrl === 'undefined') {
+    /**
+     * Obtener la URL base con el protocolo correcto
+     */
+    function getSecureBaseUrl() {
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        return `${protocol}//${host}`;
+    }
+}
+
+if (typeof buildApiUrl === 'undefined') {
+    /**
+     * Construir URL de API de manera segura
+     */
+    function buildApiUrl(endpoint = '') {
+        const baseUrl = getSecureBaseUrl();
+        return `${baseUrl}/api${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
+    }
+}
+
+if (typeof isSecureContext === 'undefined') {
+    /**
+     * Verificar si estamos en un contexto seguro
+     */
+    function isSecureContext() {
+        return window.location.protocol === 'https:' || 
+               window.location.hostname === 'localhost' || 
+               window.location.hostname === '127.0.0.1';
+    }
+}
+
+if (typeof secureFetch === 'undefined') {
+    /**
+     * Realizar petición fetch de manera segura
+     */
+    async function secureFetch(url, options = {}) {
+        try {
+            // Configurar opciones por defecto para HTTPS
+            const secureOptions = {
+                credentials: 'same-origin',
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Agregar headers de seguridad si estamos en HTTPS
+                    ...(isSecureContext() && {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }),
+                    ...options.headers
+                }
+            };
+
+            console.log(`🔒 [Modal] Petición segura a: ${url}`);
+            const response = await fetch(url, secureOptions);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`❌ [Modal] Error HTTP ${response.status}: ${errorText}`);
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            
+            return response;
+        } catch (error) {
+            // Si estamos en HTTPS y hay error de mixed content, avisar
+            if (isSecureContext() && url.startsWith('http:')) {
+                console.error('🚨 [Modal] Error de contenido mixto detectado');
+                throw new Error('Error de seguridad: contenido HTTP en página HTTPS');
+            }
+            throw error;
+        }
+    }
+}
 
 // ==========================================
 // VARIABLES GLOBALES PARA EL MODAL
@@ -12,6 +93,17 @@ let currentAssignedDeviceIds = [];
 let pendingDeviceChanges = new Set();
 let isLoadingDevices = false;
 
+// API URL base - Usando función segura
+const MODAL_API_URL = buildApiUrl();
+
+// Endpoints específicos para el modal
+const MODAL_API_ENDPOINTS = {
+    devices: `${MODAL_API_URL}/devices`,
+    playlistDevices: (playlistId) => `${MODAL_API_URL}/playlists/${playlistId}/devices`,
+    assignDevice: `${MODAL_API_URL}/device-playlists`,
+    unassignDevice: (deviceId, playlistId) => `${MODAL_API_URL}/device-playlists/${deviceId}/${playlistId}`
+};
+
 // ==========================================
 // FUNCIONES PRINCIPALES DEL MODAL
 // ==========================================
@@ -20,7 +112,11 @@ let isLoadingDevices = false;
  * Inicializar el modal de asignación de dispositivos
  */
 function initializeDeviceAssignmentModal() {
-    console.log('🔧 Inicializando modal de asignación de dispositivos...');
+    console.log('🔧 [Modal] Inicializando modal de asignación de dispositivos...');
+    
+    // Mostrar estado de seguridad
+    const secureContext = isSecureContext();
+    console.log(`🔒 [Modal] Inicializando en contexto ${secureContext ? 'SEGURO' : 'INSEGURO'}`);
     
     // Configurar event listeners del modal
     setupDeviceModalEventListeners();
@@ -29,18 +125,66 @@ function initializeDeviceAssignmentModal() {
     const deviceModal = document.getElementById('assignDeviceModal');
     if (deviceModal) {
         deviceModal.addEventListener('show.bs.modal', async function() {
-            console.log('📺 Abriendo modal de asignación de dispositivos...');
-            await loadDevicesForAssignment();
-            await loadCurrentAssignedDevices();
+            console.log('📺 [Modal] Abriendo modal de asignación de dispositivos...');
+            try {
+                showModalSecurityStatus();
+                await loadDevicesForAssignment();
+                await loadCurrentAssignedDevices();
+            } catch (error) {
+                console.error('❌ [Modal] Error al abrir modal:', error);
+                if (error.message.includes('seguridad') || error.message.includes('HTTPS')) {
+                    showModalSecurityWarning();
+                }
+            }
         });
         
         deviceModal.addEventListener('hidden.bs.modal', function() {
-            console.log('📺 Cerrando modal de asignación de dispositivos...');
+            console.log('📺 [Modal] Cerrando modal de asignación de dispositivos...');
             resetDeviceAssignmentModal();
         });
     }
     
-    console.log('✅ Modal de asignación de dispositivos inicializado');
+    console.log('✅ [Modal] Modal de asignación de dispositivos inicializado');
+}
+
+/**
+ * Mostrar estado de seguridad en el modal
+ */
+function showModalSecurityStatus() {
+    const modalHeader = document.querySelector('#assignDeviceModal .modal-header');
+    if (!modalHeader || document.getElementById('modalSecurityIndicator')) return;
+    
+    const secureContext = isSecureContext();
+    const protocol = window.location.protocol.toUpperCase();
+    
+    const securityIndicator = document.createElement('small');
+    securityIndicator.id = 'modalSecurityIndicator';
+    securityIndicator.className = `ms-auto ${secureContext ? 'text-success' : 'text-warning'}`;
+    securityIndicator.innerHTML = secureContext ? 
+        `<i class="fas fa-lock me-1"></i>${protocol}` :
+        `<i class="fas fa-unlock me-1"></i>${protocol}`;
+    
+    modalHeader.appendChild(securityIndicator);
+}
+
+/**
+ * Mostrar advertencia de seguridad en el modal
+ */
+function showModalSecurityWarning() {
+    const modalBody = document.querySelector('#assignDeviceModal .modal-body');
+    if (!modalBody || document.getElementById('modalSecurityWarning')) return;
+    
+    const warningElement = document.createElement('div');
+    warningElement.id = 'modalSecurityWarning';
+    warningElement.className = 'alert alert-warning alert-dismissible fade show';
+    warningElement.innerHTML = `
+        <i class="fas fa-shield-alt me-2"></i>
+        <strong>Advertencia de Seguridad:</strong>
+        Se detectaron problemas de seguridad. Verifique su configuración HTTPS.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    modalBody.insertBefore(warningElement, modalBody.firstChild);
 }
 
 /**
@@ -80,20 +224,22 @@ function setupDeviceModalEventListeners() {
     if (saveDeviceAssignments) {
         saveDeviceAssignments.addEventListener('click', saveDeviceAssignments_Click);
     }
+    
+    console.log('✅ [Modal] Event listeners configurados');
 }
 
 /**
  * Cargar todos los dispositivos disponibles para asignación
  */
 async function loadDevicesForAssignment() {
-    console.log('📺 Cargando dispositivos para asignación...');
+    console.log('📺 [Modal] Cargando dispositivos para asignación...');
     
     if (isLoadingDevices) return;
     isLoadingDevices = true;
     
     const devicesList = document.getElementById('availableDevicesList');
     if (!devicesList) {
-        console.error('❌ Elemento availableDevicesList no encontrado');
+        console.error('❌ [Modal] Elemento availableDevicesList no encontrado');
         return;
     }
     
@@ -110,34 +256,49 @@ async function loadDevicesForAssignment() {
     `;
     
     try {
-        const response = await fetch(`${API_URL}/devices`);
+        const url = MODAL_API_ENDPOINTS.devices;
+        console.log(`🔡 [Modal] Cargando desde: ${url}`);
         
-        if (!response.ok) {
-            throw new Error(`Error ${response.status}: No se pudieron cargar los dispositivos`);
-        }
+        const response = await secureFetch(url);
         
         const data = await response.json();
         allDevicesForAssignment = Array.isArray(data) ? data : (data.devices || []);
         
-        console.log(`✅ Dispositivos cargados: ${allDevicesForAssignment.length}`);
+        console.log(`✅ [Modal] Dispositivos cargados: ${allDevicesForAssignment.length}`);
         
         // Aplicar filtros iniciales
         filterDevicesInModal();
         
     } catch (error) {
-        console.error('❌ Error cargando dispositivos:', error);
+        console.error('❌ [Modal] Error cargando dispositivos:', error);
+        
+        const isSecurityError = error.message.includes('seguridad') || error.message.includes('HTTPS');
+        const errorIcon = isSecurityError ? 'fa-shield-alt' : 'fa-exclamation-triangle';
+        const errorClass = isSecurityError ? 'text-warning' : 'text-danger';
+        
         devicesList.innerHTML = `
             <tr>
-                <td colspan="5" class="text-center py-3 text-danger">
-                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                <td colspan="5" class="text-center py-3 ${errorClass}">
+                    <i class="fas ${errorIcon} fa-2x mb-2"></i>
                     <p class="mb-1">Error cargando dispositivos</p>
-                    <p class="small text-muted mb-2">${error.message}</p>
+                    <p class="small text-muted mb-2">${escapeHtml(error.message)}</p>
+                    ${isSecurityError ? `
+                        <div class="alert alert-warning text-start mb-2">
+                            <small><strong>Problema de seguridad:</strong> Verifique configuración HTTPS</small>
+                        </div>
+                    ` : ''}
                     <button class="btn btn-sm btn-outline-primary" onclick="loadDevicesForAssignment()">
                         <i class="fas fa-sync"></i> Reintentar
                     </button>
                 </td>
             </tr>
         `;
+        
+        // Mostrar advertencia de seguridad si es necesario
+        if (isSecurityError) {
+            showModalSecurityWarning();
+        }
+        
     } finally {
         isLoadingDevices = false;
     }
@@ -147,31 +308,35 @@ async function loadDevicesForAssignment() {
  * Cargar dispositivos actualmente asignados a la playlist
  */
 async function loadCurrentAssignedDevices() {
-    console.log('📺 Cargando dispositivos asignados actuales...');
+    console.log('📺 [Modal] Cargando dispositivos asignados actuales...');
     
     const playlistId = getPlaylistId();
     if (!playlistId) {
-        console.error('❌ No se pudo obtener el ID de playlist');
+        console.error('❌ [Modal] No se pudo obtener el ID de playlist');
         return;
     }
     
     try {
-        const response = await fetch(`${API_URL}/playlists/${playlistId}/devices`);
+        const url = MODAL_API_ENDPOINTS.playlistDevices(playlistId);
+        console.log(`🔡 [Modal] Cargando dispositivos asignados desde: ${url}`);
         
-        if (response.ok) {
-            const assignedDevices = await response.json();
-            currentAssignedDeviceIds = assignedDevices.map(device => 
-                device.device_id || device.id || device.mac_address
-            );
-            console.log(`✅ Dispositivos asignados cargados: ${currentAssignedDeviceIds.length}`);
-        } else {
-            console.warn('⚠️ No se pudieron cargar dispositivos asignados');
-            currentAssignedDeviceIds = [];
-        }
+        const response = await secureFetch(url);
+        
+        const assignedDevices = await response.json();
+        currentAssignedDeviceIds = assignedDevices.map(device => 
+            device.device_id || device.id || device.mac_address
+        );
+        
+        console.log(`✅ [Modal] Dispositivos asignados cargados: ${currentAssignedDeviceIds.length}`);
         
     } catch (error) {
-        console.error('❌ Error cargando dispositivos asignados:', error);
+        console.error('❌ [Modal] Error cargando dispositivos asignados:', error);
         currentAssignedDeviceIds = [];
+        
+        // Si es un error de seguridad, mostrar advertencia
+        if (error.message.includes('seguridad') || error.message.includes('HTTPS')) {
+            showModalSecurityWarning();
+        }
     }
 }
 
@@ -179,7 +344,7 @@ async function loadCurrentAssignedDevices() {
  * Filtrar dispositivos según búsqueda y estado
  */
 function filterDevicesInModal(searchTerm = '') {
-    console.log('🔍 Filtrando dispositivos en modal...');
+    console.log('🔍 [Modal] Filtrando dispositivos en modal...');
     
     const deviceStatusFilter = document.getElementById('deviceStatusFilter');
     const statusFilter = deviceStatusFilter ? deviceStatusFilter.value : 'all';
@@ -228,7 +393,7 @@ function filterDevicesInModal(searchTerm = '') {
         return matchesSearch && matchesStatus;
     });
     
-    console.log(`🔍 Dispositivos filtrados: ${filteredDevicesForAssignment.length}`);
+    console.log(`🔍 [Modal] Dispositivos filtrados: ${filteredDevicesForAssignment.length}`);
     
     // Renderizar dispositivos filtrados
     renderFilteredDevices();
@@ -240,7 +405,7 @@ function filterDevicesInModal(searchTerm = '') {
 function renderFilteredDevices() {
     const devicesList = document.getElementById('availableDevicesList');
     if (!devicesList) {
-        console.error('❌ Elemento availableDevicesList no encontrado');
+        console.error('❌ [Modal] Elemento availableDevicesList no encontrado');
         return;
     }
     
@@ -291,8 +456,13 @@ function renderFilteredDevices() {
             assignedBadge = '<span class="badge bg-secondary">No asignado</span>';
         }
         
+        // Indicador de seguridad del dispositivo
+        const securityIndicator = device.supports_https ? 
+            '<i class="fas fa-lock text-success ms-1" title="Soporte HTTPS"></i>' : 
+            '<i class="fas fa-unlock text-warning ms-1" title="Sin soporte HTTPS"></i>';
+        
         return `
-            <tr ${hasPendingChange ? 'class="table-warning"' : ''}>
+            <tr ${hasPendingChange ? 'class="table-warning"' : ''} data-device-id="${deviceId}">
                 <td>
                     <div class="form-check">
                         <input class="form-check-input device-checkbox" 
@@ -307,7 +477,10 @@ function renderFilteredDevices() {
                     <div class="d-flex align-items-center">
                         <i class="fas fa-tv text-primary me-2"></i>
                         <div>
-                            <h6 class="mb-0">${escapeHtml(device.name || 'Sin nombre')}</h6>
+                            <h6 class="mb-0">
+                                ${escapeHtml(device.name || 'Sin nombre')}
+                                ${securityIndicator}
+                            </h6>
                             <small class="text-muted">${escapeHtml(device.mac_address || '')}</small>
                         </div>
                     </div>
@@ -334,7 +507,7 @@ function renderFilteredDevices() {
  * Manejar cambio en checkbox de dispositivo
  */
 function handleDeviceCheckboxChange(deviceId) {
-    console.log(`📺 Checkbox cambiado para dispositivo: ${deviceId}`);
+    console.log(`📺 [Modal] Checkbox cambiado para dispositivo: ${deviceId}`);
     
     if (pendingDeviceChanges.has(deviceId)) {
         // Si ya estaba en cambios pendientes, quitarlo (volver al estado original)
@@ -344,7 +517,7 @@ function handleDeviceCheckboxChange(deviceId) {
         pendingDeviceChanges.add(deviceId);
     }
     
-    console.log(`📺 Cambios pendientes: ${pendingDeviceChanges.size}`);
+    console.log(`📺 [Modal] Cambios pendientes: ${pendingDeviceChanges.size}`);
     
     // Re-renderizar para actualizar el estado visual
     renderFilteredDevices();
@@ -374,16 +547,26 @@ function updateSaveButtonState() {
  * Manejar click en botón de guardar asignaciones
  */
 async function saveDeviceAssignments_Click() {
-    console.log('💾 Guardando cambios de asignación de dispositivos...');
+    console.log('💾 [Modal] Guardando cambios de asignación de dispositivos...');
     
     if (pendingDeviceChanges.size === 0) {
-        showToast('No hay cambios pendientes para guardar', 'warning');
+        const message = 'No hay cambios pendientes para guardar';
+        if (typeof showToast === 'function') {
+            showToast(message, 'warning');
+        } else {
+            alert(message);
+        }
         return;
     }
     
     const playlistId = getPlaylistId();
     if (!playlistId) {
-        showToast('Error: No se pudo determinar el ID de la playlist', 'error');
+        const message = 'Error: No se pudo determinar el ID de la playlist';
+        if (typeof showToast === 'function') {
+            showToast(message, 'error');
+        } else {
+            alert(message);
+        }
         return;
     }
     
@@ -400,6 +583,7 @@ async function saveDeviceAssignments_Click() {
     
     try {
         const promises = [];
+        const operationDetails = [];
         
         // Procesar cada cambio pendiente
         for (const deviceId of pendingDeviceChanges) {
@@ -407,12 +591,14 @@ async function saveDeviceAssignments_Click() {
             
             if (isCurrentlyAssigned) {
                 // Desasignar dispositivo
-                console.log(`📺 Desasignando dispositivo: ${deviceId}`);
-                promises.push(unassignDeviceFromPlaylist(playlistId, deviceId));
+                console.log(`📺 [Modal] Desasignando dispositivo: ${deviceId}`);
+                promises.push(unassignDeviceFromPlaylistSecure(playlistId, deviceId));
+                operationDetails.push({ deviceId, operation: 'unassign' });
             } else {
                 // Asignar dispositivo
-                console.log(`📺 Asignando dispositivo: ${deviceId}`);
-                promises.push(assignDeviceToPlaylist(playlistId, deviceId));
+                console.log(`📺 [Modal] Asignando dispositivo: ${deviceId}`);
+                promises.push(assignDeviceToPlaylistSecure(playlistId, deviceId));
+                operationDetails.push({ deviceId, operation: 'assign' });
             }
         }
         
@@ -421,12 +607,33 @@ async function saveDeviceAssignments_Click() {
         
         // Verificar si hubo errores
         const failedOperations = results.filter(result => result.status === 'rejected');
+        const securityErrors = failedOperations.filter(op => 
+            op.reason.message.includes('seguridad') || op.reason.message.includes('HTTPS')
+        );
         
         if (failedOperations.length > 0) {
-            console.error('❌ Algunas operaciones fallaron:', failedOperations);
-            showToast(`${pendingDeviceChanges.size - failedOperations.length}/${pendingDeviceChanges.size} cambios guardados correctamente`, 'warning');
+            console.error('❌ [Modal] Algunas operaciones fallaron:', failedOperations);
+            
+            const successCount = pendingDeviceChanges.size - failedOperations.length;
+            const message = `${successCount}/${pendingDeviceChanges.size} cambios guardados correctamente`;
+            
+            if (typeof showToast === 'function') {
+                showToast(message, 'warning');
+            } else {
+                alert(message);
+            }
+            
+            // Si hay errores de seguridad, mostrar advertencia
+            if (securityErrors.length > 0) {
+                showModalSecurityWarning();
+            }
         } else {
-            showToast('Todas las asignaciones de dispositivos se guardaron correctamente', 'success');
+            const message = 'Todas las asignaciones de dispositivos se guardaron correctamente';
+            if (typeof showToast === 'function') {
+                showToast(message, 'success');
+            } else {
+                console.log(`✅ [Modal] ${message}`);
+            }
         }
         
         // Limpiar estado
@@ -447,8 +654,20 @@ async function saveDeviceAssignments_Click() {
         }
         
     } catch (error) {
-        console.error('❌ Error guardando asignaciones:', error);
-        showToast(`Error al guardar asignaciones: ${error.message}`, 'error');
+        console.error('❌ [Modal] Error guardando asignaciones:', error);
+        
+        const message = `Error al guardar asignaciones: ${error.message}`;
+        if (typeof showToast === 'function') {
+            showToast(message, 'error');
+        } else {
+            alert(message);
+        }
+        
+        // Si es un error de seguridad, mostrar advertencia
+        if (error.message.includes('seguridad') || error.message.includes('HTTPS')) {
+            showModalSecurityWarning();
+        }
+        
     } finally {
         // Restaurar botón de guardar
         updateSaveButtonState();
@@ -456,45 +675,46 @@ async function saveDeviceAssignments_Click() {
 }
 
 /**
- * Asignar dispositivo a playlist
+ * Asignar dispositivo a playlist de manera segura
  */
-async function assignDeviceToPlaylist(playlistId, deviceId) {
-    const response = await fetch(`${API_URL}/device-playlists`, {
+async function assignDeviceToPlaylistSecure(playlistId, deviceId) {
+    const url = MODAL_API_ENDPOINTS.assignDevice;
+    console.log(`🔡 [Modal] Asignando dispositivo a: ${url}`);
+    
+    const response = await secureFetch(url, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
             device_id: deviceId,
             playlist_id: parseInt(playlistId)
         })
     });
     
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error asignando dispositivo ${deviceId}: ${errorText}`);
-    }
-    
     return await response.json();
 }
 
 /**
- * Desasignar dispositivo de playlist
+ * Desasignar dispositivo de playlist de manera segura
  */
-async function unassignDeviceFromPlaylist(playlistId, deviceId) {
-    const response = await fetch(`${API_URL}/device-playlists/${deviceId}/${playlistId}`, {
-        method: 'DELETE',
-        headers: {
-            'Content-Type': 'application/json'
-        }
+async function unassignDeviceFromPlaylistSecure(playlistId, deviceId) {
+    const url = MODAL_API_ENDPOINTS.unassignDevice(deviceId, playlistId);
+    console.log(`🔡 [Modal] Desasignando dispositivo de: ${url}`);
+    
+    const response = await secureFetch(url, {
+        method: 'DELETE'
     });
     
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error desasignando dispositivo ${deviceId}: ${errorText}`);
-    }
-    
     return true;
+}
+
+/**
+ * Funciones de compatibilidad (mantienen la interfaz original)
+ */
+async function assignDeviceToPlaylist(playlistId, deviceId) {
+    return await assignDeviceToPlaylistSecure(playlistId, deviceId);
+}
+
+async function unassignDeviceFromPlaylist(playlistId, deviceId) {
+    return await unassignDeviceFromPlaylistSecure(playlistId, deviceId);
 }
 
 /**
@@ -520,7 +740,7 @@ function clearDeviceFilters() {
  * Resetear el modal cuando se cierre
  */
 function resetDeviceAssignmentModal() {
-    console.log('🔄 Reseteando modal de asignación de dispositivos...');
+    console.log('🔄 [Modal] Reseteando modal de asignación de dispositivos...');
     
     // Limpiar datos
     allDevicesForAssignment = [];
@@ -553,6 +773,17 @@ function resetDeviceAssignmentModal() {
                 </td>
             </tr>
         `;
+    }
+    
+    // Limpiar indicadores de seguridad
+    const securityIndicator = document.getElementById('modalSecurityIndicator');
+    if (securityIndicator) {
+        securityIndicator.remove();
+    }
+    
+    const securityWarning = document.getElementById('modalSecurityWarning');
+    if (securityWarning) {
+        securityWarning.remove();
     }
     
     // Resetear botón de guardar
@@ -588,6 +819,41 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+/**
+ * Obtener ID de playlist - Fallback si no está disponible
+ */
+if (typeof getPlaylistId === 'undefined') {
+    function getPlaylistId() {
+        // Método simple de fallback
+        const urlParams = new URLSearchParams(window.location.search);
+        const idFromUrl = urlParams.get('id');
+        
+        if (idFromUrl) return idFromUrl;
+        
+        const pathMatch = window.location.pathname.match(/\/playlists\/(\d+)/);
+        return pathMatch ? pathMatch[1] : null;
+    }
+}
+
+// ==========================================
+// MANEJO DE ERRORES GLOBALES
+// ==========================================
+
+/**
+ * Manejador de errores específicos del modal
+ */
+window.addEventListener('error', function(event) {
+    if (event.error && event.error.message && 
+        (event.error.message.includes('Modal') || event.filename.includes('device_assignment'))) {
+        console.error('🚨 [Modal] Error no capturado:', event.error);
+        
+        // Si es un error de seguridad, mostrar advertencia
+        if (event.error.message.includes('seguridad') || event.error.message.includes('HTTPS')) {
+            showModalSecurityWarning();
+        }
+    }
+});
+
 // ==========================================
 // INICIALIZACIÓN
 // ==========================================
@@ -596,8 +862,31 @@ function escapeHtml(text) {
  * Inicializar cuando el DOM esté listo
  */
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📺 Inicializando módulo de asignación de dispositivos...');
+    console.log('📺 [Modal] Inicializando módulo de asignación de dispositivos con soporte HTTPS...');
+    
+    // Verificar dependencias básicas
+    if (typeof bootstrap === 'undefined') {
+        console.warn('⚠️ [Modal] Bootstrap no detectado, algunas funcionalidades pueden no funcionar');
+    }
+    
     initializeDeviceAssignmentModal();
 });
 
-console.log('✅ Módulo de asignación de dispositivos cargado correctamente');
+// Hacer funciones disponibles globalmente para compatibilidad
+window.initializeDeviceAssignmentModal = initializeDeviceAssignmentModal;
+window.loadDevicesForAssignment = loadDevicesForAssignment;
+window.loadCurrentAssignedDevices = loadCurrentAssignedDevices;
+window.filterDevicesInModal = filterDevicesInModal;
+window.handleDeviceCheckboxChange = handleDeviceCheckboxChange;
+window.saveDeviceAssignments_Click = saveDeviceAssignments_Click;
+window.assignDeviceToPlaylist = assignDeviceToPlaylist;
+window.unassignDeviceFromPlaylist = unassignDeviceFromPlaylist;
+window.clearDeviceFilters = clearDeviceFilters;
+
+// Funciones de seguridad también disponibles globalmente
+window.getSecureBaseUrl = getSecureBaseUrl;
+window.buildApiUrl = buildApiUrl;
+window.isSecureContext = isSecureContext;
+window.secureFetch = secureFetch;
+
+console.log('✅ [Modal] Módulo de asignación de dispositivos con soporte HTTPS cargado correctamente');

@@ -1,6 +1,6 @@
 /**
- * ASSIGNED DEVICES MANAGER - Gestión de Dispositivos Asignados
- * Maneja la visualización y gestión de dispositivos ya asignados a la playlist
+ * ASSIGNED DEVICES MANAGER - GestiÃ³n de Dispositivos Asignados
+ * Maneja la visualizaciÃ³n y gestiÃ³n de dispositivos ya asignados a la playlist
  */
 
 // ==========================================
@@ -19,14 +19,14 @@ let isLoadingAssignedDevices = false;
 async function loadAssignedDevices() {
     const playlistId = getPlaylistId();
     if (!playlistId) {
-        console.error('❌ No se pudo determinar el ID de la playlist para cargar dispositivos');
+        console.error('âŒ No se pudo determinar el ID de la playlist para cargar dispositivos');
         return;
     }
     
     if (isLoadingAssignedDevices) return;
     isLoadingAssignedDevices = true;
     
-    console.log(`🔄 Cargando dispositivos asignados a playlist ${playlistId}...`);
+    console.log(`ðŸ”„ Cargando dispositivos asignados a playlist ${playlistId}...`);
     
     // Elementos del DOM
     const loadingElement = document.getElementById('loadingAssignedDevices');
@@ -40,9 +40,9 @@ async function loadAssignedDevices() {
     if (emptyElement) emptyElement.classList.add('d-none');
     
     try {
-        // Usar el endpoint correcto basado en la documentación del proyecto
+        // Usar el endpoint correcto basado en la documentaciÃ³n del proyecto
         const url = `${API_URL}/device-playlists/playlist/${playlistId}/devices`;
-        console.log(`📡 Cargando dispositivos desde: ${url}`);
+        console.log(`ðŸ“¡ Cargando dispositivos desde: ${url}`);
         
         const response = await fetch(url);
         
@@ -54,20 +54,20 @@ async function loadAssignedDevices() {
         const data = await response.json();
         assignedDevicesData = Array.isArray(data) ? data : [];
         
-        console.log(`✅ Dispositivos asignados cargados: ${assignedDevicesData.length}`, assignedDevicesData);
+        console.log(`âœ… Dispositivos asignados cargados: ${assignedDevicesData.length}`, assignedDevicesData);
         
-        // Mostrar dispositivos o mensaje vacío
+        // Mostrar dispositivos o mensaje vacÃ­o
         if (assignedDevicesData.length === 0) {
             showEmptyAssignedDevices();
         } else {
             renderAssignedDevices();
         }
         
-        // Actualizar contador en estadísticas
+        // Actualizar contador en estadÃ­sticas
         updateAssignedDevicesCount(assignedDevicesData.length);
         
     } catch (error) {
-        console.error('❌ Error cargando dispositivos asignados:', error);
+        console.error('âŒ Error cargando dispositivos asignados:', error);
         showErrorAssignedDevices(error.message);
     } finally {
         isLoadingAssignedDevices = false;
@@ -84,11 +84,11 @@ function renderAssignedDevices() {
     const devicesList = document.getElementById('assignedDevicesList');
     
     if (!devicesList) {
-        console.error('❌ Elemento assignedDevicesList no encontrado');
+        console.error('âŒ Elemento assignedDevicesList no encontrado');
         return;
     }
     
-    // Mostrar tabla y ocultar mensaje vacío
+    // Mostrar tabla y ocultar mensaje vacÃ­o
     if (tableElement) tableElement.classList.remove('d-none');
     if (emptyElement) emptyElement.classList.add('d-none');
     
@@ -98,14 +98,14 @@ function renderAssignedDevices() {
         const statusClass = device.is_active ? 'bg-success' : 'bg-danger';
         const statusText = device.is_active ? 'Activo' : 'Inactivo';
         
-        // Formatear última conexión
+        // Formatear Ãºltima conexiÃ³n
         let lastConnection = 'Nunca';
         if (device.last_seen) {
             try {
                 const date = new Date(device.last_seen);
                 lastConnection = date.toLocaleDateString('es-ES') + ' ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
             } catch (e) {
-                lastConnection = 'Fecha inválida';
+                lastConnection = 'Fecha invÃ¡lida';
             }
         }
         
@@ -122,7 +122,7 @@ function renderAssignedDevices() {
                 </td>
                 <td>
                     <div>
-                        <span class="fw-bold">${escapeHtml(device.location || 'Sin ubicación')}</span>
+                        <span class="fw-bold">${escapeHtml(device.location || 'Sin ubicaciÃ³n')}</span>
                         ${device.tienda ? `<br><small class="text-muted">${escapeHtml(device.tienda)}</small>` : ''}
                     </div>
                 </td>
@@ -152,7 +152,7 @@ function renderAssignedDevices() {
     
     devicesList.innerHTML = devicesHTML;
     
-    console.log(`✅ ${assignedDevicesData.length} dispositivos renderizados en la tabla`);
+    console.log(`âœ… ${assignedDevicesData.length} dispositivos renderizados en la tabla`);
 }
 
 /**
@@ -176,7 +176,7 @@ function showEmptyAssignedDevices() {
         `;
     }
     
-    console.log('📺 Mostrando mensaje de dispositivos vacío');
+    console.log('ðŸ“º Mostrando mensaje de dispositivos vacÃ­o');
 }
 
 /**
@@ -205,25 +205,25 @@ function showErrorAssignedDevices(errorMessage) {
 }
 
 /**
- * Actualizar contador de dispositivos en estadísticas
+ * Actualizar contador de dispositivos en estadÃ­sticas
  */
 function updateAssignedDevicesCount(count) {
     const countElement = document.getElementById('assignedDevices');
     if (countElement) {
         countElement.textContent = count;
-        console.log(`📊 Contador de dispositivos actualizado: ${count}`);
+        console.log(`ðŸ“Š Contador de dispositivos actualizado: ${count}`);
     }
 }
 
 // ==========================================
-// FUNCIONES DE GESTIÓN DE DISPOSITIVOS
+// FUNCIONES DE GESTIÃ“N DE DISPOSITIVOS
 // ==========================================
 
 /**
- * Confirmar desasignación de dispositivo
+ * Confirmar desasignaciÃ³n de dispositivo
  */
 function confirmUnassignDevice(deviceId, deviceName) {
-    if (confirm(`¿Estás seguro de que deseas desasignar el dispositivo "${deviceName}" de esta lista de reproducción?`)) {
+    if (confirm(`Â¿EstÃ¡s seguro de que deseas desasignar el dispositivo "${deviceName}" de esta lista de reproducciÃ³n?`)) {
         unassignDeviceFromPlaylist(deviceId);
     }
 }
@@ -238,10 +238,10 @@ async function unassignDeviceFromPlaylist(deviceId) {
         return;
     }
     
-    console.log(`🔄 Desasignando dispositivo ${deviceId} de playlist ${playlistId}...`);
+    console.log(`ðŸ”„ Desasignando dispositivo ${deviceId} de playlist ${playlistId}...`);
     
     try {
-        // Mostrar loading en el botón
+        // Mostrar loading en el botÃ³n
         const buttonElement = document.querySelector(`button[onclick*="confirmUnassignDevice('${deviceId}'"]`);
         if (buttonElement) {
             buttonElement.disabled = true;
@@ -250,7 +250,7 @@ async function unassignDeviceFromPlaylist(deviceId) {
         
         // Usar el endpoint correcto para desasignar
         const url = `${API_URL}/device-playlists/${deviceId}/${playlistId}`;
-        console.log(`📡 Desasignando dispositivo: ${url}`);
+        console.log(`ðŸ“¡ Desasignando dispositivo: ${url}`);
         
         const response = await fetch(url, {
             method: 'DELETE',
@@ -269,17 +269,17 @@ async function unassignDeviceFromPlaylist(deviceId) {
         // Recargar lista de dispositivos asignados
         await loadAssignedDevices();
         
-        // Actualizar datos del modal de asignación si está abierto
+        // Actualizar datos del modal de asignaciÃ³n si estÃ¡ abierto
         if (document.getElementById('assignDeviceModal').classList.contains('show')) {
             await loadCurrentAssignedDevices();
             filterDevicesInModal();
         }
         
     } catch (error) {
-        console.error('❌ Error desasignando dispositivo:', error);
+        console.error('âŒ Error desasignando dispositivo:', error);
         showToast(`Error al desasignar dispositivo: ${error.message}`, 'error');
         
-        // Restaurar botón
+        // Restaurar botÃ³n
         const buttonElement = document.querySelector(`button[onclick*="confirmUnassignDevice('${deviceId}'"]`);
         if (buttonElement) {
             buttonElement.disabled = false;
@@ -292,47 +292,47 @@ async function unassignDeviceFromPlaylist(deviceId) {
  * Ver detalles del dispositivo
  */
 function viewDeviceDetails(deviceId) {
-    // Redirigir a la página de detalles del dispositivo
+    // Redirigir a la pÃ¡gina de detalles del dispositivo
     const detailsUrl = `/ui/devices/${deviceId}`;
     window.open(detailsUrl, '_blank');
 }
 
 // ==========================================
-// FUNCIONES DE INTEGRACIÓN
+// FUNCIONES DE INTEGRACIÃ“N
 // ==========================================
 
 /**
- * Recargar dispositivos asignados después de cambios en asignaciones
+ * Recargar dispositivos asignados despuÃ©s de cambios en asignaciones
  */
 async function refreshAssignedDevicesAfterChanges() {
-    console.log('🔄 Recargando dispositivos asignados después de cambios...');
+    console.log('ðŸ”„ Recargando dispositivos asignados despuÃ©s de cambios...');
     await loadAssignedDevices();
 }
 
 /**
- * Inicializar gestión de dispositivos asignados
+ * Inicializar gestiÃ³n de dispositivos asignados
  */
 function initializeAssignedDevicesManager() {
-    console.log('🔧 Inicializando gestor de dispositivos asignados...');
+    console.log('ðŸ”§ Inicializando gestor de dispositivos asignados...');
     
     // Cargar dispositivos asignados al inicializar
     loadAssignedDevices();
     
-    // Configurar integración con el modal
+    // Configurar integraciÃ³n con el modal
     setupModalIntegration();
     
-    console.log('✅ Gestor de dispositivos asignados inicializado');
+    console.log('âœ… Gestor de dispositivos asignados inicializado');
 }
 
 // ==========================================
-// INTEGRACIÓN CON EL MODAL DE ASIGNACIÓN
+// INTEGRACIÃ“N CON EL MODAL DE ASIGNACIÃ“N
 // ==========================================
 
 /**
- * Integrar con el modal de asignación de dispositivos para recargar automáticamente
+ * Integrar con el modal de asignaciÃ³n de dispositivos para recargar automÃ¡ticamente
  */
 function setupModalIntegration() {
-    // Escuchar el evento de cierre del modal de asignación
+    // Escuchar el evento de cierre del modal de asignaciÃ³n
     const assignModal = document.getElementById('assignDeviceModal');
     if (assignModal) {
         assignModal.addEventListener('hidden.bs.modal', function() {
@@ -341,24 +341,24 @@ function setupModalIntegration() {
         });
     }
     
-    // Override seguro de la función de guardado del modal si existe
+    // Override seguro de la funciÃ³n de guardado del modal si existe
     const checkForModalSaveFunction = () => {
         if (typeof window.saveDeviceAssignments_Click === 'function') {
             const originalSaveFunction = window.saveDeviceAssignments_Click;
             window.saveDeviceAssignments_Click = async function() {
                 const result = await originalSaveFunction();
-                // Recargar dispositivos asignados después de guardar
+                // Recargar dispositivos asignados despuÃ©s de guardar
                 setTimeout(loadAssignedDevices, 1000);
                 return result;
             };
-            console.log('✅ Función de guardado del modal integrada');
+            console.log('âœ… FunciÃ³n de guardado del modal integrada');
         } else {
-            // Intentar nuevamente después de un tiempo
+            // Intentar nuevamente despuÃ©s de un tiempo
             setTimeout(checkForModalSaveFunction, 1000);
         }
     };
     
-    // Iniciar verificación
+    // Iniciar verificaciÃ³n
     checkForModalSaveFunction();
 }
 
@@ -377,16 +377,16 @@ function escapeHtml(text) {
 }
 
 // ==========================================
-// INICIALIZACIÓN
+// INICIALIZACIÃ“N
 // ==========================================
 
 /**
- * Inicializar cuando el DOM esté listo
+ * Inicializar cuando el DOM estÃ© listo
  */
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📺 Inicializando módulo de dispositivos asignados...');
+    console.log('ðŸ“º Inicializando mÃ³dulo de dispositivos asignados...');
     
-    // Pequeño delay para asegurar que otros scripts se hayan cargado
+    // PequeÃ±o delay para asegurar que otros scripts se hayan cargado
     setTimeout(initializeAssignedDevicesManager, 500);
 });
 
@@ -397,4 +397,4 @@ window.unassignDeviceFromPlaylist = unassignDeviceFromPlaylist;
 window.viewDeviceDetails = viewDeviceDetails;
 window.refreshAssignedDevicesAfterChanges = refreshAssignedDevicesAfterChanges;
 
-console.log('✅ Módulo de gestión de dispositivos asignados cargado correctamente');
+console.log('âœ… MÃ³dulo de gestiÃ³n de dispositivos asignados cargado correctamente');

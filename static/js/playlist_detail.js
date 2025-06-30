@@ -1,6 +1,6 @@
 /**
  * PLAYLIST_DETAIL.JS - Gestor de Detalles de Playlist
- * Versión corregida sin errores de Mixed Content
+ * Versión corregida y unificada con soporte para HTTP/HTTPS
  */
 
 console.log('🎵 Cargando Editor de Playlist...');
@@ -27,39 +27,62 @@ const paginationState = {
     filteredVideos: []
 };
 
-// ==========================================
-// CONFIGURACIÓN DE API - SIN MIXED CONTENT
-// ==========================================
+// Función para obtener la URL base de manera segura (compatible con HTTP y HTTPS)
+function getBaseUrl() {
+    // Siempre usar HTTPS si la página se carga por HTTPS
+    if (window.location.protocol === 'https:') {
+        return 'https://' + window.location.host + '/api';
+    }
+    return window.location.origin + '/api';
+}
 
-/**
- * Función para obtener la URL base de la API de manera segura
- * Evita errores de Mixed Content usando el mismo protocolo que la página
- */
-const getApiUrl = () => {
-    const protocol = window.location.protocol; // 'https:' o 'http:'
-    const host = window.location.host;
-    return `${protocol}//${host}/api`;
-};
+// API URL base que funciona con ambos protocolos
+const API_URL = getBaseUrl();
+
+// Función para asegurar que todas las URLs sean HTTPS cuando la página está en HTTPS
+function forceSecureUrl(url) {
+    // Si estamos en HTTPS, asegurarnos de que todas las URLs sean HTTPS
+    if (window.location.protocol === 'https:' && url.startsWith('http:')) {
+        return url.replace('http:', 'https:');
+    }
+    return url;
+}
 
 // Endpoints estructurados para llamadas a la API
 const API_ENDPOINTS = {
-    videos: `${getApiUrl()}/videos`,
-    playlists: `${getApiUrl()}/playlists`,
-    playlistById: (id) => `${getApiUrl()}/playlists/${id}`,
-    playlistVideos: (id) => `${getApiUrl()}/playlists/${id}/videos`,
-    addVideoToPlaylist: (playlistId, videoId) => `${getApiUrl()}/playlists/${playlistId}/videos/${videoId}`,
-    removeVideoFromPlaylist: (playlistId, videoId) => `${getApiUrl()}/playlists/${playlistId}/videos/${videoId}`,
-    clearPlaylistVideos: (playlistId) => `${getApiUrl()}/playlists/${playlistId}/videos/clear`,
-    updateVideoOrder: (playlistId) => `${getApiUrl()}/playlists/${playlistId}/video-order`,
-    updatePlaylist: (id) => `${getApiUrl()}/playlists/${id}`,
-    // Endpoints para dispositivos
-    devices: `${getApiUrl()}/devices`,
-    devicePlaylists: `${getApiUrl()}/device-playlists`,
-    assignDevice: `${getApiUrl()}/device-playlists`,
-    unassignDevice: (assignmentId) => `${getApiUrl()}/device-playlists/${assignmentId}`
+    videos: `${API_URL}/videos`,
+    playlists: `${API_URL}/playlists`,
+    playlistById: (id) => `${API_URL}/playlists/${id}`,
+    playlistVideos: (id) => `${API_URL}/playlists/${id}/videos`,
+    addVideoToPlaylist: (playlistId, videoId) => `${API_URL}/playlists/${playlistId}/videos/${videoId}`,
+    removeVideoFromPlaylist: (playlistId, videoId) => `${API_URL}/playlists/${playlistId}/videos/${videoId}`,
+    clearPlaylistVideos: (playlistId) => `${API_URL}/playlists/${playlistId}/videos/clear`,
+    updateVideoOrder: (playlistId) => `${API_URL}/playlists/${playlistId}/video-order`,
+    updatePlaylist: (id) => `${API_URL}/playlists/${id}`
 };
 
-console.log('🔧 API Endpoints configurados (HTTPS-safe):', API_ENDPOINTS);
+// Función para normalizar URLs y asegurar compatibilidad con HTTP/HTTPS
+function normalizeUrl(url) {
+    if (!url) return url;
+    
+    // Si la URL ya empieza con http:// o https://, dejarla tal cual
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+    }
+    
+    // Si es una URL relativa que empieza con //, usar el protocolo actual
+    if (url.startsWith('//')) {
+        return window.location.protocol + url;
+    }
+    
+    // Si es una URL relativa al path, convertirla a absoluta con el protocolo actual
+    if (url.startsWith('/')) {
+        return window.location.origin + url;
+    }
+    
+    // Para otros casos, devolver la URL original
+    return url;
+}
 
 // Detectar si hay datos de playlist pasados desde el template
 try {
@@ -89,185 +112,133 @@ function getPlaylistId() {
     // Método 1: Obtener de la URL
     const urlParams = new URLSearchParams(window.location.search);
     const idFromUrl = urlParams.get('id');
-    console.log(`🔹 ID de URL: ${idFromUrl}`);
+    console.log(`📹 ID de URL: ${idFromUrl}`);
     
     // Método 2: Obtener del elemento oculto
     const idElement = document.getElementById('playlist-id');
     const idFromElement = idElement ? idElement.value : null;
-    console.log(`🔹 ID de elemento oculto: ${idFromElement}`);
+    console.log(`📹 ID de elemento oculto: ${idFromElement}`);
     
-    // Método 3: Obtener de los datos globales
-    const idFromData = currentPlaylistData ? currentPlaylistData.id : null;
-    console.log(`🔹 ID de datos globales: ${idFromData}`);
+    // Método 3: Obtener de la variable global
+    const idFromGlobal = window.currentPlaylistId || 
+                        (window.currentPlaylistData ? window.currentPlaylistData.id : null);
+    console.log(`📹 ID de variable global: ${idFromGlobal}`);
     
-    // Método 4: Obtener de la variable global del window
-    const idFromWindow = window.currentPlaylistId || null;
-    console.log(`🔹 ID de window: ${idFromWindow}`);
+    // Método 4: Extraer del path de la URL (en caso de rutas como /playlists/123/detail)
+    const pathMatch = window.location.pathname.match(/\/playlists\/(\d+)/);
+    const idFromPath = pathMatch ? pathMatch[1] : null;
+    console.log(`📹 ID del path: ${idFromPath}`);
     
-    // Prioridad: URL > elemento oculto > datos globales > window
-    const playlistId = idFromUrl || idFromElement || idFromData || idFromWindow;
-    
-    console.log(`✅ ID final de playlist: ${playlistId}`);
+    // Usar el primer valor válido que encontremos
+    const playlistId = idFromUrl || idFromElement || idFromGlobal || idFromPath;
     
     if (!playlistId) {
-        console.error('❌ No se pudo determinar el ID de la playlist');
-        showToast('Error: No se pudo identificar la playlist', 'error');
+        console.error('❌ No se pudo determinar el ID de playlist de ninguna fuente');
+        return null;
     }
     
+    console.log(`✅ ID de playlist encontrado: ${playlistId}`);
     return playlistId;
 }
 
 // ==========================================
-// FUNCIONES DE INICIALIZACIÓN
+// FUNCIONES PRINCIPALES - CARGA DE DATOS
 // ==========================================
 
 /**
- * Inicialización automática al cargar el DOM
+ * Función auxiliar para crear opciones de fetch que manejen redirecciones
  */
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Inicializando playlist detail...');
+function createFetchOptions(method = 'GET', body = null) {
+    const options = {
+        method: method,
+        redirect: 'follow', // Seguir automáticamente las redirecciones
+        headers: {
+            'Accept': 'application/json'
+        },
+        credentials: 'same-origin' // Enviar cookies para autenticación si es necesario
+    };
     
-    // Configurar el ID de la playlist desde la URL
-    setupPlaylistIdElement();
-    
-    // Si ya tenemos datos de la playlist, configurar la interfaz
-    if (currentPlaylistData) {
-        console.log('📋 Configurando interfaz con datos existentes...');
-        setupEditMode();
-        renderPlaylistVideos();
-        updatePlaylistStats();
-    } else {
-        // Si no hay datos, intentar cargarlos
-        const playlistId = getPlaylistId();
-        if (playlistId) {
-            loadPlaylistForEdit(playlistId);
-        }
-    }
-    
-    // Configurar event listeners
-    setupEventListeners();
-    
-    console.log('✅ Playlist detail inicializado');
-});
-
-/**
- * Función para crear elemento oculto con ID de playlist
- */
-function setupPlaylistIdElement() {
-    // Obtener ID de la URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const playlistId = urlParams.get('id');
-    
-    if (playlistId) {
-        console.log(`📌 ID de playlist detectado en URL: ${playlistId}`);
-        window.currentPlaylistId = playlistId;
+    // Añadir Content-Type y body para métodos que los requieren
+    if (method !== 'GET' && method !== 'HEAD') {
+        options.headers['Content-Type'] = 'application/json';
         
-        // Crear elemento oculto si no existe
-        if (!document.getElementById('playlist-id')) {
-            console.log('📌 Creando elemento oculto para ID de playlist');
-            const hiddenInput = document.createElement('input');
-            hiddenInput.type = 'hidden';
-            hiddenInput.id = 'playlist-id';
-            hiddenInput.value = playlistId;
-            document.body.appendChild(hiddenInput);
-        } else {
-            // Asegurarse de que tenga el valor correcto
-            document.getElementById('playlist-id').value = playlistId;
+        if (body) {
+            options.body = JSON.stringify(body);
         }
-    } else {
-        console.warn('⚠️ No se detectó ID de playlist en la URL');
     }
+    
+    return options;
 }
-
-/**
- * Configurar event listeners principales
- */
-function setupEventListeners() {
-    console.log('🔧 Configurando event listeners...');
-    
-    // Event listener para el formulario principal (si existe)
-    const playlistForm = document.getElementById('playlistForm');
-    if (playlistForm) {
-        playlistForm.addEventListener('submit', handleFormSubmit);
-    }
-    
-    // Event listeners para filtros de videos
-    const videoSearchInput = document.getElementById('videoSearchInput');
-    if (videoSearchInput) {
-        videoSearchInput.addEventListener('input', debounce(filterAvailableVideos, 300));
-    }
-    
-    // Event listeners para cambios en campos del formulario
-    const formFields = ['playlistTitle', 'playlistDescription', 'playlistStatus', 'startDate', 'expirationDate'];
-    formFields.forEach(fieldId => {
-        const field = document.getElementById(fieldId);
-        if (field) {
-            field.addEventListener('change', markAsUnsaved);
-            field.addEventListener('input', markAsUnsaved);
-        }
-    });
-    
-    // Prevenir pérdida de cambios al salir
-    window.addEventListener('beforeunload', function(e) {
-        if (hasChanges) {
-            e.preventDefault();
-            e.returnValue = 'Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?';
-        }
-    });
-}
-
-// ==========================================
-// FUNCIONES DE CARGA DE DATOS
-// ==========================================
 
 /**
  * Cargar datos completos de la playlist para edición
  */
-async function loadPlaylistForEdit(playlistId) {
+async function loadPlaylistData(playlistId) {
     if (!playlistId || isLoading) return;
     
     console.log('🎵 Cargando playlist para editar:', playlistId);
-    setLoadingState(true);
+    showLoadingState('Cargando datos de la playlist...');
     
     try {
-        showToast('Cargando datos de la playlist...', 'info');
+        // Construir la URL manualmente
+        let url = API_ENDPOINTS.playlistById(playlistId);
         
-        // 1. Cargar datos básicos de la playlist
-        console.log('📡 Fetch:', API_ENDPOINTS.playlistById(playlistId));
-        const playlistResponse = await fetch(API_ENDPOINTS.playlistById(playlistId));
-        
-        if (!playlistResponse.ok) {
-            throw new Error(`Error ${playlistResponse.status}: No se pudo cargar la playlist`);
+        // Garantizar que la URL sea HTTPS si la página es HTTPS
+        if (window.location.protocol === 'https:') {
+            // Forzar protocolo HTTPS explícitamente
+            url = url.replace(/^http:\/\//i, 'https://');
+            // Si la URL no tiene protocolo, agregar HTTPS
+            if (!/^https?:\/\//i.test(url)) {
+                url = 'https://' + window.location.host + (url.startsWith('/') ? url : '/' + url);
+            }
         }
         
-        const playlistData = await playlistResponse.json();
-        currentPlaylistData = playlistData;
+        console.log(`📡 Fetch URL asegurada: ${url}?include_videos=true`);
         
-        console.log('✅ Playlist cargada:', currentPlaylistData);
+        const response = await fetch(`${url}?include_videos=true`, createFetchOptions());
         
-        // 2. Obtener videos asignados (ya incluidos en el detail)
-        playlistVideos = currentPlaylistData.videos || [];
-        console.log('✅ Videos de playlist cargados:', playlistVideos.length);
+        // Obtener la URL final después de las redirecciones
+        console.log('📡 URL final después de redirecciones:', response.url);
         
-        // 3. Cargar videos disponibles
-        await loadAvailableVideos();
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ Error cargando playlist (${response.status}): ${errorText}`);
+            throw new Error(`Error al cargar playlist: ${response.status}`);
+        }
         
-        // 4. Cargar dispositivos asignados
-        await loadAssignedDevices();
+        currentPlaylistData = await response.json();
+        console.log(`✅ Playlist cargada:`, currentPlaylistData);
         
-        // 5. Actualizar interfaz
-        setupEditMode();
-        renderPlaylistVideos();
-        updatePlaylistStats();
+        // Guardar videos de la playlist
+        if (currentPlaylistData.videos && Array.isArray(currentPlaylistData.videos)) {
+            // Normalizar URLs de videos si tienen path absoluto
+            playlistVideos = currentPlaylistData.videos.map(video => {
+                if (video.file_path) {
+                    video.file_path = normalizeUrl(video.file_path);
+                }
+                return video;
+            });
+            console.log(`✅ Videos de playlist cargados: ${playlistVideos.length}`);
+        } else {
+            playlistVideos = [];
+            console.log(`⚠️ La playlist no tiene videos`);
+        }
         
-        showToast('Playlist cargada correctamente', 'success');
+        // Configurar modo de edición
+        setupEditMode(currentPlaylistData.title);
+        
+        // Mostrar videos en la tabla
+        updatePlaylistVideosTable();
+        
+        // Cargar videos disponibles
+        loadAvailableVideos();
+        
+        // Ocultar estado de carga
+        hideLoadingState('Playlist cargada correctamente');
         
     } catch (error) {
-        console.error('❌ Error cargando playlist:', error);
-        showToast(`Error: ${error.message}`, 'error');
-        showErrorState('No se pudo cargar la playlist');
-    } finally {
-        setLoadingState(false);
+        console.error('Error loading playlist data:', error);
+        hideLoadingState(`Error al cargar la playlist: ${error.message}`, 'error');
     }
 }
 
@@ -299,15 +270,46 @@ async function loadAvailableVideos() {
     }
 
     try {
-        console.log('📡 Fetch:', API_ENDPOINTS.videos);
-        const response = await fetch(API_ENDPOINTS.videos);
+        // Garantizar que la URL sea HTTPS si la página es HTTPS
+        let videosUrl = API_ENDPOINTS.videos;
+        if (window.location.protocol === 'https:') {
+            // Forzar protocolo HTTPS explícitamente
+            videosUrl = videosUrl.replace(/^http:\/\//i, 'https://');
+            // Si la URL no tiene protocolo, agregar HTTPS
+            if (!/^https?:\/\//i.test(videosUrl)) {
+                videosUrl = 'https://' + window.location.host + (videosUrl.startsWith('/') ? videosUrl : '/' + videosUrl);
+            }
+        }
+        
+        console.log('📡 Fetch URL asegurada:', videosUrl);
+        
+        // Añadir opciones para manejar redirecciones
+        const response = await fetch(videosUrl, {
+            method: 'GET',
+            redirect: 'follow', // Seguir automáticamente las redirecciones
+            headers: {
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin' // Enviar cookies para autenticación si es necesario
+        });
+        
+        // Obtener la URL final después de las redirecciones
+        console.log('📡 URL final después de redirecciones:', response.url);
         
         if (!response.ok) {
             throw new Error(`Error ${response.status}: No se pudieron cargar los videos`);
         }
 
         const data = await response.json();
+        // Normalizar URLs en los videos disponibles
         availableVideos = Array.isArray(data) ? data : (data.videos || []);
+        availableVideos = availableVideos.map(video => {
+            if (video.file_path) {
+                // Asegurar que la URL del video sea segura si estamos en HTTPS
+                video.file_path = forceSecureUrl(normalizeUrl(video.file_path));
+            }
+            return video;
+        });
         
         console.log('✅ Videos disponibles cargados:', availableVideos.length);
         
@@ -332,6 +334,7 @@ async function loadAvailableVideos() {
                     <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
                     <p class="mb-1">Error conectando con la API</p>
                     <p class="small text-muted mb-2">No se pudieron cargar los videos disponibles</p>
+                    <p class="small text-muted mb-2">Detalles: ${error.message}</p>
                     <button class="btn btn-sm btn-outline-primary" onclick="loadAvailableVideos()">
                         <i class="fas fa-sync"></i> Reintentar
                     </button>
@@ -341,223 +344,375 @@ async function loadAvailableVideos() {
     }
 }
 
-/**
- * Cargar dispositivos asignados a la playlist
- */
-async function loadAssignedDevices() {
-    console.log('📱 Cargando dispositivos asignados...');
-    
-    const playlistId = getPlaylistId();
-    if (!playlistId) return;
-    
-    try {
-        const response = await fetch(`${API_ENDPOINTS.devicePlaylists}?playlist_id=${playlistId}`);
-        
-        if (!response.ok) {
-            console.warn('⚠️ No se pudieron cargar dispositivos asignados');
-            return;
-        }
-        
-        const assignments = await response.json();
-        assignedDevices = Array.isArray(assignments) ? assignments : [];
-        
-        console.log('✅ Dispositivos asignados cargados:', assignedDevices.length);
-        
-        // Renderizar dispositivos asignados si existe el contenedor
-        renderAssignedDevices();
-        
-    } catch (error) {
-        console.warn('⚠️ Error cargando dispositivos asignados:', error);
-    }
-}
-
 // ==========================================
-// FUNCIONES DE RENDERIZADO
+// FUNCIONES DE RENDERIZADO Y PAGINACIÓN
 // ==========================================
 
 /**
  * Renderiza los videos disponibles con paginación
  */
 function renderAvailableVideos() {
-    const container = document.getElementById('availableVideosList');
-    if (!container) {
-        console.warn('⚠️ Contenedor availableVideosList no encontrado');
+    console.log('🎨 Renderizando videos disponibles (con paginación)...');
+    
+    const availableVideosList = document.getElementById('availableVideosList');
+    if (!availableVideosList) {
+        console.error('❌ Elemento availableVideosList no encontrado');
         return;
     }
-    
-    const { filteredVideos, currentPage, pageSize } = paginationState;
-    
-    if (filteredVideos.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-4 text-muted">
-                <i class="fas fa-video fa-3x mb-3"></i>
-                <p class="mb-0">No hay videos disponibles para agregar</p>
-                <small>Todos los videos ya están en la playlist o no hay videos en el sistema</small>
+
+    if (!availableVideos || availableVideos.length === 0) {
+        availableVideosList.innerHTML = `
+            <div class="text-center py-3">
+                <i class="fas fa-video-slash text-muted mb-2"></i>
+                <p class="small text-muted mb-1">No hay videos disponibles</p>
+                <button class="btn btn-sm btn-outline-primary btn-xs" onclick="loadAvailableVideos()">
+                    <i class="fas fa-sync me-1"></i> Recargar
+                </button>
             </div>
         `;
+        updatePaginationControls(0);
         return;
     }
+
+    // Filtrar videos que ya están en la playlist
+    const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
+    const videosDisponibles = paginationState.filteredVideos;
+
+    if (videosDisponibles.length === 0) {
+        availableVideosList.innerHTML = `
+            <div class="text-center py-3">
+                <i class="fas fa-check-circle text-success mb-2"></i>
+                <p class="small text-success mb-1">Todos los videos están en la lista</p>
+            </div>
+        `;
+        updatePaginationControls(0);
+        return;
+    }
+
+    // Obtener solo los videos de la página actual
+    const startIndex = (paginationState.currentPage - 1) * paginationState.pageSize;
+    const endIndex = Math.min(startIndex + paginationState.pageSize, videosDisponibles.length);
+    const videosEnPagina = videosDisponibles.slice(startIndex, endIndex);
     
-    const start = (currentPage - 1) * pageSize;
-    const end = start + pageSize;
-    const pageVideos = filteredVideos.slice(start, end);
-    
-    container.innerHTML = pageVideos.map(video => `
-        <div class="col-md-6 col-lg-4 mb-3">
-            <div class="card h-100 video-card">
-                <div class="position-relative">
-                    <div class="video-thumbnail-placeholder">
-                        <i class="fas fa-play-circle fa-3x text-primary"></i>
+    // Generar HTML para cada video de la página actual
+    const videosHTML = videosEnPagina.map(video => {
+        // Determinar estado del video (reducimos a solo un indicador de color)
+        let statusColor = 'bg-success';
+        if (!video.is_active) {
+            statusColor = 'bg-secondary';
+        } else if (video.expiration_date && new Date() > new Date(video.expiration_date)) {
+            statusColor = 'bg-danger';
+        }
+
+        return `
+        <div class="video-card" data-video-id="${video.id}">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="status-indicator me-2" style="width:3px;height:20px;background-color:var(--bs-${statusColor.replace('bg-', '')})"></div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <h6 class="video-title">${escapeHtml(video.title)}</h6>
                     </div>
-                    <div class="position-absolute top-0 end-0 m-2">
-                        <button class="btn btn-sm btn-success" 
+                    <div class="flex-shrink-0 ms-1">
+                        <button class="btn btn-primary btn-sm btn-xs p-1" 
                                 onclick="addVideoToPlaylist(${video.id})"
-                                title="Agregar a playlist">
+                                title="Agregar a la lista">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
                 </div>
-                <div class="card-body">
-                    <h6 class="card-title">${escapeHtml(video.title || 'Sin título')}</h6>
-                    <p class="card-text small text-muted">
-                        ${video.description ? escapeHtml(video.description).substring(0, 100) + '...' : 'Sin descripción'}
-                    </p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">
-                            <i class="fas fa-clock me-1"></i>
-                            ${formatDuration(video.duration)}
-                        </small>
-                        <button class="btn btn-sm btn-outline-primary" 
-                                onclick="previewVideo(${video.id})"
-                                title="Vista previa">
-                            <i class="fas fa-eye"></i>
-                        </button>
+            </div>
+        </div>
+        `;
+    }).join('');
+
+    availableVideosList.innerHTML = videosHTML;
+    
+    // Actualizar los controles de paginación
+    updatePaginationControls(videosDisponibles.length);
+    
+    // Actualizar contador
+    updateAvailableVideoCount(videosDisponibles.length);
+}
+
+/**
+ * Actualiza los controles de paginación
+ */
+function updatePaginationControls(totalItems) {
+    const currentPageEl = document.getElementById('currentPage');
+    const totalPagesEl = document.getElementById('totalPages');
+    const prevPageBtn = document.getElementById('prevPageBtn');
+    const nextPageBtn = document.getElementById('nextPageBtn');
+    const pageIndicator = document.getElementById('pageIndicator');
+    
+    // Calcular número total de páginas
+    paginationState.totalPages = Math.max(1, Math.ceil(totalItems / paginationState.pageSize));
+    
+    // Actualizar textos
+    if (currentPageEl) currentPageEl.textContent = paginationState.currentPage;
+    if (totalPagesEl) totalPagesEl.textContent = paginationState.totalPages;
+    if (pageIndicator) pageIndicator.textContent = paginationState.currentPage;
+    
+    // Habilitar/deshabilitar botones
+    if (prevPageBtn) prevPageBtn.disabled = paginationState.currentPage <= 1;
+    if (nextPageBtn) nextPageBtn.disabled = paginationState.currentPage >= paginationState.totalPages;
+    
+    // Si no hay elementos o solo hay una página, ocultar controles de paginación
+    const paginationContainer = document.querySelector('.pagination-container');
+    if (paginationContainer) {
+        paginationContainer.style.display = totalItems > 0 && paginationState.totalPages > 1 ? 'block' : 'none';
+    }
+}
+
+/**
+ * Cambia a la página anterior
+ */
+function goToPrevPage() {
+    if (paginationState.currentPage > 1) {
+        paginationState.currentPage--;
+        renderAvailableVideos();
+    }
+}
+
+/**
+ * Cambia a la página siguiente
+ */
+function goToNextPage() {
+    if (paginationState.currentPage < paginationState.totalPages) {
+        paginationState.currentPage++;
+        renderAvailableVideos();
+    }
+}
+
+/**
+ * Cambia el tamaño de página
+ */
+function changePageSize(newSize) {
+    paginationState.pageSize = parseInt(newSize);
+    paginationState.currentPage = 1; // Volver a la primera página
+    renderAvailableVideos();
+}
+
+/**
+ * Renderiza los videos filtrados según el término de búsqueda
+ */
+function filterAvailableVideos(searchTerm) {
+    console.log(`🔍 Filtrando videos por: "${searchTerm}"`);
+    
+    // Si no hay videos disponibles, no hacer nada
+    if (!availableVideos || availableVideos.length === 0) {
+        return;
+    }
+
+    // Obtener todos los videos que no están en la playlist actual
+    const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
+    let videosDisponibles = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
+    
+    // Si hay un término de búsqueda, filtrar por título, descripción y nombre de archivo
+    if (searchTerm && searchTerm.trim() !== '') {
+        searchTerm = searchTerm.toLowerCase().trim();
+        
+        videosDisponibles = videosDisponibles.filter(video => {
+            const title = (video.title || '').toLowerCase();
+            const description = (video.description || '').toLowerCase();
+            const filename = (video.filename || '').toLowerCase();
+            
+            return title.includes(searchTerm) || 
+                   description.includes(searchTerm) || 
+                   filename.includes(searchTerm);
+        });
+        
+        console.log(`🔍 Resultados de búsqueda: ${videosDisponibles.length} videos encontrados`);
+    }
+
+    // Actualizar estado de paginación
+    paginationState.filteredVideos = videosDisponibles;
+    paginationState.totalPages = Math.ceil(videosDisponibles.length / paginationState.pageSize);
+    paginationState.currentPage = 1; // Volver a la primera página al filtrar
+    
+    // Si no hay resultados, mostrar mensaje
+    if (videosDisponibles.length === 0) {
+        const availableVideosList = document.getElementById('availableVideosList');
+        if (availableVideosList) {
+            availableVideosList.innerHTML = `
+                <div class="text-center py-3">
+                    <i class="fas fa-search text-muted mb-2"></i>
+                    <p class="small text-muted mb-1">No se encontraron videos${searchTerm ? ` con "${searchTerm}"` : ''}</p>
+                    <button class="btn btn-sm btn-outline-secondary btn-xs" onclick="clearVideoSearch()">
+                        <i class="fas fa-times me-1"></i> Limpiar
+                    </button>
+                </div>
+            `;
+        }
+        updatePaginationControls(0);
+        return;
+    }
+    
+    // Actualizar contador con información de filtro si es necesario
+    const countElement = document.getElementById('availableVideoCount');
+    if (countElement) {
+        if (searchTerm && searchTerm.trim() !== '') {
+            const totalVideos = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id))).length;
+            countElement.innerHTML = `${videosDisponibles.length}/${totalVideos}`;
+            
+            // Agregar clase para mostrar que hay un filtro activo
+            const searchInput = document.getElementById('videoSearch');
+            if (searchInput) {
+                searchInput.classList.add('active-filter');
+            }
+        } else {
+            countElement.textContent = `${videosDisponibles.length} videos`;
+            
+            // Quitar clase de filtro activo
+            const searchInput = document.getElementById('videoSearch');
+            if (searchInput) {
+                searchInput.classList.remove('active-filter');
+            }
+        }
+    }
+    
+    // Renderizar los resultados
+    renderAvailableVideos();
+}
+
+/**
+ * Limpia la búsqueda y muestra todos los videos disponibles
+ */
+function clearVideoSearch() {
+    const searchInput = document.getElementById('videoSearch');
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.classList.remove('active-filter');
+        
+        // Restablecer la paginación
+        paginationState.currentPage = 1;
+        
+        // Cargar todos los videos disponibles
+        const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
+        paginationState.filteredVideos = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
+        
+        filterAvailableVideos('');
+    }
+}
+
+/**
+ * Configurar event listeners para la paginación
+ */
+function setupPaginationEventListeners() {
+    // Botones de paginación
+    const prevPageBtn = document.getElementById('prevPageBtn');
+    const nextPageBtn = document.getElementById('nextPageBtn');
+    const pageSizeSelector = document.getElementById('pageSizeSelector');
+    
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener('click', goToPrevPage);
+    }
+    
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', goToNextPage);
+    }
+    
+    if (pageSizeSelector) {
+        pageSizeSelector.addEventListener('change', function() {
+            changePageSize(this.value);
+        });
+    }
+}
+
+/**
+ * Renderizar videos de la playlist
+ */
+function updatePlaylistVideosTable() {
+    console.log('🎬 Renderizando videos de la playlist:', playlistVideos.length);
+    
+    const container = document.getElementById('playlistVideosList');
+    const emptyMessage = document.getElementById('emptyPlaylistMessage');
+    const countElement = document.getElementById('playlistVideoCount');
+
+    if (!container) {
+        console.error('❌ Container playlistVideosList no encontrado');
+        return;
+    }
+
+    // Mostrar mensaje vacío si no hay videos
+    if (!playlistVideos || playlistVideos.length === 0) {
+        if (emptyMessage) emptyMessage.style.display = 'block';
+        container.innerHTML = '';
+        if (countElement) countElement.textContent = '0 videos';
+        return;
+    }
+
+    // Ocultar mensaje vacío
+    if (emptyMessage) emptyMessage.style.display = 'none';
+
+    // Ordenar videos por su orden en la playlist
+    const sortedVideos = [...playlistVideos].sort((a, b) => {
+        return (a.order || 0) - (b.order || 0);
+    });
+
+    // Versión compacta
+    const videosHTML = sortedVideos.map((video, index) => {
+        const order = video.order || (index + 1);
+        const duration = formatDuration(video.duration || 0);
+        const status = getVideoStatus(video);
+
+        return `
+        <div class="playlist-video-item mb-1" data-video-id="${video.id}" data-order="${order}">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-2">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <div class="d-flex align-items-center">
+                                <div class="drag-handle me-2" title="Arrastrar para reordenar">
+                                    <i class="fas fa-grip-vertical text-muted"></i>
+                                </div>
+                                <span class="badge bg-primary order-badge">${order}</span>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <h6 class="mb-0 fw-bold">${escapeHtml(video.title)}</h6>
+                            <div class="d-flex align-items-center">
+                                <span class="badge ${status.class} me-2">${status.text}</span>
+                                <small class="text-muted">${duration}</small>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" 
+                                        onclick="previewVideo(${video.id})"
+                                        title="Vista previa">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" 
+                                        onclick="removeVideoFromPlaylist(${video.id})"
+                                        title="Quitar de la lista">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    `).join('');
-    
-    // Actualizar información de paginación
-    updateVideoPaginationInfo();
-}
-
-/**
- * Renderiza los videos de la playlist actual
- */
-function renderPlaylistVideos() {
-    const container = document.getElementById('playlistVideosList');
-    if (!container) {
-        console.warn('⚠️ Contenedor playlistVideosList no encontrado');
-        return;
-    }
-    
-    if (playlistVideos.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-4 text-muted">
-                <i class="fas fa-list-alt fa-3x mb-3"></i>
-                <p class="mb-0">La playlist está vacía</p>
-                <small>Agrega videos desde la biblioteca disponible</small>
-            </div>
         `;
-        return;
-    }
-    
-    // Ordenar videos por el campo 'order' si existe
-    const sortedVideos = [...playlistVideos].sort((a, b) => {
-        const orderA = a.order || a.playlist_order || 0;
-        const orderB = b.order || b.playlist_order || 0;
-        return orderA - orderB;
-    });
-    
-    container.innerHTML = `
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th style="width: 50px">#</th>
-                        <th>Video</th>
-                        <th style="width: 100px">Duración</th>
-                        <th style="width: 120px">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${sortedVideos.map((video, index) => `
-                        <tr data-video-id="${video.id}">
-                            <td>
-                                <span class="badge bg-secondary">${index + 1}</span>
-                            </td>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <div class="video-thumbnail-small me-3">
-                                        <i class="fas fa-play-circle fa-2x text-primary"></i>
-                                    </div>
-                                    <div>
-                                        <h6 class="mb-1">${escapeHtml(video.title || 'Sin título')}</h6>
-                                        <small class="text-muted">
-                                            ${video.description ? escapeHtml(video.description).substring(0, 60) + '...' : 'Sin descripción'}
-                                        </small>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                <small class="text-muted">
-                                    <i class="fas fa-clock me-1"></i>
-                                    ${formatDuration(video.duration)}
-                                </small>
-                            </td>
-                            <td>
-                                <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-primary" 
-                                            onclick="previewVideo(${video.id})"
-                                            title="Vista previa">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                    <button class="btn btn-outline-danger" 
-                                            onclick="removeVideoFromPlaylist(${video.id})"
-                                            title="Eliminar">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
-}
+    }).join('');
 
-/**
- * Renderizar dispositivos asignados
- */
-function renderAssignedDevices() {
-    const container = document.getElementById('assignedDevicesList');
-    if (!container) return;
-    
-    if (assignedDevices.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-3 text-muted">
-                <i class="fas fa-mobile-alt fa-2x mb-2"></i>
-                <p class="mb-0">No hay dispositivos asignados</p>
-            </div>
-        `;
-        return;
+    container.innerHTML = videosHTML;
+
+    // Actualizar contador
+    if (countElement) {
+        countElement.textContent = `${playlistVideos.length} video${playlistVideos.length !== 1 ? 's' : ''}`;
     }
     
-    container.innerHTML = assignedDevices.map(assignment => `
-        <div class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-                <h6 class="mb-1">${escapeHtml(assignment.device_name || 'Dispositivo sin nombre')}</h6>
-                <small class="text-muted">ID: ${assignment.device_id}</small>
-            </div>
-            <button class="btn btn-sm btn-outline-danger" 
-                    onclick="unassignDevice(${assignment.id})"
-                    title="Desasignar">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    `).join('');
+    // Actualizar estadísticas
+    updatePlaylistStats();
+    
+    // Actualizar videos disponibles para reflejar los cambios
+    const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
+    paginationState.filteredVideos = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
+    paginationState.totalPages = Math.ceil(paginationState.filteredVideos.length / paginationState.pageSize);
+    
+    // Renderizar videos disponibles nuevamente
+    renderAvailableVideos();
 }
 
 // ==========================================
@@ -578,50 +733,59 @@ async function addVideoToPlaylist(videoId) {
         
         console.log(`🎬 Añadiendo video ${videoId} a playlist ${playlistId}`);
         
-        // Construir la URL con el formato correcto
-        const url = API_ENDPOINTS.addVideoToPlaylist(playlistId, videoId);
-        console.log(`📡 URL de la API: ${url}`);
+        // Construir la URL con el formato correcto y asegurar que sea HTTPS si es necesario
+        let url = API_ENDPOINTS.addVideoToPlaylist(playlistId, videoId);
+        url = getSecureApiUrl(url);
         
-        // Realizar petición POST sin body (ya que los IDs están en la URL)
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+        console.log(`📡 URL de la API asegurada: ${url}`);
+        
+        // Realizar petición POST con opciones para manejar redirecciones
+        const response = await fetch(url, createFetchOptions('POST'));
+        
+        // Obtener la URL final después de las redirecciones
+        console.log('📡 URL final después de redirecciones:', response.url);
         
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`❌ Error de API (${response.status}): ${errorText}`);
-            throw new Error('Failed to add video to playlist');
+            throw new Error('Error al añadir video');
         }
         
         const result = await response.json();
-        console.log('✅ Video agregado exitosamente:', result);
+        console.log(`✅ Video añadido con éxito:`, result);
         
-        // Encontrar el video en la lista de disponibles
-        const video = availableVideos.find(v => parseInt(v.id) === parseInt(videoId));
+        // Buscar el video en la lista de videos disponibles
+        const video = availableVideos.find(v => v.id === videoId);
         if (video) {
-            // Agregar a la lista de videos de la playlist
-            playlistVideos.push({
+            // Añadir el orden desde la respuesta si está disponible
+            const videoWithOrder = {
                 ...video,
-                order: playlistVideos.length + 1
-            });
+                order: result.order || playlistVideos.length + 1
+            };
+            
+            // Normalizar URL del video si es necesario
+            if (videoWithOrder.file_path) {
+                videoWithOrder.file_path = sanitizeUrl(videoWithOrder.file_path);
+            }
+            
+            // Añadir a la lista de videos de la playlist
+            playlistVideos.push(videoWithOrder);
             
             // Actualizar la interfaz
-            renderPlaylistVideos();
-            showToast('Video agregado a la playlist', 'success');
+            updatePlaylistVideosTable();
+            showToast(`Video "${video.title}" añadido a la lista`, 'success');
             
-            // Marcar que hay cambios
-            markAsUnsaved();
+            // Marcar que hay cambios pendientes
+            hasChanges = true;
+        } else {
+            // Si no encontramos el video en la lista disponible, recargar datos
+            await loadPlaylistData(playlistId);
+            showToast(`Video añadido a la lista`, 'success');
         }
         
-        // Actualizar videos disponibles
-        updateAvailableVideosList();
-        
     } catch (error) {
-        console.error('❌ Error agregando video:', error);
-        showToast(`Error al agregar video: ${error.message}`, 'error');
+        console.error('Error adding video:', error);
+        showToast(`Error al añadir video: ${error.message}`, 'error');
     }
 }
 
@@ -637,56 +801,50 @@ async function removeVideoFromPlaylist(videoId) {
             throw new Error('No se pudo determinar el ID de la playlist');
         }
         
-        console.log(`🗑️ Eliminando video ${videoId} de playlist ${playlistId}`);
+        console.log(`🎬 Eliminando video ${videoId} de playlist ${playlistId}`);
         
         // Construir la URL correcta
         const url = API_ENDPOINTS.removeVideoFromPlaylist(playlistId, videoId);
-        console.log(`📡 URL de la API: ${url}`);
+        // Asegurar que la URL sea segura si estamos en HTTPS
+        const secureUrl = forceSecureUrl(url);
+        console.log(`📡 URL de la API: ${secureUrl}`);
         
-        const response = await fetch(url, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+        const response = await fetch(secureUrl, createFetchOptions('DELETE'));
+        
+        // Obtener la URL final después de las redirecciones
+        console.log('📡 URL final después de redirecciones:', response.url);
         
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`❌ Error de API (${response.status}): ${errorText}`);
-            throw new Error('Failed to remove video from playlist');
+            throw new Error('Failed to remove video');
         }
         
+        // Eliminar el video de la lista
+        playlistVideos = playlistVideos.filter(video => video.id !== videoId);
+        
         // Actualizar la interfaz
-        playlistVideos = playlistVideos.filter(v => parseInt(v.id) !== parseInt(videoId));
-        renderPlaylistVideos();
-        showToast('Video eliminado de la playlist', 'success');
+        updatePlaylistVideosTable();
+        showToast('Video eliminado de la lista', 'success');
         
-        // Marcar que hay cambios
-        markAsUnsaved();
-        
-        // Actualizar videos disponibles
-        updateAvailableVideosList();
+        // Marcar que hay cambios pendientes
+        hasChanges = true;
         
     } catch (error) {
-        console.error('❌ Error eliminando video:', error);
+        console.error('Error removing video:', error);
         showToast(`Error al eliminar video: ${error.message}`, 'error');
     }
 }
 
 /**
- * Limpiar toda la playlist
+ * Eliminar todos los videos de la playlist
  */
 async function clearPlaylist() {
-    if (playlistVideos.length === 0) {
-        showToast('La playlist ya está vacía', 'info');
-        return;
-    }
-    
-    if (!confirm('¿Estás seguro de que quieres eliminar todos los videos de la playlist?')) {
-        return;
-    }
-    
     try {
+        if (!confirm('¿Estás seguro de que deseas eliminar todos los videos de esta lista?')) {
+            return;
+        }
+        
         // Obtener el ID de la playlist
         const playlistId = getPlaylistId();
         
@@ -698,14 +856,14 @@ async function clearPlaylist() {
         
         // Construir la URL correcta
         const url = API_ENDPOINTS.clearPlaylistVideos(playlistId);
-        console.log(`📡 URL de la API: ${url}`);
+        // Asegurar que la URL sea segura si estamos en HTTPS
+        const secureUrl = forceSecureUrl(url);
+        console.log(`📡 URL de la API: ${secureUrl}`);
         
-        const response = await fetch(url, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+        const response = await fetch(secureUrl, createFetchOptions('DELETE'));
+        
+        // Obtener la URL final después de las redirecciones
+        console.log('📡 URL final después de redirecciones:', response.url);
         
         if (!response.ok) {
             const errorText = await response.text();
@@ -715,156 +873,151 @@ async function clearPlaylist() {
         
         // Actualizar la interfaz
         playlistVideos = [];
-        renderPlaylistVideos();
-        showToast('Todos los videos han sido eliminados de la playlist', 'success');
+        updatePlaylistVideosTable();
+        showToast('Todos los videos han sido eliminados de la lista', 'success');
         
         // Marcar que hay cambios pendientes
-        markAsUnsaved();
-        
-        // Actualizar videos disponibles
-        updateAvailableVideosList();
+        hasChanges = true;
         
     } catch (error) {
-        console.error('❌ Error clearing playlist:', error);
-        showToast(`Error al limpiar la playlist: ${error.message}`, 'error');
-    }
-}
-
-// ==========================================
-// FUNCIONES DE INTERFAZ Y UTILIDADES
-// ==========================================
-
-/**
- * Configurar modo de edición
- */
-function setupEditMode() {
-    console.log(`⚙️ Configurando modo edición para: ${currentPlaylistData?.title || 'playlist'}`);
-    
-    // Actualizar título de la página
-    if (currentPlaylistData?.title) {
-        document.title = `Editando: ${currentPlaylistData.title}`;
-    }
-    
-    // Rellenar formulario si existe
-    fillPlaylistForm();
-    
-    // Actualizar estadísticas
-    updatePlaylistStats();
-}
-
-/**
- * Rellenar formulario con datos de la playlist
- */
-function fillPlaylistForm() {
-    if (!currentPlaylistData) return;
-    
-    const titleInput = document.getElementById('playlistTitle');
-    const descInput = document.getElementById('playlistDescription');
-    const statusSelect = document.getElementById('playlistStatus');
-    const startDateInput = document.getElementById('startDate');
-    const expDateInput = document.getElementById('expirationDate');
-    
-    if (titleInput) titleInput.value = currentPlaylistData.title || '';
-    if (descInput) descInput.value = currentPlaylistData.description || '';
-    if (statusSelect) statusSelect.value = currentPlaylistData.is_active ? 'true' : 'false';
-    
-    // Formatear fechas para inputs
-    if (startDateInput && currentPlaylistData.start_date) {
-        const startDate = new Date(currentPlaylistData.start_date);
-        startDateInput.value = startDate.toISOString().split('T')[0];
-    }
-    
-    if (expDateInput && currentPlaylistData.expiration_date) {
-        const expDate = new Date(currentPlaylistData.expiration_date);
-        expDateInput.value = expDate.toISOString().split('T')[0];
-    }
-    
-    console.log('✅ Formulario rellenado con datos de la playlist');
-}
-
-/**
- * Actualizar estadísticas de la playlist
- */
-function updatePlaylistStats() {
-    const videoCount = playlistVideos.length;
-    const totalDuration = playlistVideos.reduce((sum, video) => sum + (video.duration || 0), 0);
-    
-    // Actualizar elementos de estadísticas si existen
-    const videoCountElement = document.getElementById('videoCount');
-    const totalDurationElement = document.getElementById('totalDuration');
-    
-    if (videoCountElement) {
-        videoCountElement.textContent = `${videoCount} video${videoCount !== 1 ? 's' : ''}`;
-    }
-    
-    if (totalDurationElement) {
-        totalDurationElement.textContent = formatDuration(totalDuration);
-    }
-    
-    // Actualizar título con contador
-    const playlistTitle = document.getElementById('playlistTitle');
-    if (playlistTitle && currentPlaylistData) {
-        const baseTitle = currentPlaylistData.title || 'Playlist sin nombre';
-        document.querySelector('h1')?.textContent = `${baseTitle} (${videoCount} videos)`;
+        console.error('Error clearing playlist:', error);
+        showToast(`Error al limpiar la lista: ${error.message}`, 'error');
     }
 }
 
 /**
- * Actualizar lista de videos disponibles
+ * Actualizar el orden de los videos
  */
-function updateAvailableVideosList() {
-    // Actualizar estadísticas
-    updatePlaylistStats();
-    
-    // Actualizar videos disponibles para reflejar los cambios
-    const playlistVideoIds = playlistVideos.map(v => parseInt(v.id));
-    paginationState.filteredVideos = availableVideos.filter(v => !playlistVideoIds.includes(parseInt(v.id)));
-    paginationState.totalPages = Math.ceil(paginationState.filteredVideos.length / paginationState.pageSize);
-    
-    // Renderizar videos disponibles nuevamente
-    renderAvailableVideos();
+async function updateVideoOrder(videoId, newOrder) {
+    try {
+        // Obtener el ID de la playlist
+        const playlistId = getPlaylistId();
+        
+        if (!playlistId) {
+            throw new Error('No se pudo determinar el ID de la playlist');
+        }
+        
+        console.log(`🎬 Actualizando orden de video ${videoId} a ${newOrder} en playlist ${playlistId}`);
+        
+        // Construir la URL correcta
+        const url = API_ENDPOINTS.updateVideoOrder(playlistId);
+        // Asegurar que la URL sea segura si estamos en HTTPS
+        const secureUrl = forceSecureUrl(url);
+        console.log(`📡 URL de la API: ${secureUrl}`);
+        
+        const body = {
+            videos: [
+                { video_id: videoId, order: newOrder }
+            ]
+        };
+        
+        const response = await fetch(secureUrl, createFetchOptions('PUT', body));
+        
+        // Obtener la URL final después de las redirecciones
+        console.log('📡 URL final después de redirecciones:', response.url);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ Error de API (${response.status}): ${errorText}`);
+            throw new Error('Failed to update video order');
+        }
+        
+        // Actualizar el orden en la lista local
+        const video = playlistVideos.find(v => v.id === videoId);
+        if (video) {
+            video.order = newOrder;
+        }
+        
+        // Ordenar la lista por el nuevo orden
+        playlistVideos.sort((a, b) => a.order - b.order);
+        
+        // Actualizar la interfaz
+        updatePlaylistVideosTable();
+        
+        // Marcar que hay cambios pendientes
+        hasChanges = true;
+        
+    } catch (error) {
+        console.error('Error updating video order:', error);
+        showToast(`Error al actualizar el orden: ${error.message}`, 'error');
+    }
 }
 
 /**
- * Marcar formulario como modificado
+ * Actualiza el orden de múltiples videos a la vez
  */
-function markAsUnsaved() {
-    hasChanges = true;
-    
-    // Actualizar indicador visual si existe
-    const saveIndicator = document.getElementById('saveIndicator');
-    if (saveIndicator) {
-        saveIndicator.innerHTML = '<i class="fas fa-circle text-warning"></i> Cambios sin guardar';
-    }
-    
-    // Habilitar botón de guardar si existe
-    const saveBtn = document.getElementById('savePlaylistBtn');
-    if (saveBtn) {
-        saveBtn.disabled = false;
-        saveBtn.classList.remove('btn-secondary');
-        saveBtn.classList.add('btn-primary');
+async function updateVideoOrderBatch(updates) {
+    try {
+        const playlistId = getPlaylistId();
+        if (!playlistId) {
+            throw new Error('No se pudo determinar el ID de la playlist');
+        }
+        
+        console.log(`🎬 Actualizando orden de ${updates.length} videos`);
+        
+        // Usar la URL segura
+        let url = `${API_URL}/playlists/${playlistId}/video-order`;
+        url = forceSecureUrl(url);
+        
+        const body = {
+            videos: updates
+        };
+        
+        const response = await fetch(url, createFetchOptions('PUT', body));
+        
+        // Obtener la URL final después de las redirecciones
+        console.log('📡 URL final después de redirecciones:', response.url);
+        
+        if (!response.ok) {
+            throw new Error('Error al actualizar el orden');
+        }
+        
+        // Actualizar los datos locales
+        updates.forEach(update => {
+            const video = playlistVideos.find(v => v.id === update.video_id);
+            if (video) {
+                video.order = update.order;
+            }
+        });
+        
+        // Ordenar la lista
+        playlistVideos.sort((a, b) => a.order - b.order);
+        
+        showToast('Orden actualizado', 'success');
+        
+    } catch (error) {
+        console.error('Error updating video order:', error);
+        showToast('Error al actualizar el orden', 'error');
     }
 }
 
 /**
- * Guardar cambios de la playlist
+ * Guardar cambios en la playlist
  */
-async function savePlaylist() {
-    const playlistId = getPlaylistId();
-    if (!playlistId) {
-        showToast('Error: No se pudo identificar la playlist', 'error');
+async function savePlaylistChanges() {
+    console.log('💾 Guardando cambios de playlist...');
+    
+    if (!currentPlaylistData || !currentPlaylistData.id) {
+        showToast('No hay una playlist para guardar', 'warning');
         return;
     }
-    
+
+    if (isLoading) return;
     setLoadingState(true);
-    
+
     try {
-        // Recopilar datos del formulario
+        showToast('Guardando cambios...', 'info');
+        
+        const form = document.getElementById('playlistForm');
+        if (!form) {
+            throw new Error('Formulario de playlist no encontrado');
+        }
+        
         const titleInput = document.getElementById('playlistTitle');
         const descInput = document.getElementById('playlistDescription');
         const statusSelect = document.getElementById('playlistStatus');
-        const startDateInput = document.getElementById('startDate');
-        const expDateInput = document.getElementById('expirationDate');
+        const startDateInput = document.getElementById('playlistStartDate');
+        const expDateInput = document.getElementById('playlistExpDate');
         
         const playlistData = {
             title: titleInput ? titleInput.value : currentPlaylistData.title,
@@ -876,13 +1029,13 @@ async function savePlaylist() {
 
         console.log('📝 Datos a guardar:', playlistData);
 
-        const response = await fetch(API_ENDPOINTS.updatePlaylist(currentPlaylistData.id), {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(playlistData)
-        });
+        // Asegurar que la URL sea segura
+        const updateUrl = forceSecureUrl(API_ENDPOINTS.updatePlaylist(currentPlaylistData.id));
+        
+        const response = await fetch(updateUrl, createFetchOptions('PUT', playlistData));
+        
+        // Obtener la URL final después de las redirecciones
+        console.log('📡 URL final después de redirecciones:', response.url);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -905,26 +1058,524 @@ async function savePlaylist() {
 }
 
 // ==========================================
-// FUNCIONES DE VISTA PREVIA
+// FUNCIONES DE INTERFAZ Y UTILIDADES
 // ==========================================
 
 /**
- * Previsualizar un video específico
+ * Configurar modo de edición
  */
-function previewVideo(videoId) {
-    console.log('▶️ Previsualizando video:', videoId);
+function setupEditMode(playlistTitle) {
+    console.log(`⚙️ Configurando modo edición para: ${playlistTitle}`);
     
-    const modal = document.getElementById('videoPreviewModal');
-    const videoPlayer = document.getElementById('previewVideoPlayer');
+    // Actualizar título de la página
+    document.title = `Editando: ${playlistTitle}`;
     
-    if (!modal || !videoPlayer) {
-        showToast('Reproductor de video no disponible', 'error');
+    // Buscar el formulario por su ID
+    const playlistForm = document.getElementById('playlistForm');
+    
+    if (!playlistForm) {
+        console.error(' ❌ Formulario de playlist no encontrado');
+        
+        // Alternativa: Crear el formulario dinámicamente si no existe
+        createPlaylistFormDynamic();
         return;
     }
     
-    try {
-        // Usar URL segura para el video
-        const videoUrl = `${getApiUrl()}/videos/${videoId}/stream`;
+    // Si el formulario existe, rellenarlo con los datos de la playlist
+    fillPlaylistForm();
+}
+
+/**
+ * Crear formulario de playlist dinámicamente
+ */
+function createPlaylistFormDynamic() {
+    console.log('📄 Creando formulario de playlist dinámicamente');
+    
+    // Buscar el contenedor donde se insertará el formulario
+    const formContainer = document.querySelector('.playlist-form-container') || 
+                          document.querySelector('.card-body') ||
+                          document.querySelector('#playlistDetailContent');
+    
+    if (!formContainer) {
+        console.error('❌ No se encontró un contenedor adecuado para el formulario');
+        showToast('Error: No se pudo crear el formulario de edición', 'error');
+        return;
+    }
+    
+    // Crear el formulario HTML
+    const formHTML = `
+        <form id="playlistForm" class="needs-validation">
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label for="playlistTitle" class="form-label">Título de la lista</label>
+                    <input type="text" class="form-control" id="playlistTitle" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="playlistStatus" class="form-label">Estado</label>
+                    <select class="form-select" id="playlistStatus">
+                        <option value="true">Activa</option>
+                        <option value="false">Inactiva</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="playlistDescription" class="form-label">Descripción</label>
+                <textarea class="form-control" id="playlistDescription" rows="2"></textarea>
+            </div>
+            
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label for="playlistStartDate" class="form-label">Fecha de inicio (opcional)</label>
+                    <input type="datetime-local" class="form-control" id="playlistStartDate">
+                </div>
+                <div class="col-md-6">
+                    <label for="playlistExpDate" class="form-label">Fecha de expiración (opcional)</label>
+                    <input type="datetime-local" class="form-control" id="playlistExpDate">
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-end mt-3">
+                <button type="button" class="btn btn-secondary me-2" onclick="resetChanges()">
+                    <i class="fas fa-undo"></i> Descartar cambios
+                </button>
+                <button type="button" class="btn btn-primary" onclick="savePlaylistChanges()">
+                    <i class="fas fa-save"></i> Guardar cambios
+                </button>
+            </div>
+        </form>
+    `;
+    
+    // Insertar el formulario al principio del contenedor
+    formContainer.insertAdjacentHTML('afterbegin', formHTML);
+    
+    // Ahora que el formulario existe, intentar rellenarlo
+    fillPlaylistForm();
+}
+
+/**
+ * Rellenar el formulario con los datos de la playlist
+ */
+function fillPlaylistForm() {
+    // Solo proceder si tenemos datos de playlist
+    if (!currentPlaylistData) {
+        console.error('❌ No hay datos de playlist para rellenar el formulario');
+        return;
+    }
+    
+    // Buscar el formulario por su ID (que ahora debería existir)
+    const playlistForm = document.getElementById('playlistForm');
+    
+    if (!playlistForm) {
+        console.error('❌ Formulario de playlist no encontrado después de la creación dinámica');
+        return;
+    }
+    
+    console.log('✅ Rellenando formulario con datos de la playlist');
+    
+    // Rellenar campos de texto
+    const titleInput = document.getElementById('playlistTitle');
+    const descInput = document.getElementById('playlistDescription');
+    const statusSelect = document.getElementById('playlistStatus');
+    const startDateInput = document.getElementById('playlistStartDate');
+    const expDateInput = document.getElementById('playlistExpDate');
+    
+    // Verificar que los elementos existen antes de asignar valores
+    if (titleInput) titleInput.value = currentPlaylistData.title || '';
+    if (descInput) descInput.value = currentPlaylistData.description || '';
+    if (statusSelect) statusSelect.value = currentPlaylistData.is_active.toString();
+    
+    // Formatear y asignar fechas si existen
+    if (startDateInput && currentPlaylistData.start_date) {
+        startDateInput.value = formatDateForInput(currentPlaylistData.start_date);
+    }
+    
+    if (expDateInput && currentPlaylistData.expiration_date) {
+        expDateInput.value = formatDateForInput(currentPlaylistData.expiration_date);
+    }
+    
+    console.log('✅ Formulario rellenado correctamente');
+}
+
+/**
+ * Restablecer cambios
+ */
+function resetChanges() {
+    console.log('📄 Restableciendo cambios...');
+    
+    // Recargar datos originales de la playlist
+    if (currentPlaylistData && currentPlaylistData.id) {
+        loadPlaylistData(currentPlaylistData.id);
+    }
+    
+    // Restablecer interfaz
+    hasChanges = false;
+    
+    showToast('Cambios descartados', 'info');
+}
+
+/**
+ * Actualizar título de la página
+ */
+function updatePageTitle() {
+    const titleElement = document.getElementById('pageTitle');
+    if (titleElement && currentPlaylistData) {
+        titleElement.textContent = `Editar Lista: ${currentPlaylistData.title}`;
+    }
+    
+    // Actualizar también el título del documento
+    if (currentPlaylistData) {
+        document.title = `Editando: ${currentPlaylistData.title}`;
+    }
+}
+
+/**
+ * Actualizar estadísticas de la playlist
+ */
+function updatePlaylistStats() {
+    if (!playlistVideos) return;
+    
+    const totalDuration = playlistVideos.reduce((sum, video) => sum + (video.duration || 0), 0);
+    const avgDuration = playlistVideos.length > 0 ? totalDuration / playlistVideos.length : 0;
+    
+    // Actualizar elementos individuales
+    updateElement('totalVideos', playlistVideos.length);
+    updateElement('totalDuration', formatDuration(totalDuration));
+    updateElement('avgDuration', formatDuration(avgDuration));
+    updateElement('totalPlaylistDuration', formatDuration(totalDuration));
+    
+    // Mostrar/ocultar sección de estadísticas
+    const statsSection = document.getElementById('playlistStats');
+    const emptyStatsMessage = document.getElementById('emptyStatsMessage');
+    
+    if (statsSection) {
+        statsSection.style.display = playlistVideos.length > 0 ? 'block' : 'none';
+    }
+    
+    if (emptyStatsMessage) {
+        emptyStatsMessage.style.display = playlistVideos.length > 0 ? 'none' : 'block';
+    }
+}
+
+/**
+ * Actualizar contador de videos disponibles
+ */
+function updateAvailableVideoCount(count) {
+    const countElement = document.getElementById('availableVideoCount');
+    if (countElement) {
+        countElement.textContent = `${count} video${count !== 1 ? 's' : ''}`;
+    }
+}
+
+/**
+ * Manejar imágenes faltantes
+ */
+function fixMissingImages() {
+    // Placeholder SVG para imágenes faltantes
+    const placeholderImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgZmlsbD0iI2VlZWVlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBhbGlnbm1lbnQtYmFzZWxpbmU9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5OTk5Ij5ObyBUaHVtYm5haWw8L3RleHQ+PHBhdGggZD0ibTEzNSw5MCBhMTUsMTUgMCAxLDEgNTAsMCBhMTUsMTUgMCAxLDEgLTUwLDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzk5OTk5OSIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHBhdGggZD0ibTE0MiwxMDUgbDM2LC0zMCIgc3Ryb2tlPSIjOTk5OTk5IiBzdHJva2Utd2lkdGg9IjUiLz48L3N2Zz4=';
+    
+    // Configurar todas las imágenes con default-video.jpg para usar el placeholder
+    document.querySelectorAll('img[src*="default-video.jpg"]').forEach(img => {
+        img.src = placeholderImage;
+    });
+    
+    // Configurar manejador de error para todas las imágenes
+    document.querySelectorAll('img').forEach(img => {
+        if (!img.hasAttribute('data-error-handled')) {
+            img.setAttribute('data-error-handled', 'true');
+            img.onerror = function() {
+                this.onerror = null; // Prevenir bucle infinito
+                this.src = placeholderImage;
+            };
+        }
+    });
+}
+
+/**
+ * Mostrar estado de carga
+ */
+function showLoadingState(message) {
+    console.log('📢 INFO:', message);
+    const loadingElement = document.getElementById('loadingIndicator');
+    if (loadingElement) {
+        loadingElement.innerHTML = `
+            <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <span>${message}</span>
+        `;
+        loadingElement.classList.remove('d-none');
+    }
+    isLoading = true;
+}
+
+/**
+ * Ocultar estado de carga
+ */
+function hideLoadingState(message, type = 'success') {
+    console.log(`📢 ${type.toUpperCase()}:`, message);
+    const loadingElement = document.getElementById('loadingIndicator');
+    if (loadingElement) {
+        loadingElement.classList.add('d-none');
+    }
+    isLoading = false;
+    
+    if (message) {
+        showToast(message, type);
+    }
+}
+
+/**
+ * Establecer estado de carga
+ */
+function setLoadingState(loading) {
+    isLoading = loading;
+    
+    // Deshabilitar botones durante la carga
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(button => {
+        button.disabled = loading;
+    });
+}
+
+/**
+ * Formatear duración en segundos
+ */
+function formatDuration(seconds) {
+    if (!seconds || seconds === 0) return '0m';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+        return `${minutes}m`;
+    } else {
+        return `${secs}s`;
+    }
+}
+
+/**
+ * Formatear fecha para input datetime-local
+ */
+function formatDateForInput(dateString) {
+    if (!dateString) return '';
+    
+    // Convertir a objeto Date
+    const date = new Date(dateString);
+    
+    // Verificar que es una fecha válida
+    if (isNaN(date.getTime())) return '';
+    
+    // Formatear como YYYY-MM-DDTHH:MM (formato requerido por datetime-local)
+    return date.toISOString().slice(0, 16);
+}
+
+/**
+ * Obtener estado del video
+ */
+function getVideoStatus(video) {
+    if (!video.is_active) {
+        return { class: 'bg-secondary', text: 'Inactivo' };
+    }
+    
+    if (video.expiration_date) {
+        const now = new Date();
+        const expiration = new Date(video.expiration_date);
+        
+        if (now > expiration) {
+            return { class: 'bg-danger', text: 'Expirado' };
+        }
+    }
+    
+    return { class: 'bg-success', text: 'Activo' };
+}
+
+/**
+ * Escapar HTML para prevenir XSS
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Actualizar elemento del DOM
+ */
+function updateElement(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.textContent = value;
+    }
+}
+
+/**
+ * Mostrar toast notification
+ */
+function showToast(message, type = 'info') {
+    console.log(`📢 ${type.toUpperCase()}: ${message}`);
+    
+    // Crear contenedor si no existe
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toastId = 'toast-' + Date.now();
+    const bgColor = {
+        success: '#198754',
+        error: '#dc3545',
+        warning: '#ffc107',
+        info: '#0dcaf0'
+    }[type] || '#6c757d';
+    
+    const icon = {
+        success: 'fa-check-circle',
+        error: 'fa-exclamation-triangle',
+        warning: 'fa-exclamation-circle',
+        info: 'fa-info-circle'
+    }[type] || 'fa-info-circle';
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast show" role="alert" style="background-color: ${bgColor}; color: white; margin-bottom: 10px; min-width: 300px;">
+            <div class="toast-body d-flex align-items-center">
+                <i class="fas ${icon} me-2"></i>
+                <span class="flex-grow-1">${message}</span>
+                <button type="button" class="btn-close btn-close-white ms-2" onclick="document.getElementById('${toastId}').remove()"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    // Auto-eliminar después de 5 segundos
+    setTimeout(() => {
+        const toast = document.getElementById(toastId);
+        if (toast) toast.remove();
+    }, 5000);
+}
+
+/**
+ * Mostrar estado de error
+ */
+function showErrorState(message) {
+    console.log('📢 ERROR: Ha ocurrido un error inesperado');
+    const container = document.getElementById('playlistVideosList');
+    if (container) {
+        container.innerHTML = `
+            <div class="alert alert-danger text-center m-3">
+                <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                <h5>Error</h5>
+                <p class="mb-2">${message}</p>
+                <button class="btn btn-outline-danger btn-sm" onclick="location.reload()">
+                    <i class="fas fa-refresh me-1"></i> Recargar Página
+                </button>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Aplicar estilos para la versión compacta
+ */
+function applyStyles() {
+    // Crear elemento de estilo
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        /* Estilos para la versión compacta */
+        .video-card, .playlist-video-item {
+            transition: all 0.2s ease;
+        }
+        
+        .video-card:hover, .playlist-video-item:hover {
+            transform: translateX(5px);
+            background-color: rgba(0, 123, 255, 0.05);
+        }
+        
+        /* Estilos para resaltar búsquedas */
+        .highlight-search {
+            background-color: rgba(255, 193, 7, 0.3);
+            font-weight: bold;
+        }
+        
+        /* Indicador de filtro activo */
+        #videoSearch.active-filter {
+            background-color: #fff8e1;
+            border-color: #ffc107;
+        }
+        
+        /* Botones más compactos */
+        .btn-xs {
+            padding: 0.15rem 0.4rem;
+            font-size: 0.75rem;
+            line-height: 1.2;
+        }
+    `;
+    
+    // Añadir al head del documento
+    document.head.appendChild(styleElement);
+    
+    console.log('✅ Estilos aplicados');
+}
+
+// ==========================================
+// FUNCIONES ADICIONALES
+// ==========================================
+
+/**
+ * Vista previa de video
+ */
+function previewVideo(videoId) {
+    console.log('▶️ Vista previa de video:', videoId);
+    
+    const video = [...availableVideos, ...playlistVideos].find(v => v.id === videoId);
+    if (!video || !video.file_path) {
+        showToast('No se puede previsualizar este video', 'error');
+        return;
+    }
+    
+    const modal = document.getElementById('videoPreviewModal');
+    const modalTitle = document.getElementById('videoPreviewModalTitle');
+    const videoPlayer = document.getElementById('previewVideoPlayer');
+    
+    if (modal && videoPlayer) {
+        // Actualizar título
+        if (modalTitle) {
+            modalTitle.textContent = `Vista Previa: ${video.title || 'Video'}`;
+        }
+        
+        // Actualizar fuente del video - ASEGURANDO COMPATIBILIDAD CON HTTP/HTTPS
+        let videoUrl;
+        
+        // Si es una URL absoluta
+        if (video.file_path.startsWith('http://') || video.file_path.startsWith('https://')) {
+            videoUrl = sanitizeUrl(video.file_path);
+        }
+        // Si es una URL relativa al protocolo
+        else if (video.file_path.startsWith('//')) {
+            videoUrl = window.location.protocol === 'https:' ? 'https:' + video.file_path : 'http:' + video.file_path;
+        }
+        // Si es una ruta relativa o recurso de API
+        else {
+            let streamUrl = `/api/videos/${videoId}/stream`;
+            
+            // Si estamos en HTTPS, asegurar que la URL sea HTTPS
+            if (window.location.protocol === 'https:') {
+                videoUrl = 'https://' + window.location.host + streamUrl;
+            } else {
+                videoUrl = window.location.origin + streamUrl;
+            }
+        }
+        
+        console.log('🎬 URL de video sanitizada:', videoUrl);
         
         videoPlayer.src = videoUrl;
         videoPlayer.load();
@@ -935,8 +1586,7 @@ function previewVideo(videoId) {
         
         // Reproducir automáticamente
         videoPlayer.play().catch(e => console.log('Reproducción automática bloqueada por el navegador'));
-    } catch (error) {
-        console.error('Error inicializando preview:', error);
+    } else {
         showToast('No se pudo inicializar el reproductor de video', 'error');
     }
 }
@@ -966,36 +1616,86 @@ function previewPlaylist() {
     }
 }
 
-// ==========================================
-// FUNCIONES UTILITARIAS
-// ==========================================
-
-function formatDuration(seconds) {
-    if (!seconds || seconds === 0) return '0:00';
+/**
+ * Función para crear elemento oculto con ID de playlist
+ */
+function setupPlaylistIdElement() {
+    // Obtener ID de la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const playlistId = urlParams.get('id');
     
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    if (hours > 0) {
-        return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    if (playlistId) {
+        console.log(`🔌 ID de playlist detectado en URL: ${playlistId}`);
+        window.currentPlaylistId = playlistId;
+        
+        // Crear elemento oculto si no existe
+        if (!document.getElementById('playlist-id')) {
+            console.log('🔌 Creando elemento oculto para ID de playlist');
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.id = 'playlist-id';
+            hiddenInput.value = playlistId;
+            document.body.appendChild(hiddenInput);
+        } else {
+            // Asegurarse de que tenga el valor correcto
+            document.getElementById('playlist-id').value = playlistId;
+        }
     } else {
-        return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        console.warn('⚠️ No se detectó ID de playlist en la URL');
     }
 }
 
-function escapeHtml(text) {
-    if (!text) return '';
-    const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
+// ==========================================
+// CONFIGURACIÓN DE EVENT LISTENERS
+// ==========================================
+
+/**
+ * Configurar todos los event listeners necesarios
+ */
+function setupEventListeners() {
+    console.log('⚙️ Configurando event listeners...');
+    
+    // Búsqueda de videos
+    const searchInput = document.getElementById('videoSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            filterAvailableVideos(searchTerm);
+        }, 300));
+    }
+    
+    // Botón para limpiar búsqueda
+    const clearSearchBtn = document.getElementById('clearVideoSearchBtn');
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', clearVideoSearch);
+    }
+    
+    // Paginación
+    setupPaginationEventListeners();
+    
+    // Formulario
+    const form = document.getElementById('playlistForm');
+    if (form) {
+        form.addEventListener('change', function() {
+            hasChanges = true;
+        });
+    }
+    
+    // Advertir al salir con cambios sin guardar
+    window.addEventListener('beforeunload', function(e) {
+        if (hasChanges) {
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        }
+    });
+    
+    console.log('✅ Event listeners configurados');
 }
 
+/**
+ * Función debounce para optimizar búsquedas
+ */
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -1008,73 +1708,492 @@ function debounce(func, wait) {
     };
 }
 
-function setLoadingState(loading) {
-    isLoading = loading;
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) {
-        overlay.style.display = loading ? 'flex' : 'none';
+// ==========================================
+// INICIALIZACIÓN
+// ==========================================
+
+/**
+ * Inicializar editor de playlist
+ */
+function initializePlaylistEditor() {
+    console.log('🎵 Inicializando Editor de Playlist...');
+    
+    try {
+        // Verificar si hay un ID de playlist en la URL y configurarlo
+        setupPlaylistIdElement();
+        
+        // Aplicar estilos
+        applyStyles();
+        
+        // Configurar manejo de imágenes faltantes
+        fixMissingImages();
+        
+        // Configurar event listeners
+        setupEventListeners();
+        
+        // PRIMERO: Verificar si hay datos de playlist desde el template
+        if (currentPlaylistData && currentPlaylistData.id) {
+            console.log('📋 Usando datos del template para playlist:', currentPlaylistData.id);
+            
+            // Configurar interfaz con datos existentes
+            setupEditMode(currentPlaylistData.title);
+            updatePlaylistVideosTable();
+            
+            // Luego cargar videos disponibles
+            loadAvailableVideos();
+            
+        } else {
+            // SEGUNDO: Intentar detectar ID desde URL si no hay datos del template
+            const playlistId = getPlaylistId();
+            
+            if (playlistId) {
+                console.log('📄 No hay datos del template, cargando desde API - Playlist ID:', playlistId);
+                loadPlaylistData(playlistId);
+            } else {
+                console.log('🆕 Modo nueva playlist');
+                // Solo cargar videos disponibles para nueva playlist
+                loadAvailableVideos();
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Error inicializando editor:', error);
+        showToast('Error al inicializar el editor: ' + error.message, 'error');
     }
 }
 
-function showErrorState(message) {
-    const container = document.getElementById('mainContent');
-    if (container) {
-        container.innerHTML = `
-            <div class="text-center py-5">
-                <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
-                <h5>Error</h5>
-                <p class="mb-2">${message}</p>
-                <button class="btn btn-outline-danger btn-sm" onclick="location.reload()">
-                    <i class="fas fa-refresh me-1"></i> Recargar Página
-                </button>
-            </div>
+// Inicializar cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', initializePlaylistEditor);
+
+console.log('✅ Editor de Playlist cargado correctamente');
+
+
+/**
+ * VIDEO MANAGER - Gestión avanzada de reproducción de videos
+ * Actualizado para soportar HTTP/HTTPS
+ */
+
+// Objeto principal para gestión de videos
+const VideoManager = {
+    // Configuración
+    config: {
+        playerElementId: 'videoPlayer',
+        apiBasePath: '/api/videos', // Path relativo para compatibilidad con ambos protocolos
+        defaultVolume: 0.8,
+        autoSavePosition: true,
+        autoSaveInterval: 5000, // milisegundos
+    },
+    
+    // Estado del reproductor
+    state: {
+        currentVideoId: null,
+        isPlaying: false,
+        isMuted: false,
+        currentPosition: 0,
+        duration: 0,
+        volume: 0.8,
+        playbackRate: 1.0,
+    },
+    
+    // Referencia al elemento de video
+    player: null,
+    
+    // Temporizador para guardar posición
+    savePositionTimer: null,
+    
+    /**
+     * Normaliza una URL para asegurar compatibilidad con HTTP/HTTPS
+     */
+    normalizeUrl: function(url) {
+        if (!url) return url;
+        
+        // Si ya empieza con http:// o https://, dejarla como está
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            return url;
+        }
+        
+        // Si es una URL relativa que empieza con //, usar el protocolo actual
+        if (url.startsWith('//')) {
+            return window.location.protocol + url;
+        }
+        
+        // Si es una URL relativa al path, convertirla a absoluta
+        if (url.startsWith('/')) {
+            return window.location.origin + url;
+        }
+        
+        // Para otros casos, devolver la URL original
+        return url;
+    },
+    
+    /**
+     * Inicializar el reproductor de video
+     * @param {number} videoId - ID del video a reproducir
+     * @param {Object} options - Opciones adicionales
+     */
+    initialize: function(videoId, options = {}) {
+        console.log('🎬 Inicializando reproductor de video...');
+        
+        // Combinar opciones con configuración predeterminada
+        this.config = { ...this.config, ...options };
+        
+        // Guardar ID del video actual
+        this.state.currentVideoId = videoId;
+        
+        // Obtener referencia al reproductor
+        this.player = document.getElementById(this.config.playerElementId);
+        
+        if (!this.player) {
+            console.error('❌ No se encontró el elemento de video');
+            return false;
+        }
+        
+        // Configurar reproductor
+        this.setupPlayer();
+        
+        // Configurar eventos
+        this.setupEvents();
+        
+        console.log(`✅ Reproductor inicializado para video ID: ${videoId}`);
+        return true;
+    },
+    
+    /**
+     * Configurar el reproductor de video
+     */
+    setupPlayer: function() {
+        // Configurar URL de streaming con soporte para HTTP/HTTPS
+        const streamUrl = this.normalizeUrl(`${this.config.apiBasePath}/${this.state.currentVideoId}/stream`);
+        
+        // Verificar si ya tiene source
+        if (this.player.querySelector('source')) {
+            this.player.querySelector('source').src = streamUrl;
+        } else {
+            const source = document.createElement('source');
+            source.src = streamUrl;
+            source.type = 'video/mp4'; // Tipo por defecto, se ajustará según el contenido
+            this.player.appendChild(source);
+        }
+        
+        // Configurar volumen
+        this.player.volume = this.config.defaultVolume;
+        
+        // Cargar video
+        this.player.load();
+        
+        // Restaurar posición guardada
+        this.restoreSavedPosition();
+    },
+    
+    /**
+     * Configurar eventos del reproductor
+     */
+    setupEvents: function() {
+        // Referencia para usar en event listeners
+        const self = this;
+        
+        // Evento de metadatos cargados
+        this.player.addEventListener('loadedmetadata', function() {
+            self.state.duration = self.player.duration;
+            console.log(`ℹ️ Duración del video: ${self.formatTime(self.state.duration)}`);
+        });
+        
+        // Evento de reproducción
+        this.player.addEventListener('play', function() {
+            self.state.isPlaying = true;
+            
+            // Iniciar guardado automático de posición
+            if (self.config.autoSavePosition) {
+                self.startAutoSavePosition();
+            }
+        });
+        
+        // Evento de pausa
+        this.player.addEventListener('pause', function() {
+            self.state.isPlaying = false;
+            
+            // Guardar posición actual
+            self.saveCurrentPosition();
+            
+            // Detener guardado automático
+            self.stopAutoSavePosition();
+        });
+        
+        // Evento de tiempo actualizado
+        this.player.addEventListener('timeupdate', function() {
+            self.state.currentPosition = self.player.currentTime;
+        });
+        
+        // Evento de cambio de volumen
+        this.player.addEventListener('volumechange', function() {
+            self.state.volume = self.player.volume;
+            self.state.isMuted = self.player.muted;
+        });
+        
+        // Evento de cambio de velocidad
+        this.player.addEventListener('ratechange', function() {
+            self.state.playbackRate = self.player.playbackRate;
+        });
+        
+        // Evento de finalización
+        this.player.addEventListener('ended', function() {
+            console.log('🏁 Video finalizado');
+            
+            // Limpiar posición guardada
+            self.clearSavedPosition();
+            
+            // Detener guardado automático
+            self.stopAutoSavePosition();
+        });
+        
+        // Evento de error
+        this.player.addEventListener('error', function() {
+            console.error('❌ Error al reproducir el video');
+            
+            // Mostrar mensaje de error
+            self.showErrorMessage();
+            
+            // Detener guardado automático
+            self.stopAutoSavePosition();
+        });
+    },
+    
+    /**
+     * Iniciar guardado automático de posición
+     */
+    startAutoSavePosition: function() {
+        // Limpiar temporizador anterior si existe
+        this.stopAutoSavePosition();
+        
+        // Crear nuevo temporizador
+        const self = this;
+        this.savePositionTimer = setInterval(function() {
+            self.saveCurrentPosition();
+        }, this.config.autoSaveInterval);
+    },
+    
+    /**
+     * Detener guardado automático de posición
+     */
+    stopAutoSavePosition: function() {
+        if (this.savePositionTimer) {
+            clearInterval(this.savePositionTimer);
+            this.savePositionTimer = null;
+        }
+    },
+    
+    /**
+     * Guardar posición actual del video
+     */
+    saveCurrentPosition: function() {
+        if (!this.state.currentVideoId) return;
+        
+        try {
+            localStorage.setItem(
+                `video_position_${this.state.currentVideoId}`,
+                this.state.currentPosition.toString()
+            );
+        } catch (error) {
+            console.warn('No se pudo guardar la posición:', error);
+        }
+    },
+    
+    /**
+     * Restaurar posición guardada
+     */
+    restoreSavedPosition: function() {
+        if (!this.state.currentVideoId) return;
+        
+        try {
+            const savedPosition = localStorage.getItem(`video_position_${this.state.currentVideoId}`);
+            
+            if (savedPosition) {
+                const position = parseFloat(savedPosition);
+                
+                // Escuchar evento de metadatos cargados para establecer posición
+                const self = this;
+                this.player.addEventListener('loadedmetadata', function onceLoaded() {
+                    // Asegurarse de que la posición es válida
+                    if (position > 0 && position < self.player.duration) {
+                        self.player.currentTime = position;
+                        console.log(`▶️ Reproducción restaurada en: ${self.formatTime(position)}`);
+                    }
+                    
+                    // Eliminar este listener después de usar
+                    self.player.removeEventListener('loadedmetadata', onceLoaded);
+                });
+            }
+        } catch (error) {
+            console.warn('No se pudo restaurar la posición:', error);
+        }
+    },
+    
+    /**
+     * Limpiar posición guardada
+     */
+    clearSavedPosition: function() {
+        if (!this.state.currentVideoId) return;
+        
+        try {
+            localStorage.removeItem(`video_position_${this.state.currentVideoId}`);
+        } catch (error) {
+            console.warn('No se pudo limpiar la posición guardada:', error);
+        }
+    },
+    
+    /**
+     * Mostrar mensaje de error en la interfaz
+     */
+    showErrorMessage: function() {
+        // Eliminar mensaje de error anterior si existe
+        const existingError = document.querySelector('.video-error-message');
+        if (existingError) {
+            existingError.remove();
+        }
+        
+        // Crear nuevo mensaje de error
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'alert alert-danger mt-3 video-error-message';
+        errorMessage.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Error al reproducir el video</strong><br>
+            <p class="mb-1">Posibles causas:</p>
+            <ul class="mb-0">
+                <li>El archivo de video no existe o ha sido eliminado</li>
+                <li>El formato del video no es compatible con su navegador</li>
+                <li>Problemas de conexión con el servidor</li>
+                <li>Incompatibilidad entre HTTP y HTTPS</li>
+            </ul>
+            <button class="btn btn-sm btn-outline-danger mt-2" onclick="window.location.reload()">
+                <i class="fas fa-sync"></i> Intentar nuevamente
+            </button>
         `;
+        
+        // Insertar mensaje después del reproductor
+        if (this.player && this.player.parentNode) {
+            this.player.parentNode.appendChild(errorMessage);
+        }
+    },
+    
+    /**
+     * Formatear tiempo en segundos a formato MM:SS o HH:MM:SS
+     * @param {number} seconds - Tiempo en segundos
+     * @return {string} Tiempo formateado
+     */
+    formatTime: function(seconds) {
+        if (isNaN(seconds)) return '00:00';
+        
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        
+        if (hours > 0) {
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        } else {
+            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+    },
+    
+    /**
+     * Métodos de control de reproducción
+     */
+    controls: {
+        play: function() {
+            if (VideoManager.player) VideoManager.player.play();
+        },
+        
+        pause: function() {
+            if (VideoManager.player) VideoManager.player.pause();
+        },
+        
+        toggle: function() {
+            if (VideoManager.player) {
+                if (VideoManager.state.isPlaying) {
+                    VideoManager.player.pause();
+                } else {
+                    VideoManager.player.play();
+                }
+            }
+        },
+        
+        seekTo: function(position) {
+            if (VideoManager.player) {
+                VideoManager.player.currentTime = position;
+            }
+        },
+        
+        seekRelative: function(offset) {
+            if (VideoManager.player) {
+                VideoManager.player.currentTime += offset;
+            }
+        },
+        
+        setVolume: function(volume) {
+            if (VideoManager.player) {
+                VideoManager.player.volume = Math.min(1, Math.max(0, volume));
+            }
+        },
+        
+        toggleMute: function() {
+            if (VideoManager.player) {
+                VideoManager.player.muted = !VideoManager.player.muted;
+            }
+        },
+        
+        setPlaybackRate: function(rate) {
+            if (VideoManager.player) {
+                VideoManager.player.playbackRate = rate;
+            }
+        },
+    }
+};
+
+// Hacer accesible globalmente
+window.VideoManager = VideoManager;
+
+// Función de inicialización automática
+function initializeVideoPlayer() {
+    console.log('Buscando reproductor de video para inicializar...');
+    
+    const videoElement = document.getElementById('videoPlayer');
+    if (!videoElement) {
+        console.log('No se encontró el elemento de video en la página');
+        return;
+    }
+    
+    // Buscar ID del video en diferentes fuentes
+    let videoId = null;
+    
+    // Opción 1: Buscar en atributos de datos
+    if (videoElement.dataset.videoId) {
+        videoId = parseInt(videoElement.dataset.videoId);
+    }
+    
+    // Opción 2: Buscar en la URL de la fuente
+    if (!videoId && videoElement.querySelector('source')) {
+        const sourceUrl = videoElement.querySelector('source').src;
+        const match = sourceUrl.match(/\/videos\/(\d+)\/stream/);
+        if (match && match[1]) {
+            videoId = parseInt(match[1]);
+        }
+    }
+    
+    // Opción 3: Buscar en la URL de la página
+    if (!videoId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('id')) {
+            videoId = parseInt(urlParams.get('id'));
+        }
+    }
+    
+    // Inicializar reproductor si se encontró un ID
+    if (videoId) {
+        console.log(`Inicializando reproductor para video ID: ${videoId}`);
+        VideoManager.initialize(videoId);
+    } else {
+        console.log('No se pudo determinar el ID del video');
     }
 }
 
-function showToast(message, type = 'info', duration = 3000) {
-    // Crear contenedor de toasts si no existe
-    let container = document.getElementById('toastContainer');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toastContainer';
-        container.className = 'position-fixed top-0 end-0 p-3';
-        container.style.zIndex = '9999';
-        document.body.appendChild(container);
-    }
-    
-    const toastId = 'toast-' + Date.now();
-    const iconMap = {
-        success: 'fas fa-check-circle',
-        error: 'fas fa-exclamation-triangle',
-        warning: 'fas fa-exclamation-circle',
-        info: 'fas fa-info-circle'
-    };
-    
-    const toast = document.createElement('div');
-    toast.id = toastId;
-    toast.className = `toast show align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0 mb-2`;
-    toast.setAttribute('role', 'alert');
-    toast.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                <i class="${iconMap[type] || iconMap.info} me-2"></i>
-                ${message}
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="closeToast('${toastId}')"></button>
-        </div>
-    `;
-    
-    container.appendChild(toast);
-    
-    setTimeout(() => closeToast(toastId), duration);
-}
-
-function closeToast(toastId) {
-    const toast = document.getElementById(toastId);
-    if (toast) {
-        toast.remove();
-    }
-}
-
-console.log('✅ Script de playlist detail cargado correctamente (sin Mixed Content)');
+// Inicializar cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', initializeVideoPlayer);
