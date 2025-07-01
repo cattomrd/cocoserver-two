@@ -602,6 +602,59 @@
 
 {% block extra_scripts %}
     <!-- Script principal de playlist -->
+     <script>
+    (function() {
+        // Guardar la función fetch original
+        const originalFetch = window.fetch;
+        
+        // Función para convertir URL a HTTPS
+        function forceHttpsUrl(url) {
+            // Si es string y comienza con http:, convertir a https:
+            if (typeof url === 'string') {
+                // URL completa con protocolo HTTP
+                if (url.startsWith('http:')) {
+                    return url.replace(/^http:/i, 'https:');
+                }
+                
+                // URL relativa
+                if (url.startsWith('/')) {
+                    return window.location.origin + url;
+                }
+                
+                // URL sin protocolo
+                if (!url.startsWith('https:') && !url.startsWith('/')) {
+                    // Si contiene dominio pero sin protocolo
+                    if (url.includes('gestionpi-test.ikeasi.com')) {
+                        return 'https://' + url;
+                    }
+                    // URL relativa sin barra inicial
+                    return window.location.origin + '/' + url;
+                }
+            }
+            return url;
+        }
+        
+        // Sobrescribir fetch global
+        window.fetch = function(url, options) {
+            const secureUrl = forceHttpsUrl(url);
+            console.log(`🔒 Fetch interceptado: ${url} -> ${secureUrl}`);
+            return originalFetch.call(this, secureUrl, options);
+        };
+        
+        // Sobrescribir XMLHttpRequest para forzar HTTPS (algunas librerías usan XHR en lugar de fetch)
+        const originalXhrOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+            const secureUrl = forceHttpsUrl(url);
+            console.log(`🔒 XHR interceptado: ${url} -> ${secureUrl}`);
+            return originalXhrOpen.call(this, method, secureUrl, ...rest);
+        };
+        
+        // Definir una URL base global segura
+        window.API_BASE_URL = window.location.origin + '/api';
+        
+        console.log('🔒 HTTPS Enforcer activado - Todas las solicitudes usarán HTTPS');
+    })();
+    </script>
     <script src="/static/js/playlist_detail.js"></script>
     
     <!-- Script específico del modal de dispositivos -->

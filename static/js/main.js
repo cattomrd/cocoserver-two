@@ -565,8 +565,8 @@ window.downloadVideo = async function(videoId) {
     }
 };
 
-// ===== FUNCIÃ“N DE SUBIDA CORREGIDA =====
-window.uploadVideo = async function(formData) {
+// Función corregida para subir videos
+window.uploadVideo = async function(form) {
     console.log('=== INICIANDO SUBIDA DE VIDEO CORREGIDA ===');
     
     const progressBar = document.querySelector('#uploadProgress .progress-bar');
@@ -582,56 +582,38 @@ window.uploadVideo = async function(formData) {
             }
         }
         
-        // Verificar que formData tenga los campos necesarios
-        const title = formData.get('title');
+        // Validar que form sea un elemento HTML Form
+        if (!(form instanceof HTMLFormElement)) {
+            throw new TypeError('El parámetro proporcionado no es un formulario HTML válido');
+        }
+        
+        // Crear un nuevo FormData a partir del formulario
+        const formData = new FormData(form);
+        
+        // Verificar que tenga el archivo
         const file = formData.get('file');
-        
-        if (!title || !title.trim()) {
-            throw new Error('El tÃ­tulo es obligatorio');
+        if (!file || !(file instanceof File)) {
+            throw new Error('No se ha seleccionado un archivo de video válido');
         }
         
-        if (!file || file.size === 0) {
-            throw new Error('Debe seleccionar un archivo de video');
+        console.log('Archivo seleccionado:', file.name, file.type, file.size);
+        
+        // Verificar tamaño máximo (ajustar según límites del servidor)
+        const MAX_SIZE = 500 * 1024 * 1024; // 500 MB
+        if (file.size > MAX_SIZE) {
+            throw new Error(`El archivo es demasiado grande (${(file.size / (1024 * 1024)).toFixed(2)} MB). Máximo: ${MAX_SIZE / (1024 * 1024)} MB`);
         }
         
-        console.log('Datos del formulario:');
-        console.log('- TÃ­tulo:', title);
-        console.log('- Archivo:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
-        console.log('- DescripciÃ³n:', formData.get('description') || 'Sin descripciÃ³n');
-        console.log('- ExpiraciÃ³n:', formData.get('expiration_date') || 'Sin expiraciÃ³n');
-        
-        // IMPORTANTE: Crear un nuevo FormData con SOLO los campos vÃ¡lidos segÃºn el modelo Video
+        // Crear copia limpia del FormData para evitar problemas
         const cleanFormData = new FormData();
-        
-        // Agregar solo los campos permitidos
-        cleanFormData.append('title', title);
-        cleanFormData.append('file', file);
-        
-        // Campos opcionales (solo si existen y no son vacÃ­os)
-        if (formData.get('description')) {
-            cleanFormData.append('description', formData.get('description'));
+        for (const [key, value] of formData.entries()) {
+            cleanFormData.append(key, value);
         }
         
-        if (formData.get('expiration_date')) {
-            cleanFormData.append('expiration_date', formData.get('expiration_date'));
-        }
-        
-        // DEPURACIÃ“N: Verificar que no haya 'filename' u otros campos no vÃ¡lidos
-        console.log('=== VERIFICANDO CAMPOS DE FORMDATA LIMPIO ===');
-        for (const pair of cleanFormData.entries()) {
-            console.log(`Campo: ${pair[0]}, Tipo: ${typeof pair[1]}`);
-            if (pair[0] === 'filename') {
-                console.error('âš ï¸ ADVERTENCIA: Se detectÃ³ campo "filename" que no deberÃ­a existir');
-                // Eliminar el campo problemÃ¡tico
-                cleanFormData.delete('filename');
-            }
-        }
-        
-        // IMPORTANTE: Verificar que no se incluyÃ³ el campo 'filename'
+        // Eliminar campos problemáticos si existen
         if (cleanFormData.has('filename')) {
-            console.error('âš ï¸ ERROR: Se ha detectado el campo "filename" que causa el error.');
+            console.log('Campo "filename" encontrado y será eliminado');
             cleanFormData.delete('filename');
-            console.log('Campo "filename" eliminado del FormData.');
         }
         
         return new Promise((resolve, reject) => {
@@ -664,54 +646,61 @@ window.uploadVideo = async function(formData) {
                     showToast('Video subido correctamente', 'success');
                     
                     // Limpiar formulario
-                    if (document.getElementById('videoUploadForm')) {
-                        document.getElementById('videoUploadForm').reset();
-                    }
+                    form.reset();
                     
                     // Cerrar formulario colapsable
                     const uploadForm = document.getElementById('uploadForm');
                     if (uploadForm && window.bootstrap) {
                         try {
-                            const collapse = bootstrap.Collapse.getInstance(uploadForm);
-                            if (collapse) {
-                                collapse.hide();
-                            }
-                        } catch (e) {
-                            console.warn("No se pudo cerrar el formulario automÃ¡ticamente:", e);
+                            const collapse = window.bootstrap.Collapse.getInstance(uploadForm);
+                            if (collapse) collapse.hide();
+                        } catch (error) {
+                            console.warn('No se pudo cerrar el formulario colapsable:', error);
                         }
                     }
                     
-                    // Recargar videos despuÃ©s de un breve delay
-                    setTimeout(() => {
-                        if (typeof window.loadVideos === 'function') {
-                            window.loadVideos();
+                    // Cerrar modal si existe
+                    const modal = document.getElementById('uploadVideoModal');
+                    if (modal && window.bootstrap) {
+                        try {
+                            const bsModal = window.bootstrap.Modal.getInstance(modal);
+                            if (bsModal) bsModal.hide();
+                        } catch (error) {
+                            console.warn('No se pudo cerrar el modal:', error);
                         }
-                    }, 1000);
+                    }
+                    
+                    if (progressContainer) {
+                        progressContainer.classList.add('d-none');
+                    }
+                    
+                    // Recargar lista de videos
+                    if (typeof window.loadVideos === 'function') {
+                        setTimeout(() => {
+                            window.loadVideos();
+                        }, 1000);
+                    }
                     
                     resolve(responseData);
                 } else {
-                    console.log('Respuesta del servidor:', xhr.status, xhr.statusText);
-                    console.log('Texto de respuesta:', xhr.responseText);
+                    console.error('Error en la subida:', xhr.status, xhr.statusText);
+                    let errorMsg = 'Error al crear video';
                     
-                    let errorMessage = 'Error al crear video';
                     try {
-                        const errorData = JSON.parse(xhr.responseText);
-                        errorMessage = errorData.detail || errorMessage;
+                        const errorResponse = JSON.parse(xhr.responseText);
+                        errorMsg = errorResponse.error || errorResponse.message || errorMsg;
+                        console.error('Mensaje de error del servidor:', errorMsg);
                     } catch (e) {
-                        console.warn('No se pudo parsear respuesta de error');
+                        // Si no se puede parsear la respuesta, usar mensaje genérico
                     }
                     
-                    console.error('Error en la subida:', errorMessage);
-                    showToast(errorMessage, 'error');
+                    showToast(`Error en la subida: ${errorMsg}`, 'error');
                     
-                    reject(new Error(errorMessage));
-                }
-                
-                // Ocultar barra de progreso
-                if (progressContainer) {
-                    setTimeout(() => {
+                    if (progressContainer) {
                         progressContainer.classList.add('d-none');
-                    }, 1000);
+                    }
+                    
+                    reject(new Error(errorMsg));
                 }
             };
             
@@ -726,8 +715,8 @@ window.uploadVideo = async function(formData) {
                 reject(new Error('Error de red al subir el video'));
             };
             
-            // IMPORTANTE: Usar el FormData limpio (sin campos no vÃ¡lidos)
-            console.log('Enviando peticiÃ³n de subida con FormData limpio...');
+            // IMPORTANTE: Usar el FormData limpio
+            console.log('Enviando petición de subida con FormData...');
             xhr.send(cleanFormData);
         });
         

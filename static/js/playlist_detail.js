@@ -3,6 +3,70 @@
  * Versión corregida y unificada con soporte para HTTP/HTTPS
  */
 
+// ==========================================
+// INTERCEPTOR DE SOLICITUDES HTTP
+// ==========================================
+
+// Definir la URL base global para la API que respeta el protocolo actual
+if (!window.API_BASE_URL) {
+    window.API_BASE_URL = window.location.protocol + '//' + window.location.host + '/api';
+    console.log('🔒 API_BASE_URL configurada:', window.API_BASE_URL);
+}
+
+// Interceptar y modificar fetch para forzar HTTPS si aún no está interceptado
+if (!window._fetchIntercepted) {
+    console.log('🔒 Inicializando interceptor de solicitudes HTTP/HTTPS en playlist_detail.js...');
+    
+    // Guardar la función fetch original
+    const originalFetch = window.fetch;
+    
+    // Función para convertir URL a HTTPS
+    function forceSecureUrl(url) {
+        // Si es string y comienza con http:, convertir a https:
+        if (typeof url === 'string') {
+            // URL completa con protocolo HTTP
+            if (url.startsWith('http:') && window.location.protocol === 'https:') {
+                console.log(`🔄 Convirtiendo URL de HTTP a HTTPS: ${url}`);
+                return url.replace(/^http:/i, 'https:');
+            }
+            
+            // URL relativa
+            if (url.startsWith('/')) {
+                return window.location.origin + url;
+            }
+            
+            // URL sin protocolo
+            if (!url.startsWith('https:') && !url.startsWith('/') && 
+                window.location.hostname && url.includes(window.location.hostname)) {
+                return window.location.protocol + '//' + url;
+            }
+        }
+        return url;
+    }
+    
+    // Sobrescribir fetch global
+    window.fetch = function(url, options) {
+        const secureUrl = forceSecureUrl(url);
+        if (url !== secureUrl) {
+            console.log(`🔒 Fetch: ${url} -> ${secureUrl}`);
+        }
+        return originalFetch.call(this, secureUrl, options);
+    };
+    
+    // Sobrescribir XMLHttpRequest para forzar HTTPS
+    const originalXhrOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url, ...args) {
+        const secureUrl = forceSecureUrl(url);
+        if (url !== secureUrl) {
+            console.log(`🔒 XHR: ${url} -> ${secureUrl}`);
+        }
+        return originalXhrOpen.call(this, method, url, ...args);
+    };
+    
+    window._fetchIntercepted = true;
+    console.log('✅ Interceptor de solicitudes HTTP/HTTPS instalado en playlist_detail.js');
+}
+
 console.log('🎵 Cargando Editor de Playlist...');
 
 // ==========================================
@@ -67,7 +131,7 @@ function normalizeUrl(url) {
     
     // Si la URL ya empieza con http:// o https://, dejarla tal cual
     if (url.startsWith('http://') || url.startsWith('https://')) {
-        return url;
+        return forceSecureUrl(url);
     }
     
     // Si es una URL relativa que empieza con //, usar el protocolo actual
@@ -180,25 +244,12 @@ async function loadPlaylistData(playlistId) {
     showLoadingState('Cargando datos de la playlist...');
     
     try {
-        // Construir la URL manualmente
-        let url = API_ENDPOINTS.playlistById(playlistId);
-        
-        // Garantizar que la URL sea HTTPS si la página es HTTPS
-        if (window.location.protocol === 'https:') {
-            // Forzar protocolo HTTPS explícitamente
-            url = url.replace(/^http:\/\//i, 'https://');
-            // Si la URL no tiene protocolo, agregar HTTPS
-            if (!/^https?:\/\//i.test(url)) {
-                url = 'https://' + window.location.host + (url.startsWith('/') ? url : '/' + url);
-            }
-        }
+        // Construir la URL con el protocolo correcto
+        const url = forceSecureUrl(API_ENDPOINTS.playlistById(playlistId));
         
         console.log(`📡 Fetch URL asegurada: ${url}?include_videos=true`);
         
         const response = await fetch(`${url}?include_videos=true`, createFetchOptions());
-        
-        // Obtener la URL final después de las redirecciones
-        console.log('📡 URL final después de redirecciones:', response.url);
         
         if (!response.ok) {
             const errorText = await response.text();
@@ -244,6 +295,7 @@ async function loadPlaylistData(playlistId) {
 
 /**
  * Cargar todos los videos disponibles
+ * VERSIÓN CORREGIDA: Asegura URLs HTTPS y maneja correctamente las respuestas
  */
 async function loadAvailableVideos() {
     console.log('🎬 Cargando videos disponibles...');
@@ -270,42 +322,33 @@ async function loadAvailableVideos() {
     }
 
     try {
-        // Garantizar que la URL sea HTTPS si la página es HTTPS
-        let videosUrl = API_ENDPOINTS.videos;
-        if (window.location.protocol === 'https:') {
-            // Forzar protocolo HTTPS explícitamente
-            videosUrl = videosUrl.replace(/^http:\/\//i, 'https://');
-            // Si la URL no tiene protocolo, agregar HTTPS
-            if (!/^https?:\/\//i.test(videosUrl)) {
-                videosUrl = 'https://' + window.location.host + (videosUrl.startsWith('/') ? videosUrl : '/' + videosUrl);
-            }
-        }
+        // URL segura para la API de videos - usando el protocolo actual
+        const apiUrl = forceSecureUrl(API_ENDPOINTS.videos);
         
-        console.log('📡 Fetch URL asegurada:', videosUrl);
+        console.log('📡 Fetch URL asegurada:', apiUrl);
         
-        // Añadir opciones para manejar redirecciones
-        const response = await fetch(videosUrl, {
+        const response = await fetch(apiUrl, {
             method: 'GET',
-            redirect: 'follow', // Seguir automáticamente las redirecciones
+            redirect: 'follow',
+            credentials: 'same-origin',
             headers: {
                 'Accept': 'application/json'
-            },
-            credentials: 'same-origin' // Enviar cookies para autenticación si es necesario
+            }
         });
         
-        // Obtener la URL final después de las redirecciones
-        console.log('📡 URL final después de redirecciones:', response.url);
-        
         if (!response.ok) {
-            throw new Error(`Error ${response.status}: No se pudieron cargar los videos`);
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
 
+        // Procesar la respuesta
         const data = await response.json();
-        // Normalizar URLs en los videos disponibles
+        
+        // Manejar correctamente el formato de datos
         availableVideos = Array.isArray(data) ? data : (data.videos || []);
+        
+        // Asegurar que todas las URLs de videos usan el protocolo correcto
         availableVideos = availableVideos.map(video => {
             if (video.file_path) {
-                // Asegurar que la URL del video sea segura si estamos en HTTPS
                 video.file_path = forceSecureUrl(normalizeUrl(video.file_path));
             }
             return video;
@@ -319,12 +362,14 @@ async function loadAvailableVideos() {
         paginationState.totalPages = Math.ceil(paginationState.filteredVideos.length / paginationState.pageSize);
         paginationState.currentPage = 1;
         
+        // Renderizar videos disponibles
         renderAvailableVideos();
         
+        // Ocultar indicador de carga
         if (loadingElement) {
             loadingElement.style.display = 'none';
         }
-
+        
     } catch (error) {
         console.error('❌ Error cargando videos disponibles:', error);
         
@@ -720,6 +765,23 @@ function updatePlaylistVideosTable() {
 // ==========================================
 
 /**
+ * Función auxiliar para asegurar URLs de API
+ */
+function getSecureApiUrl(url) {
+    // Si es una URL completa, asegurar que use el protocolo correcto
+    if (url.startsWith('http:') && window.location.protocol === 'https:') {
+        return url.replace('http:', 'https:');
+    }
+    
+    // Si es una URL relativa, agregar origen con protocolo correcto
+    if (url.startsWith('/')) {
+        return window.location.origin + url;
+    }
+    
+    return url;
+}
+
+/**
  * Agregar video a la playlist
  */
 async function addVideoToPlaylist(videoId) {
@@ -742,9 +804,6 @@ async function addVideoToPlaylist(videoId) {
         // Realizar petición POST con opciones para manejar redirecciones
         const response = await fetch(url, createFetchOptions('POST'));
         
-        // Obtener la URL final después de las redirecciones
-        console.log('📡 URL final después de redirecciones:', response.url);
-        
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`❌ Error de API (${response.status}): ${errorText}`);
@@ -765,7 +824,7 @@ async function addVideoToPlaylist(videoId) {
             
             // Normalizar URL del video si es necesario
             if (videoWithOrder.file_path) {
-                videoWithOrder.file_path = sanitizeUrl(videoWithOrder.file_path);
+                videoWithOrder.file_path = forceSecureUrl(normalizeUrl(videoWithOrder.file_path));
             }
             
             // Añadir a la lista de videos de la playlist
@@ -810,9 +869,6 @@ async function removeVideoFromPlaylist(videoId) {
         console.log(`📡 URL de la API: ${secureUrl}`);
         
         const response = await fetch(secureUrl, createFetchOptions('DELETE'));
-        
-        // Obtener la URL final después de las redirecciones
-        console.log('📡 URL final después de redirecciones:', response.url);
         
         if (!response.ok) {
             const errorText = await response.text();
@@ -862,9 +918,6 @@ async function clearPlaylist() {
         
         const response = await fetch(secureUrl, createFetchOptions('DELETE'));
         
-        // Obtener la URL final después de las redirecciones
-        console.log('📡 URL final después de redirecciones:', response.url);
-        
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`❌ Error de API (${response.status}): ${errorText}`);
@@ -912,9 +965,6 @@ async function updateVideoOrder(videoId, newOrder) {
         };
         
         const response = await fetch(secureUrl, createFetchOptions('PUT', body));
-        
-        // Obtener la URL final después de las redirecciones
-        console.log('📡 URL final después de redirecciones:', response.url);
         
         if (!response.ok) {
             const errorText = await response.text();
@@ -964,9 +1014,6 @@ async function updateVideoOrderBatch(updates) {
         };
         
         const response = await fetch(url, createFetchOptions('PUT', body));
-        
-        // Obtener la URL final después de las redirecciones
-        console.log('📡 URL final después de redirecciones:', response.url);
         
         if (!response.ok) {
             throw new Error('Error al actualizar el orden');
@@ -1033,9 +1080,6 @@ async function savePlaylistChanges() {
         const updateUrl = forceSecureUrl(API_ENDPOINTS.updatePlaylist(currentPlaylistData.id));
         
         const response = await fetch(updateUrl, createFetchOptions('PUT', playlistData));
-        
-        // Obtener la URL final después de las redirecciones
-        console.log('📡 URL final después de redirecciones:', response.url);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -1557,22 +1601,16 @@ function previewVideo(videoId) {
         
         // Si es una URL absoluta
         if (video.file_path.startsWith('http://') || video.file_path.startsWith('https://')) {
-            videoUrl = sanitizeUrl(video.file_path);
+            videoUrl = forceSecureUrl(video.file_path);
         }
         // Si es una URL relativa al protocolo
         else if (video.file_path.startsWith('//')) {
-            videoUrl = window.location.protocol === 'https:' ? 'https:' + video.file_path : 'http:' + video.file_path;
+            videoUrl = window.location.protocol + video.file_path;
         }
         // Si es una ruta relativa o recurso de API
         else {
             let streamUrl = `/api/videos/${videoId}/stream`;
-            
-            // Si estamos en HTTPS, asegurar que la URL sea HTTPS
-            if (window.location.protocol === 'https:') {
-                videoUrl = 'https://' + window.location.host + streamUrl;
-            } else {
-                videoUrl = window.location.origin + streamUrl;
-            }
+            videoUrl = window.location.origin + streamUrl;
         }
         
         console.log('🎬 URL de video sanitizada:', videoUrl);
@@ -1765,435 +1803,20 @@ function initializePlaylistEditor() {
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', initializePlaylistEditor);
 
+// Exportar funciones para uso global - importantes para otras partes de la aplicación
+window.loadAvailableVideos = loadAvailableVideos;
+window.addVideoToPlaylist = addVideoToPlaylist;
+window.removeVideoFromPlaylist = removeVideoFromPlaylist;
+window.clearPlaylist = clearPlaylist;
+window.updateVideoOrder = updateVideoOrder;
+window.updateVideoOrderBatch = updateVideoOrderBatch;
+window.savePlaylistChanges = savePlaylistChanges;
+window.previewVideo = previewVideo;
+window.previewPlaylist = previewPlaylist;
+window.filterAvailableVideos = filterAvailableVideos;
+window.clearVideoSearch = clearVideoSearch;
+window.goToPrevPage = goToPrevPage;
+window.goToNextPage = goToNextPage;
+window.changePageSize = changePageSize;
+
 console.log('✅ Editor de Playlist cargado correctamente');
-
-
-/**
- * VIDEO MANAGER - Gestión avanzada de reproducción de videos
- * Actualizado para soportar HTTP/HTTPS
- */
-
-// Objeto principal para gestión de videos
-const VideoManager = {
-    // Configuración
-    config: {
-        playerElementId: 'videoPlayer',
-        apiBasePath: '/api/videos', // Path relativo para compatibilidad con ambos protocolos
-        defaultVolume: 0.8,
-        autoSavePosition: true,
-        autoSaveInterval: 5000, // milisegundos
-    },
-    
-    // Estado del reproductor
-    state: {
-        currentVideoId: null,
-        isPlaying: false,
-        isMuted: false,
-        currentPosition: 0,
-        duration: 0,
-        volume: 0.8,
-        playbackRate: 1.0,
-    },
-    
-    // Referencia al elemento de video
-    player: null,
-    
-    // Temporizador para guardar posición
-    savePositionTimer: null,
-    
-    /**
-     * Normaliza una URL para asegurar compatibilidad con HTTP/HTTPS
-     */
-    normalizeUrl: function(url) {
-        if (!url) return url;
-        
-        // Si ya empieza con http:// o https://, dejarla como está
-        if (url.startsWith('http://') || url.startsWith('https://')) {
-            return url;
-        }
-        
-        // Si es una URL relativa que empieza con //, usar el protocolo actual
-        if (url.startsWith('//')) {
-            return window.location.protocol + url;
-        }
-        
-        // Si es una URL relativa al path, convertirla a absoluta
-        if (url.startsWith('/')) {
-            return window.location.origin + url;
-        }
-        
-        // Para otros casos, devolver la URL original
-        return url;
-    },
-    
-    /**
-     * Inicializar el reproductor de video
-     * @param {number} videoId - ID del video a reproducir
-     * @param {Object} options - Opciones adicionales
-     */
-    initialize: function(videoId, options = {}) {
-        console.log('🎬 Inicializando reproductor de video...');
-        
-        // Combinar opciones con configuración predeterminada
-        this.config = { ...this.config, ...options };
-        
-        // Guardar ID del video actual
-        this.state.currentVideoId = videoId;
-        
-        // Obtener referencia al reproductor
-        this.player = document.getElementById(this.config.playerElementId);
-        
-        if (!this.player) {
-            console.error('❌ No se encontró el elemento de video');
-            return false;
-        }
-        
-        // Configurar reproductor
-        this.setupPlayer();
-        
-        // Configurar eventos
-        this.setupEvents();
-        
-        console.log(`✅ Reproductor inicializado para video ID: ${videoId}`);
-        return true;
-    },
-    
-    /**
-     * Configurar el reproductor de video
-     */
-    setupPlayer: function() {
-        // Configurar URL de streaming con soporte para HTTP/HTTPS
-        const streamUrl = this.normalizeUrl(`${this.config.apiBasePath}/${this.state.currentVideoId}/stream`);
-        
-        // Verificar si ya tiene source
-        if (this.player.querySelector('source')) {
-            this.player.querySelector('source').src = streamUrl;
-        } else {
-            const source = document.createElement('source');
-            source.src = streamUrl;
-            source.type = 'video/mp4'; // Tipo por defecto, se ajustará según el contenido
-            this.player.appendChild(source);
-        }
-        
-        // Configurar volumen
-        this.player.volume = this.config.defaultVolume;
-        
-        // Cargar video
-        this.player.load();
-        
-        // Restaurar posición guardada
-        this.restoreSavedPosition();
-    },
-    
-    /**
-     * Configurar eventos del reproductor
-     */
-    setupEvents: function() {
-        // Referencia para usar en event listeners
-        const self = this;
-        
-        // Evento de metadatos cargados
-        this.player.addEventListener('loadedmetadata', function() {
-            self.state.duration = self.player.duration;
-            console.log(`ℹ️ Duración del video: ${self.formatTime(self.state.duration)}`);
-        });
-        
-        // Evento de reproducción
-        this.player.addEventListener('play', function() {
-            self.state.isPlaying = true;
-            
-            // Iniciar guardado automático de posición
-            if (self.config.autoSavePosition) {
-                self.startAutoSavePosition();
-            }
-        });
-        
-        // Evento de pausa
-        this.player.addEventListener('pause', function() {
-            self.state.isPlaying = false;
-            
-            // Guardar posición actual
-            self.saveCurrentPosition();
-            
-            // Detener guardado automático
-            self.stopAutoSavePosition();
-        });
-        
-        // Evento de tiempo actualizado
-        this.player.addEventListener('timeupdate', function() {
-            self.state.currentPosition = self.player.currentTime;
-        });
-        
-        // Evento de cambio de volumen
-        this.player.addEventListener('volumechange', function() {
-            self.state.volume = self.player.volume;
-            self.state.isMuted = self.player.muted;
-        });
-        
-        // Evento de cambio de velocidad
-        this.player.addEventListener('ratechange', function() {
-            self.state.playbackRate = self.player.playbackRate;
-        });
-        
-        // Evento de finalización
-        this.player.addEventListener('ended', function() {
-            console.log('🏁 Video finalizado');
-            
-            // Limpiar posición guardada
-            self.clearSavedPosition();
-            
-            // Detener guardado automático
-            self.stopAutoSavePosition();
-        });
-        
-        // Evento de error
-        this.player.addEventListener('error', function() {
-            console.error('❌ Error al reproducir el video');
-            
-            // Mostrar mensaje de error
-            self.showErrorMessage();
-            
-            // Detener guardado automático
-            self.stopAutoSavePosition();
-        });
-    },
-    
-    /**
-     * Iniciar guardado automático de posición
-     */
-    startAutoSavePosition: function() {
-        // Limpiar temporizador anterior si existe
-        this.stopAutoSavePosition();
-        
-        // Crear nuevo temporizador
-        const self = this;
-        this.savePositionTimer = setInterval(function() {
-            self.saveCurrentPosition();
-        }, this.config.autoSaveInterval);
-    },
-    
-    /**
-     * Detener guardado automático de posición
-     */
-    stopAutoSavePosition: function() {
-        if (this.savePositionTimer) {
-            clearInterval(this.savePositionTimer);
-            this.savePositionTimer = null;
-        }
-    },
-    
-    /**
-     * Guardar posición actual del video
-     */
-    saveCurrentPosition: function() {
-        if (!this.state.currentVideoId) return;
-        
-        try {
-            localStorage.setItem(
-                `video_position_${this.state.currentVideoId}`,
-                this.state.currentPosition.toString()
-            );
-        } catch (error) {
-            console.warn('No se pudo guardar la posición:', error);
-        }
-    },
-    
-    /**
-     * Restaurar posición guardada
-     */
-    restoreSavedPosition: function() {
-        if (!this.state.currentVideoId) return;
-        
-        try {
-            const savedPosition = localStorage.getItem(`video_position_${this.state.currentVideoId}`);
-            
-            if (savedPosition) {
-                const position = parseFloat(savedPosition);
-                
-                // Escuchar evento de metadatos cargados para establecer posición
-                const self = this;
-                this.player.addEventListener('loadedmetadata', function onceLoaded() {
-                    // Asegurarse de que la posición es válida
-                    if (position > 0 && position < self.player.duration) {
-                        self.player.currentTime = position;
-                        console.log(`▶️ Reproducción restaurada en: ${self.formatTime(position)}`);
-                    }
-                    
-                    // Eliminar este listener después de usar
-                    self.player.removeEventListener('loadedmetadata', onceLoaded);
-                });
-            }
-        } catch (error) {
-            console.warn('No se pudo restaurar la posición:', error);
-        }
-    },
-    
-    /**
-     * Limpiar posición guardada
-     */
-    clearSavedPosition: function() {
-        if (!this.state.currentVideoId) return;
-        
-        try {
-            localStorage.removeItem(`video_position_${this.state.currentVideoId}`);
-        } catch (error) {
-            console.warn('No se pudo limpiar la posición guardada:', error);
-        }
-    },
-    
-    /**
-     * Mostrar mensaje de error en la interfaz
-     */
-    showErrorMessage: function() {
-        // Eliminar mensaje de error anterior si existe
-        const existingError = document.querySelector('.video-error-message');
-        if (existingError) {
-            existingError.remove();
-        }
-        
-        // Crear nuevo mensaje de error
-        const errorMessage = document.createElement('div');
-        errorMessage.className = 'alert alert-danger mt-3 video-error-message';
-        errorMessage.innerHTML = `
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            <strong>Error al reproducir el video</strong><br>
-            <p class="mb-1">Posibles causas:</p>
-            <ul class="mb-0">
-                <li>El archivo de video no existe o ha sido eliminado</li>
-                <li>El formato del video no es compatible con su navegador</li>
-                <li>Problemas de conexión con el servidor</li>
-                <li>Incompatibilidad entre HTTP y HTTPS</li>
-            </ul>
-            <button class="btn btn-sm btn-outline-danger mt-2" onclick="window.location.reload()">
-                <i class="fas fa-sync"></i> Intentar nuevamente
-            </button>
-        `;
-        
-        // Insertar mensaje después del reproductor
-        if (this.player && this.player.parentNode) {
-            this.player.parentNode.appendChild(errorMessage);
-        }
-    },
-    
-    /**
-     * Formatear tiempo en segundos a formato MM:SS o HH:MM:SS
-     * @param {number} seconds - Tiempo en segundos
-     * @return {string} Tiempo formateado
-     */
-    formatTime: function(seconds) {
-        if (isNaN(seconds)) return '00:00';
-        
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = Math.floor(seconds % 60);
-        
-        if (hours > 0) {
-            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        } else {
-            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-    },
-    
-    /**
-     * Métodos de control de reproducción
-     */
-    controls: {
-        play: function() {
-            if (VideoManager.player) VideoManager.player.play();
-        },
-        
-        pause: function() {
-            if (VideoManager.player) VideoManager.player.pause();
-        },
-        
-        toggle: function() {
-            if (VideoManager.player) {
-                if (VideoManager.state.isPlaying) {
-                    VideoManager.player.pause();
-                } else {
-                    VideoManager.player.play();
-                }
-            }
-        },
-        
-        seekTo: function(position) {
-            if (VideoManager.player) {
-                VideoManager.player.currentTime = position;
-            }
-        },
-        
-        seekRelative: function(offset) {
-            if (VideoManager.player) {
-                VideoManager.player.currentTime += offset;
-            }
-        },
-        
-        setVolume: function(volume) {
-            if (VideoManager.player) {
-                VideoManager.player.volume = Math.min(1, Math.max(0, volume));
-            }
-        },
-        
-        toggleMute: function() {
-            if (VideoManager.player) {
-                VideoManager.player.muted = !VideoManager.player.muted;
-            }
-        },
-        
-        setPlaybackRate: function(rate) {
-            if (VideoManager.player) {
-                VideoManager.player.playbackRate = rate;
-            }
-        },
-    }
-};
-
-// Hacer accesible globalmente
-window.VideoManager = VideoManager;
-
-// Función de inicialización automática
-function initializeVideoPlayer() {
-    console.log('Buscando reproductor de video para inicializar...');
-    
-    const videoElement = document.getElementById('videoPlayer');
-    if (!videoElement) {
-        console.log('No se encontró el elemento de video en la página');
-        return;
-    }
-    
-    // Buscar ID del video en diferentes fuentes
-    let videoId = null;
-    
-    // Opción 1: Buscar en atributos de datos
-    if (videoElement.dataset.videoId) {
-        videoId = parseInt(videoElement.dataset.videoId);
-    }
-    
-    // Opción 2: Buscar en la URL de la fuente
-    if (!videoId && videoElement.querySelector('source')) {
-        const sourceUrl = videoElement.querySelector('source').src;
-        const match = sourceUrl.match(/\/videos\/(\d+)\/stream/);
-        if (match && match[1]) {
-            videoId = parseInt(match[1]);
-        }
-    }
-    
-    // Opción 3: Buscar en la URL de la página
-    if (!videoId) {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('id')) {
-            videoId = parseInt(urlParams.get('id'));
-        }
-    }
-    
-    // Inicializar reproductor si se encontró un ID
-    if (videoId) {
-        console.log(`Inicializando reproductor para video ID: ${videoId}`);
-        VideoManager.initialize(videoId);
-    } else {
-        console.log('No se pudo determinar el ID del video');
-    }
-}
-
-// Inicializar cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', initializeVideoPlayer);
