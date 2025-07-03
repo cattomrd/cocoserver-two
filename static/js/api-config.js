@@ -1,703 +1,595 @@
 /**
- * PLAYLISTS-FIX.JS - Corrección para la vista de listas de reproducción
+ * API-CONFIG.JS - Configuración Completa de API
  * 
- * Este script corrige:
- * 1. El problema de "Mixed Content" en la carga de playlists
- * 2. El problema de la tabla que no muestra contenido sin recargar
- * 3. El problema de redirección incorrecta al editar una playlist
+ * Este archivo centraliza toda la configuración de endpoints de API
+ * y proporciona funciones utilitarias para hacer peticiones seguras.
  * 
- * Para usar esta solución, inserta este script justo antes del cierre de </body>
- * en el template de playlists.html
+ * FUNCIONALIDADES:
+ * - Configuración automática de URLs base
+ * - Endpoints organizados por módulo
+ * - Funciones de fetch seguras con retry
+ * - Manejo de errores centralizado
+ * - Detección de contexto HTTPS
+ * - Interceptores de request/response
+ * 
+ * INSTRUCCIONES:
+ * 1. Guarda este archivo como static/js/api-config.js
+ * 2. Carga ANTES que cualquier otro script de la aplicación
+ * 3. Se auto-configura según el entorno
  */
 
-// Función auto-ejecutable para evitar conflictos
+console.log('🔧 Cargando configuración de API...');
+
 (function() {
-    // ====================================================
-    // CONFIGURACIÓN Y FUNCIONES BÁSICAS
-    // ====================================================
-    
-    console.log('🔧 Iniciando correcciones para la vista de playlists...');
-    
-    // Obtener URL base segura para la API
-    const getSecureApiUrl = () => {
-        return window.location.origin + '/api';
-    };
-    
-    // API URL segura
-    const API_URL = getSecureApiUrl();
-    console.log('🔧 API_URL configurada como:', API_URL);
-    
-    // Redefinir endpoints de API seguros
+    'use strict';
+
+    // ==========================================
+    // DETECCIÓN DE ENTORNO Y CONFIGURACIÓN BASE
+    // ==========================================
+
+    /**
+     * Detectar entorno y configurar URLs base
+     */
+    function detectEnvironment() {
+        const hostname = window.location.hostname;
+        const protocol = window.location.protocol;
+        const port = window.location.port;
+        
+        // Construir URL base
+        let baseUrl = `${protocol}//${hostname}`;
+        if (port && port !== '80' && port !== '443') {
+            baseUrl += `:${port}`;
+        }
+        
+        // Detectar tipo de entorno
+        let environment = 'production';
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            environment = 'development';
+        } else if (hostname.includes('test') || hostname.includes('staging')) {
+            environment = 'staging';
+        }
+        
+        return {
+            baseUrl,
+            apiUrl: `${baseUrl}/api`,
+            environment,
+            isSecure: protocol === 'https:' || hostname === 'localhost' || hostname === '127.0.0.1',
+            hostname,
+            protocol,
+            port
+        };
+    }
+
+    const ENV = detectEnvironment();
+    console.log('🌐 Entorno detectado:', ENV);
+
+    // ==========================================
+    // CONFIGURACIÓN DE ENDPOINTS
+    // ==========================================
+
+    /**
+     * Configuración centralizada de todos los endpoints de API
+     */
     const API_ENDPOINTS = {
-        playlists: `${API_URL}/playlists`,
-        playlistById: (id) => `${API_URL}/playlists/${id}`,
-        playlistVideos: (id) => `${API_URL}/playlists/${id}/videos`,
-        createPlaylist: `${API_URL}/playlists`,
-        updatePlaylist: (id) => `${API_URL}/playlists/${id}`,
-        deletePlaylist: (id) => `${API_URL}/playlists/${id}`
+        // URLs base
+        BASE_URL: ENV.baseUrl,
+        API_URL: ENV.apiUrl,
+        
+        // Autenticación
+        AUTH: {
+            LOGIN: `${ENV.apiUrl}/auth/login`,
+            LOGOUT: `${ENV.apiUrl}/auth/logout`,
+            REFRESH: `${ENV.apiUrl}/auth/refresh`,
+            USER: `${ENV.apiUrl}/auth/user`
+        },
+        
+        // Videos
+        VIDEOS: {
+            LIST: `${ENV.apiUrl}/videos`,
+            GET_BY_ID: (id) => `${ENV.apiUrl}/videos/${id}`,
+            CREATE: `${ENV.apiUrl}/videos`,
+            UPDATE: (id) => `${ENV.apiUrl}/videos/${id}`,
+            DELETE: (id) => `${ENV.apiUrl}/videos/${id}`,
+            UPLOAD: `${ENV.apiUrl}/videos/upload`,
+            THUMBNAIL: (id) => `${ENV.apiUrl}/videos/${id}/thumbnail`,
+            STREAM: (id) => `${ENV.apiUrl}/videos/${id}/stream`
+        },
+        
+        // Playlists
+        PLAYLISTS: {
+            LIST: `${ENV.apiUrl}/playlists`,
+            GET_BY_ID: (id) => `${ENV.apiUrl}/playlists/${id}`,
+            CREATE: `${ENV.apiUrl}/playlists`,
+            UPDATE: (id) => `${ENV.apiUrl}/playlists/${id}`,
+            DELETE: (id) => `${ENV.apiUrl}/playlists/${id}`,
+            
+            // Videos en playlist
+            VIDEOS: (playlistId) => `${ENV.apiUrl}/playlists/${playlistId}/videos`,
+            ADD_VIDEO: (playlistId, videoId) => `${ENV.apiUrl}/playlists/${playlistId}/videos/${videoId}`,
+            REMOVE_VIDEO: (playlistId, videoId) => `${ENV.apiUrl}/playlists/${playlistId}/videos/${videoId}`,
+            UPDATE_ORDER: (playlistId) => `${ENV.apiUrl}/playlists/${playlistId}/video-order`,
+            REORDER_VIDEOS: (playlistId) => `${ENV.apiUrl}/playlists/${playlistId}/reorder`,
+            
+            // Dispositivos de playlist
+            DEVICES: (playlistId) => `${ENV.apiUrl}/playlists/${playlistId}/devices`,
+            ASSIGN_DEVICE: (playlistId, deviceId) => `${ENV.apiUrl}/playlists/${playlistId}/devices/${deviceId}`,
+            UNASSIGN_DEVICE: (playlistId, deviceId) => `${ENV.apiUrl}/playlists/${playlistId}/devices/${deviceId}`
+        },
+        
+        // Dispositivos
+        DEVICES: {
+            LIST: `${ENV.apiUrl}/devices`,
+            GET_BY_ID: (id) => `${ENV.apiUrl}/devices/${id}`,
+            CREATE: `${ENV.apiUrl}/devices`,
+            UPDATE: (id) => `${ENV.apiUrl}/devices/${id}`,
+            DELETE: (id) => `${ENV.apiUrl}/devices/${id}`,
+            
+            // Estado del dispositivo
+            STATUS: (id) => `${ENV.apiUrl}/devices/${id}/status`,
+            PING: (id) => `${ENV.apiUrl}/devices/${id}/ping`,
+            RESTART: (id) => `${ENV.apiUrl}/devices/${id}/restart`,
+            
+            // Playlists del dispositivo
+            PLAYLISTS: (deviceId) => `${ENV.apiUrl}/devices/${deviceId}/playlists`
+        },
+        
+        // Asignaciones dispositivo-playlist
+        DEVICE_PLAYLISTS: {
+            LIST: `${ENV.apiUrl}/device-playlists`,
+            ASSIGN: `${ENV.apiUrl}/device-playlists`,
+            UNASSIGN: (deviceId, playlistId) => `${ENV.apiUrl}/device-playlists/${deviceId}/${playlistId}`,
+            BY_DEVICE: (deviceId) => `${ENV.apiUrl}/device-playlists/device/${deviceId}`,
+            BY_PLAYLIST: (playlistId) => `${ENV.apiUrl}/device-playlists/playlist/${playlistId}`,
+            PLAYLIST_DEVICES: (playlistId) => `${ENV.apiUrl}/device-playlists/playlist/${playlistId}/devices`,
+            DEVICE_PLAYLISTS: (deviceId) => `${ENV.apiUrl}/device-playlists/device/${deviceId}/playlists`
+        },
+        
+        // Archivos estáticos
+        STATIC: {
+            IMAGES: `${ENV.baseUrl}/static/images`,
+            CSS: `${ENV.baseUrl}/static/css`,
+            JS: `${ENV.baseUrl}/static/js`,
+            UPLOADS: `${ENV.baseUrl}/static/uploads`,
+            THUMBNAILS: `${ENV.baseUrl}/static/thumbnails`
+        },
+        
+        // Diagnósticos y sistema
+        SYSTEM: {
+            HEALTH: `${ENV.apiUrl}/health`,
+            DIAGNOSTICS: `${ENV.apiUrl}/diagnostics`,
+            VERSION: `${ENV.apiUrl}/version`,
+            STATS: `${ENV.apiUrl}/stats`
+        }
     };
-    
-    // Límites conocidos de la API
-    const API_LIMITS = {
-        maxItems: 1000 // Límite máximo de items permitido por la API
-    };
-    
-    // Variables de estado para playlists
-    let allPlaylists = [];
-    let filteredPlaylists = [];
-    let currentPage = 1;
-    let pageSize = 24;
-    let totalPages = 1;
-    let currentFilter = 'all';
-    let searchTerm = '';
-    
-    // Exponer a window para compatibilidad
-    window.allPlaylists = allPlaylists;
-    
-    // ====================================================
-    // FUNCIÓN SEGURA PARA FETCH
-    // ====================================================
-    
+
+    // ==========================================
+    // CONFIGURACIÓN DE FETCH SEGURO
+    // ==========================================
+
     /**
-     * Realiza una petición fetch con manejo mejorado de errores y soporte HTTPS
+     * Configuración por defecto para requests
      */
-    async function safeFetch(url, options = {}) {
-        try {
-            console.log(`🔄 safeFetch: ${options.method || 'GET'} ${url}`);
-            
-            // Asegurar que la URL usa el protocolo correcto
-            let secureUrl = url;
-            
-            // Si es una URL absoluta con HTTP, convertir a HTTPS o relativa
-            if (url.startsWith('http:') && window.location.protocol === 'https:') {
-                // Si es del mismo dominio, usar URL relativa
-                if (url.includes(window.location.hostname)) {
-                    const urlObj = new URL(url);
-                    secureUrl = urlObj.pathname + urlObj.search;
-                } else {
-                    // Si es de otro dominio, convertir a HTTPS
-                    secureUrl = url.replace('http:', 'https:');
-                }
-                console.log(`🔧 URL corregida: ${url} -> ${secureUrl}`);
+    const DEFAULT_FETCH_CONFIG = {
+        timeout: 30000, // 30 segundos
+        retries: 3,
+        retryDelay: 1000, // 1 segundo
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...(ENV.isSecure && {
+                'X-Requested-With': 'XMLHttpRequest'
+            })
+        },
+        credentials: 'same-origin'
+    };
+
+    /**
+     * Realizar petición HTTP con reintentos y manejo de errores
+     */
+    async function secureFetch(url, options = {}) {
+        const config = {
+            ...DEFAULT_FETCH_CONFIG,
+            ...options,
+            headers: {
+                ...DEFAULT_FETCH_CONFIG.headers,
+                ...options.headers
             }
-            
-            // Realizar la petición
-            const response = await fetch(secureUrl, options);
-            
-            // Manejar errores HTTP
-            if (!response.ok) {
-                let errorMessage = `Error ${response.status}`;
-                
-                try {
-                    // Intentar obtener detalles del error
-                    const contentType = response.headers.get('Content-Type');
-                    if (contentType && contentType.includes('application/json')) {
-                        const errorData = await response.json();
-                        errorMessage = errorData.detail || errorData.message || errorMessage;
-                    } else {
-                        const errorText = await response.text();
-                        if (errorText) errorMessage += `: ${errorText}`;
+        };
+
+        const { timeout, retries, retryDelay, ...fetchOptions } = config;
+
+        console.log(`🔒 [API] ${fetchOptions.method || 'GET'} ${url}`);
+
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                // Crear promise con timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+                const response = await fetch(url, {
+                    ...fetchOptions,
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                // Log de respuesta
+                console.log(`📡 [API] ${response.status} ${url}`);
+
+                if (!response.ok) {
+                    const errorData = await response.text();
+                    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    
+                    try {
+                        const jsonError = JSON.parse(errorData);
+                        errorMessage = jsonError.message || jsonError.detail || errorMessage;
+                    } catch {
+                        if (errorData) errorMessage = errorData;
                     }
-                } catch (e) {
-                    console.warn('No se pudo obtener detalles del error:', e);
+
+                    throw new APIError(errorMessage, response.status, url);
                 }
-                
-                throw new Error(errorMessage);
+
+                return response;
+
+            } catch (error) {
+                console.warn(`⚠️ [API] Intento ${attempt + 1}/${retries + 1} falló:`, error.message);
+
+                // Si es el último intento o no es un error de red, lanzar error
+                if (attempt === retries || !isNetworkError(error)) {
+                    throw error;
+                }
+
+                // Esperar antes del siguiente intento
+                if (attempt < retries) {
+                    await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
+                }
             }
-            
-            return response;
-        } catch (error) {
-            console.error(`❌ Error en safeFetch para ${url}:`, error);
-            throw error;
         }
     }
-    
-    // ====================================================
-    // FUNCIONES PRINCIPALES PARA PLAYLISTS
-    // ====================================================
-    
+
     /**
-     * Carga todas las playlists con un método seguro
+     * Clase de error personalizada para API
      */
-    async function loadPlaylists() {
-        console.log('📋 Cargando playlists de forma segura...');
-        
-        const playlistsList = document.getElementById('playlistsList');
-        if (!playlistsList) {
-            console.error("Elemento playlistsList no encontrado");
-            return;
-        }
-        
-        try {
-            // Mostrar indicador de carga
-            playlistsList.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center py-3">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Cargando...</span>
-                        </div>
-                        <p class="mt-2">Cargando listas de reproducción...</p>
-                    </td>
-                </tr>
-            `;
-            
-            // Usar límite seguro
-            const limit = API_LIMITS.maxItems || 1000;
-            const response = await safeFetch(`${API_URL}/playlists/?limit=${limit}`);
-            const data = await response.json();
-            
-            // Guardar playlists en variables globales
-            allPlaylists = Array.isArray(data) ? data : (data.items || []);
-            window.allPlaylists = allPlaylists;
-            
-            console.log(`✅ Cargadas ${allPlaylists.length} playlists`);
-            
-            // Filtrar y mostrar playlists
-            filterAndDisplayPlaylists();
-            
-            return allPlaylists;
-            
-        } catch (error) {
-            console.error('❌ Error cargando playlists:', error);
-            if (playlistsList) {
-                playlistsList.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="text-center py-5">
-                            <div class="alert alert-danger mb-0">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                <strong>Error al cargar listas</strong><br>
-                                ${error.message}
-                            </div>
-                            <button class="btn btn-outline-primary mt-3" onclick="reloadPlaylists()">
-                                <i class="fas fa-sync"></i> Reintentar
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }
-            return [];
+    class APIError extends Error {
+        constructor(message, status, url) {
+            super(message);
+            this.name = 'APIError';
+            this.status = status;
+            this.url = url;
         }
     }
-    
+
     /**
-     * Filtra y muestra las playlists según criterios
+     * Verificar si un error es de red (reintentar)
      */
-    function filterAndDisplayPlaylists() {
-        console.log('🔍 Filtrando y mostrando playlists...');
-        
-        const playlistsList = document.getElementById('playlistsList');
-        if (!playlistsList) {
-            console.error("Elemento playlistsList no encontrado");
-            return;
-        }
-        
-        if (!allPlaylists || allPlaylists.length === 0) {
-            playlistsList.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center py-4">
-                        <div class="alert alert-info mb-0">
-                            <i class="fas fa-info-circle me-2"></i>
-                            No hay listas de reproducción disponibles
-                        </div>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-        
-        // Filtrar según criterios
-        filteredPlaylists = [...allPlaylists];
-        
-        // Filtrar por estado si hay un filtro activo
-        if (currentFilter === 'active') {
-            filteredPlaylists = filteredPlaylists.filter(playlist => 
-                playlist.is_active && (!playlist.expiration_date || new Date(playlist.expiration_date) > new Date())
-            );
-        } else if (currentFilter === 'inactive') {
-            filteredPlaylists = filteredPlaylists.filter(playlist => 
-                !playlist.is_active || (playlist.expiration_date && new Date(playlist.expiration_date) <= new Date())
-            );
-        }
-        
-        // Filtrar por término de búsqueda
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            filteredPlaylists = filteredPlaylists.filter(playlist => 
-                (playlist.title && playlist.title.toLowerCase().includes(term)) || 
-                (playlist.description && playlist.description.toLowerCase().includes(term))
-            );
-        }
-        
-        // Calcular paginación
-        totalPages = Math.ceil(filteredPlaylists.length / pageSize) || 1;
-        if (currentPage > totalPages) {
-            currentPage = totalPages;
-        }
-        
-        // Obtener datos para la página actual
-        const startIndex = (currentPage - 1) * pageSize;
-        const endIndex = Math.min(startIndex + pageSize, filteredPlaylists.length);
-        const pageData = filteredPlaylists.slice(startIndex, endIndex);
-        
-        // Crear filas HTML
-        let html = '';
-        pageData.forEach(playlist => {
-            const isExpired = playlist.expiration_date ? new Date(playlist.expiration_date) < new Date() : false;
-            const isActive = playlist.is_active && !isExpired;
-            
-            html += `
-                <tr class="${isActive ? '' : 'table-warning'}">
-                    <td>${playlist.title || ''}</td>
-                    <td>${playlist.description || '<span class="text-muted">Sin descripción</span>'}</td>
-                    <td>${formatDate(playlist.created_at)}</td>
-                    <td>${playlist.expiration_date ? formatDate(playlist.expiration_date) : '<span class="text-muted">Sin expiración</span>'}</td>
-                    <td>
-                        <span class="badge ${isActive ? 'bg-success' : 'bg-danger'}">
-                            ${isActive ? 'Activa' : 'Inactiva'}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-info" onclick="viewPlaylist(${playlist.id})">
-                                <i class="fas fa-eye"></i> Ver
-                            </button>
-                            <button class="btn btn-outline-primary" onclick="editPlaylist(${playlist.id})">
-                                <i class="fas fa-edit"></i> Editar
-                            </button>
-                            <button class="btn btn-outline-danger" onclick="deletePlaylist(${playlist.id}, '${playlist.title}')">
-                                <i class="fas fa-trash"></i> Eliminar
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
+    function isNetworkError(error) {
+        return error.name === 'TypeError' || 
+               error.name === 'NetworkError' ||
+               error.message.includes('fetch') ||
+               error.message.includes('network') ||
+               error.message.includes('Failed to fetch');
+    }
+
+    // ==========================================
+    // FUNCIONES DE CONVENIENCIA
+    // ==========================================
+
+    /**
+     * GET request simplificado
+     */
+    async function apiGet(endpoint, options = {}) {
+        const response = await secureFetch(endpoint, {
+            method: 'GET',
+            ...options
         });
         
-        // Mostrar filas en la tabla
-        playlistsList.innerHTML = html;
-        
-        // Actualizar información de paginación
-        updatePaginationInfo();
-    }
-    
-    /**
-     * Actualiza la información de paginación
-     */
-    function updatePaginationInfo() {
-        // Actualizar contador de playlists
-        const playlistCountBadge = document.getElementById('playlistCountBadge');
-        if (playlistCountBadge) {
-            playlistCountBadge.textContent = `${filteredPlaylists.length} lista${filteredPlaylists.length !== 1 ? 's' : ''}`;
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return await response.json();
         }
         
-        // Actualizar información de paginación
-        const paginationInfo = document.getElementById('playlistPaginationInfo');
-        if (paginationInfo) {
-            const startIndex = filteredPlaylists.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-            const endIndex = Math.min(startIndex + pageSize - 1, filteredPlaylists.length);
-            paginationInfo.textContent = `Mostrando ${startIndex} - ${endIndex} de ${filteredPlaylists.length} resultados`;
+        return await response.text();
+    }
+
+    /**
+     * POST request simplificado
+     */
+    async function apiPost(endpoint, data = null, options = {}) {
+        const response = await secureFetch(endpoint, {
+            method: 'POST',
+            body: data ? JSON.stringify(data) : null,
+            ...options
+        });
+        
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return await response.json();
         }
         
-        // Actualizar botones de paginación
-        updatePaginationButtons();
+        return await response.text();
     }
-    
+
     /**
-     * Actualiza los estados de los botones de paginación
+     * PUT request simplificado
      */
-    function updatePaginationButtons() {
-        const firstBtn = document.getElementById('firstPlaylistPageBtn');
-        const prevBtn = document.getElementById('prevPlaylistPageBtn');
-        const nextBtn = document.getElementById('nextPlaylistPageBtn');
-        const lastBtn = document.getElementById('lastPlaylistPageBtn');
-        const pageInput = document.getElementById('playlistPageInput');
+    async function apiPut(endpoint, data = null, options = {}) {
+        const response = await secureFetch(endpoint, {
+            method: 'PUT',
+            body: data ? JSON.stringify(data) : null,
+            ...options
+        });
         
-        const isFirstPage = currentPage <= 1;
-        const isLastPage = currentPage >= totalPages;
-        
-        // Deshabilitar/habilitar botones según corresponda
-        if (firstBtn) firstBtn.disabled = isFirstPage;
-        if (prevBtn) prevBtn.disabled = isFirstPage;
-        if (nextBtn) nextBtn.disabled = isLastPage;
-        if (lastBtn) lastBtn.disabled = isLastPage;
-        
-        // Actualizar input de página
-        if (pageInput) {
-            pageInput.value = currentPage;
-            pageInput.max = totalPages;
-        }
-    }
-    
-    // ====================================================
-    // FUNCIONES DE NAVEGACIÓN Y FILTRADO
-    // ====================================================
-    
-    /**
-     * Aplica un filtro a las playlists
-     */
-    function filterPlaylists(filter) {
-        currentFilter = filter || 'all';
-        currentPage = 1;
-        filterAndDisplayPlaylists();
-    }
-    
-    /**
-     * Aplica un término de búsqueda a las playlists
-     */
-    function searchPlaylists(term) {
-        searchTerm = term || '';
-        currentPage = 1;
-        filterAndDisplayPlaylists();
-    }
-    
-    /**
-     * Navega a la primera página
-     */
-    function goToFirstPage() {
-        if (currentPage > 1) {
-            currentPage = 1;
-            filterAndDisplayPlaylists();
-        }
-    }
-    
-    /**
-     * Navega a la página anterior
-     */
-    function goToPrevPage() {
-        if (currentPage > 1) {
-            currentPage--;
-            filterAndDisplayPlaylists();
-        }
-    }
-    
-    /**
-     * Navega a la página siguiente
-     */
-    function goToNextPage() {
-        if (currentPage < totalPages) {
-            currentPage++;
-            filterAndDisplayPlaylists();
-        }
-    }
-    
-    /**
-     * Navega a la última página
-     */
-    function goToLastPage() {
-        if (currentPage < totalPages) {
-            currentPage = totalPages;
-            filterAndDisplayPlaylists();
-        }
-    }
-    
-    /**
-     * Navega a una página específica
-     */
-    function goToPage(page) {
-        page = parseInt(page);
-        if (!isNaN(page) && page >= 1 && page <= totalPages) {
-            currentPage = page;
-            filterAndDisplayPlaylists();
-        }
-    }
-    
-    // ====================================================
-    // FUNCIONES DE ACCIÓN PARA PLAYLISTS
-    // ====================================================
-    
-    /**
-     * Abre la vista de detalle de una playlist
-     */
-    function viewPlaylist(id) {
-        // Redireccionar a la página de detalle
-        window.location.href = `/ui/playlist_detail?id=${id}`;
-    }
-    
-    /**
-     * Abre la vista de edición de una playlist
-     */
-    function editPlaylist(id) {
-        // Redireccionar a la página de edición
-        window.location.href = `/ui/playlist_detail?id=${id}`;
-    }
-    
-    /**
-     * Muestra el modal de confirmación para eliminar una playlist
-     */
-    function deletePlaylist(id, title) {
-        // Configurar modal de confirmación
-        const deletePlaylistName = document.getElementById('deletePlaylistName');
-        if (deletePlaylistName) {
-            deletePlaylistName.textContent = title || `Playlist #${id}`;
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return await response.json();
         }
         
-        // Configurar botón de confirmación
-        const confirmDeleteBtn = document.getElementById('confirmDeletePlaylistBtn');
-        if (confirmDeleteBtn) {
-            confirmDeleteBtn.onclick = function() {
-                confirmDeletePlaylist(id);
-            };
+        return await response.text();
+    }
+
+    /**
+     * DELETE request simplificado
+     */
+    async function apiDelete(endpoint, options = {}) {
+        const response = await secureFetch(endpoint, {
+            method: 'DELETE',
+            ...options
+        });
+        
+        if (response.status === 204) {
+            return true; // No content
         }
         
-        // Mostrar modal
-        const deleteModal = new bootstrap.Modal(document.getElementById('deletePlaylistModal'));
-        deleteModal.show();
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return await response.json();
+        }
+        
+        return await response.text();
     }
-    
+
     /**
-     * Ejecuta la eliminación de una playlist
+     * Upload de archivos
      */
-    async function confirmDeletePlaylist(id) {
-        try {
-            console.log('🗑️ Eliminando playlist:', id);
-            
-            // Realizar petición DELETE
-            const response = await safeFetch(`${API_URL}/playlists/${id}`, {
-                method: 'DELETE'
-            });
-            
-            // Cerrar modal
-            const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deletePlaylistModal'));
-            if (deleteModal) {
-                deleteModal.hide();
+    async function apiUpload(endpoint, file, additionalData = {}) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Agregar datos adicionales
+        Object.keys(additionalData).forEach(key => {
+            formData.append(key, additionalData[key]);
+        });
+
+        const response = await secureFetch(endpoint, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                // No establecer Content-Type para FormData
+                'Accept': 'application/json'
             }
-            
-            // Mostrar mensaje de éxito
-            showToast('Lista de reproducción eliminada correctamente', 'success');
-            
-            // Recargar playlists
-            setTimeout(() => {
-                loadPlaylists();
-            }, 500);
-            
-        } catch (error) {
-            console.error('Error al eliminar playlist:', error);
-            showToast(`Error: ${error.message}`, 'error');
+        });
+
+        return await response.json();
+    }
+
+    // ==========================================
+    // INTERCEPTORES
+    // ==========================================
+
+    /**
+     * Interceptor de request (se ejecuta antes de cada petición)
+     */
+    function addRequestInterceptor(interceptor) {
+        if (typeof interceptor === 'function') {
+            requestInterceptors.push(interceptor);
         }
     }
-    
-    // ====================================================
-    // FUNCIONES AUXILIARES
-    // ====================================================
-    
+
     /**
-     * Formatea una fecha para mostrar
+     * Interceptor de response (se ejecuta después de cada petición)
      */
-    function formatDate(dateString) {
-        if (!dateString) return 'Sin fecha';
-        try {
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) {
-                return 'Fecha inválida';
-            }
-            return date.toLocaleString('es-ES', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        } catch (e) {
-            console.error("Error al formatear fecha:", e);
-            return dateString;
+    function addResponseInterceptor(interceptor) {
+        if (typeof interceptor === 'function') {
+            responseInterceptors.push(interceptor);
         }
     }
-    
+
+    const requestInterceptors = [];
+    const responseInterceptors = [];
+
+    // ==========================================
+    // FUNCIONES DE UTILIDAD
+    // ==========================================
+
     /**
-     * Muestra un mensaje toast
+     * Construir URL con parámetros de query
      */
-    function showToast(message, type = 'info') {
-        console.log(`[${type.toUpperCase()}] ${message}`);
+    function buildUrl(baseUrl, params = {}) {
+        const url = new URL(baseUrl);
         
-        // Verificar si Bootstrap está disponible
-        if (typeof bootstrap !== 'undefined') {
-            // Crear contenedor de toasts si no existe
-            let toastContainer = document.getElementById('toast-container');
-            if (!toastContainer) {
-                toastContainer = document.createElement('div');
-                toastContainer.id = 'toast-container';
-                toastContainer.className = 'position-fixed top-0 end-0 p-3';
-                toastContainer.style.zIndex = '1090';
-                document.body.appendChild(toastContainer);
+        Object.keys(params).forEach(key => {
+            if (params[key] !== null && params[key] !== undefined) {
+                url.searchParams.append(key, params[key]);
             }
-            
-            // Crear elemento toast
-            const toastId = 'toast-' + Date.now();
-            const toastEl = document.createElement('div');
-            toastEl.id = toastId;
-            toastEl.className = `toast ${
-                type === 'error' ? 'bg-danger text-white' : 
-                type === 'success' ? 'bg-success text-white' : 
-                type === 'warning' ? 'bg-warning' : 'bg-info text-white'
-            }`;
-            toastEl.setAttribute('role', 'alert');
-            toastEl.setAttribute('aria-live', 'assertive');
-            toastEl.setAttribute('aria-atomic', 'true');
-            
-            const icon = type === 'error' ? 'exclamation-triangle' : 
-                        type === 'success' ? 'check-circle' : 
-                        type === 'warning' ? 'exclamation-circle' : 'info-circle';
-            
-            toastEl.innerHTML = `
-                <div class="toast-header">
-                    <i class="fas fa-${icon} me-2"></i>
-                    <strong class="me-auto">${type.charAt(0).toUpperCase() + type.slice(1)}</strong>
-                    <small>Ahora</small>
-                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-                <div class="toast-body">
-                    ${message}
-                </div>
-            `;
-            
-            toastContainer.appendChild(toastEl);
-            
-            // Mostrar toast
-            const toast = new bootstrap.Toast(toastEl, {
-                animation: true,
-                autohide: true,
-                delay: 5000
-            });
-            
-            toast.show();
-            
-            // Eliminar después de cerrar
-            toastEl.addEventListener('hidden.bs.toast', () => {
-                toastEl.remove();
-            });
+        });
+        
+        return url.toString();
+    }
+
+    /**
+     * Verificar si estamos en contexto seguro
+     */
+    function isSecureContext() {
+        return ENV.isSecure;
+    }
+
+    /**
+     * Obtener información del entorno
+     */
+    function getEnvironment() {
+        return { ...ENV };
+    }
+
+    /**
+     * Obtener URL base de la API
+     */
+    function getApiUrl() {
+        return ENV.apiUrl;
+    }
+
+    /**
+     * Obtener URL base del sitio
+     */
+    function getBaseUrl() {
+        return ENV.baseUrl;
+    }
+
+    // ==========================================
+    // CONFIGURACIÓN GLOBAL
+    // ==========================================
+
+    /**
+     * Configurar timeout global
+     */
+    function setTimeout(newTimeout) {
+        DEFAULT_FETCH_CONFIG.timeout = newTimeout;
+    }
+
+    /**
+     * Configurar reintentos globales
+     */
+    function setRetries(newRetries) {
+        DEFAULT_FETCH_CONFIG.retries = newRetries;
+    }
+
+    /**
+     * Configurar headers globales
+     */
+    function setGlobalHeaders(headers) {
+        Object.assign(DEFAULT_FETCH_CONFIG.headers, headers);
+    }
+
+    // ==========================================
+    // EXPORTACIÓN GLOBAL
+    // ==========================================
+
+    // Crear objeto de configuración global
+    window.API_CONFIG = API_ENDPOINTS;
+    
+    // Crear objeto de funciones de API
+    window.API = {
+        // Funciones básicas
+        fetch: secureFetch,
+        get: apiGet,
+        post: apiPost,
+        put: apiPut,
+        delete: apiDelete,
+        upload: apiUpload,
+        
+        // Utilidades
+        buildUrl,
+        isSecureContext,
+        getEnvironment,
+        getApiUrl,
+        getBaseUrl,
+        
+        // Configuración
+        setTimeout,
+        setRetries,
+        setGlobalHeaders,
+        
+        // Interceptores
+        addRequestInterceptor,
+        addResponseInterceptor,
+        
+        // Endpoints
+        endpoints: API_ENDPOINTS,
+        
+        // Clases
+        APIError
+    };
+
+    // Funciones de compatibilidad (para scripts existentes)
+    window.secureFetch = secureFetch;
+    window.isSecureContext = isSecureContext;
+    window.getSecureBaseUrl = getBaseUrl;
+    window.buildApiUrl = (endpoint) => `${ENV.apiUrl}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
+
+    // ==========================================
+    // INICIALIZACIÓN
+    // ==========================================
+
+    // Interceptor por defecto para logging
+    addResponseInterceptor((response, url) => {
+        if (response.ok) {
+            console.log(`✅ [API] ${response.status} ${url}`);
         } else {
-            // Fallback si no hay Bootstrap
-            alert(`${type.toUpperCase()}: ${message}`);
+            console.error(`❌ [API] ${response.status} ${url}`);
         }
-    }
-    
-    // ====================================================
-    // INICIALIZACIÓN Y EXPORTACIÓN
-    // ====================================================
-    
-    /**
-     * Inicializa los eventos y carga las playlists
-     */
-    function initialize() {
-        console.log('🚀 Inicializando vista de playlists...');
-        
-        // Configurar eventos de filtros
-        const filterStatus = document.getElementById('playlistFilterStatus');
-        if (filterStatus) {
-            filterStatus.addEventListener('change', function() {
-                filterPlaylists(this.value);
-            });
+    });
+
+    // Interceptor para manejar errores de autenticación
+    addResponseInterceptor((response, url) => {
+        if (response.status === 401) {
+            console.warn('🔐 [API] Token expirado o no válido');
+            // Aquí podrías redirigir al login o renovar token
         }
-        
-        // Configurar eventos de búsqueda
-        const searchInput = document.getElementById('playlistSearchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', function() {
-                if (this.value.length >= 3 || this.value.length === 0) {
-                    searchPlaylists(this.value);
-                }
-            });
-        }
-        
-        // Configurar eventos de paginación
-        const pageInput = document.getElementById('playlistPageInput');
-        if (pageInput) {
-            pageInput.addEventListener('change', function() {
-                goToPage(this.value);
-            });
-        }
-        
-        // Configurar botón de limpieza de búsqueda
-        const clearSearchBtn = document.getElementById('clearSearchBtn');
-        if (clearSearchBtn) {
-            clearSearchBtn.addEventListener('click', function() {
-                if (searchInput) {
-                    searchInput.value = '';
-                    searchPlaylists('');
-                }
-            });
-        }
-        
-        // Configurar formulario de creación
-        const createPlaylistForm = document.getElementById('createPlaylistForm');
-        if (createPlaylistForm) {
-            createPlaylistForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                try {
-                    const formData = new FormData(this);
-                    const playlistData = {
-                        title: formData.get('title'),
-                        description: formData.get('description'),
-                        expiration_date: formData.get('expiration_date') || null,
-                        is_active: formData.has('is_active')
-                    };
-                    
-                    // Validar título
-                    if (!playlistData.title || !playlistData.title.trim()) {
-                        throw new Error('El título es obligatorio');
-                    }
-                    
-                    // Enviar datos a la API
-                    const response = await safeFetch(API_ENDPOINTS.createPlaylist, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(playlistData)
-                    });
-                    
-                    const result = await response.json();
-                    
-                    // Cerrar modal
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('createPlaylistModal'));
-                    if (modal) {
-                        modal.hide();
-                    }
-                    
-                    // Resetear formulario
-                    this.reset();
-                    
-                    // Mostrar mensaje de éxito
-                    showToast('Lista de reproducción creada correctamente', 'success');
-                    
-                    // Recargar playlists
-                    setTimeout(() => {
-                        loadPlaylists();
-                    }, 500);
-                    
-                } catch (error) {
-                    console.error('Error al crear playlist:', error);
-                    showToast(`Error: ${error.message}`, 'error');
-                }
-            });
-        }
-        
-        // Cargar playlists
-        loadPlaylists();
-        
-        console.log('✅ Vista de playlists inicializada correctamente');
-    }
-    
-    // Exportar funciones a window para acceso global
-    window.viewPlaylist = viewPlaylist;
-    window.editPlaylist = editPlaylist;
-    window.deletePlaylist = deletePlaylist;
-    window.loadPlaylists = loadPlaylists;
-    window.goToFirstPlaylistPage = goToFirstPage;
-    window.goToPrevPlaylistPage = goToPrevPage;
-    window.goToNextPlaylistPage = goToNextPage;
-    window.goToLastPlaylistPage = goToLastPage;
-    window.goToPlaylistPage = goToPage;
-    window.reloadPlaylists = loadPlaylists;
-    
-    // Inicializar cuando el DOM esté listo
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initialize);
-    } else {
-        // Si el DOM ya está cargado, inicializar inmediatamente
-        initialize();
-    }
-    
-    console.log('🔧 Correcciones para la vista de playlists aplicadas correctamente');
+    });
+
+    console.log('✅ Configuración de API cargada correctamente');
+    console.log('🔗 Endpoints disponibles:', Object.keys(API_ENDPOINTS));
+    console.log('🌐 Entorno:', ENV.environment);
+    console.log('🔒 Contexto seguro:', ENV.isSecure);
+
 })();
+
+// ==========================================
+// EJEMPLO DE USO
+// ==========================================
+
+/*
+// Usar la API en tu código:
+
+// GET simple
+const videos = await API.get(API_CONFIG.VIDEOS.LIST);
+
+// POST con datos
+const newPlaylist = await API.post(API_CONFIG.PLAYLISTS.CREATE, {
+    title: 'Mi Nueva Lista',
+    description: 'Descripción de la lista'
+});
+
+// PUT para actualizar
+const updatedPlaylist = await API.put(API_CONFIG.PLAYLISTS.UPDATE(1), {
+    title: 'Título Actualizado'
+});
+
+// DELETE
+await API.delete(API_CONFIG.PLAYLISTS.DELETE(1));
+
+// URL con parámetros
+const videosUrl = API.buildUrl(API_CONFIG.VIDEOS.LIST, {
+    limit: 50,
+    search: 'mi video'
+});
+const videos = await API.get(videosUrl);
+
+// Upload de archivo
+const file = document.getElementById('fileInput').files[0];
+const result = await API.upload(API_CONFIG.VIDEOS.UPLOAD, file, {
+    title: 'Mi Video',
+    description: 'Descripción del video'
+});
+
+// Manejo de errores
+try {
+    const data = await API.get('/endpoint-que-no-existe');
+} catch (error) {
+    if (error instanceof API.APIError) {
+        console.error('Error de API:', error.status, error.message);
+    } else {
+        console.error('Error de red:', error.message);
+    }
+}
+*/

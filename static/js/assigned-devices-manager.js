@@ -1,13 +1,18 @@
-/**
- * ASSIGNED DEVICES MANAGER - GestiÃ³n de Dispositivos Asignados
- * Maneja la visualizaciÃ³n y gestiÃ³n de dispositivos ya asignados a la playlist
- */
+console.log('📺 Cargando módulo de gestión de dispositivos asignados...');
 
 // ==========================================
 // VARIABLES GLOBALES PARA DISPOSITIVOS ASIGNADOS
 // ==========================================
 let assignedDevicesData = [];
 let isLoadingAssignedDevices = false;
+
+// API Configuration - usar la global si existe
+const ASSIGNED_DEVICES_API = window.API_CONFIG || {
+    DEVICES: {
+        PLAYLIST_DEVICES: (playlistId) => `${window.location.origin}/api/device-playlists/playlist/${playlistId}/devices`,
+        UNASSIGN: (deviceId, playlistId) => `${window.location.origin}/api/device-playlists/${deviceId}/${playlistId}`
+    }
+};
 
 // ==========================================
 // FUNCIONES PRINCIPALES PARA DISPOSITIVOS ASIGNADOS
@@ -19,14 +24,14 @@ let isLoadingAssignedDevices = false;
 async function loadAssignedDevices() {
     const playlistId = getPlaylistId();
     if (!playlistId) {
-        console.error('âŒ No se pudo determinar el ID de la playlist para cargar dispositivos');
+        console.error('❌ No se pudo determinar el ID de la playlist para cargar dispositivos');
         return;
     }
     
     if (isLoadingAssignedDevices) return;
     isLoadingAssignedDevices = true;
     
-    console.log(`ðŸ”„ Cargando dispositivos asignados a playlist ${playlistId}...`);
+    console.log(`📺 Cargando dispositivos asignados a playlist ${playlistId}...`);
     
     // Elementos del DOM
     const loadingElement = document.getElementById('loadingAssignedDevices');
@@ -40,11 +45,18 @@ async function loadAssignedDevices() {
     if (emptyElement) emptyElement.classList.add('d-none');
     
     try {
-        // Usar el endpoint correcto basado en la documentaciÃ³n del proyecto
-        const url = `${API_URL}/device-playlists/playlist/${playlistId}/devices`;
-        console.log(`ðŸ“¡ Cargando dispositivos desde: ${url}`);
+        // Usar el endpoint correcto
+        const url = ASSIGNED_DEVICES_API.DEVICES.PLAYLIST_DEVICES(playlistId);
+        console.log(`📡 Cargando dispositivos desde: ${url}`);
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        });
         
         if (!response.ok) {
             throw new Error(`Error ${response.status}: No se pudieron cargar los dispositivos asignados`);
@@ -52,95 +64,112 @@ async function loadAssignedDevices() {
         
         // Procesar respuesta
         const data = await response.json();
-        assignedDevicesData = Array.isArray(data) ? data : [];
+        assignedDevicesData = Array.isArray(data) ? data : (data.devices || data.data || []);
         
-        console.log(`âœ… Dispositivos asignados cargados: ${assignedDevicesData.length}`, assignedDevicesData);
+        console.log(`✅ Dispositivos asignados cargados: ${assignedDevicesData.length}`, assignedDevicesData);
         
-        // Mostrar dispositivos o mensaje vacÃ­o
+        // Ocultar loading
+        if (loadingElement) loadingElement.classList.add('d-none');
+        
         if (assignedDevicesData.length === 0) {
             showEmptyAssignedDevices();
         } else {
-            renderAssignedDevices();
+            showAssignedDevicesTable();
         }
         
-        // Actualizar contador en estadÃ­sticas
+        // Actualizar contador en estadísticas
         updateAssignedDevicesCount(assignedDevicesData.length);
         
     } catch (error) {
-        console.error('âŒ Error cargando dispositivos asignados:', error);
+        console.error('❌ Error cargando dispositivos asignados:', error);
+        
+        // Ocultar loading
+        if (loadingElement) loadingElement.classList.add('d-none');
+        
+        // Mostrar error
         showErrorAssignedDevices(error.message);
+        
     } finally {
         isLoadingAssignedDevices = false;
-        if (loadingElement) loadingElement.classList.add('d-none');
     }
 }
 
 /**
- * Renderizar tabla de dispositivos asignados
+ * Mostrar tabla de dispositivos asignados
  */
-function renderAssignedDevices() {
+function showAssignedDevicesTable() {
     const tableElement = document.getElementById('assignedDevicesTable');
     const emptyElement = document.getElementById('assignedDevicesEmpty');
     const devicesList = document.getElementById('assignedDevicesList');
     
-    if (!devicesList) {
-        console.error('âŒ Elemento assignedDevicesList no encontrado');
-        return;
-    }
-    
-    // Mostrar tabla y ocultar mensaje vacÃ­o
     if (tableElement) tableElement.classList.remove('d-none');
     if (emptyElement) emptyElement.classList.add('d-none');
     
-    // Generar HTML para cada dispositivo
+    if (!devicesList) {
+        console.error('❌ Elemento assignedDevicesList no encontrado');
+        return;
+    }
+    
+    // Renderizar dispositivos
     const devicesHTML = assignedDevicesData.map(device => {
-        // Determinar estado del dispositivo
-        const statusClass = device.is_active ? 'bg-success' : 'bg-danger';
-        const statusText = device.is_active ? 'Activo' : 'Inactivo';
+        const deviceId = device.device_id || device.id || device.mac_address;
+        const deviceName = device.name || device.device_name || 'Dispositivo sin nombre';
+        const deviceMac = device.mac_address || device.device_id || 'Sin MAC';
+        const deviceLocation = device.location || device.tienda || device.store || 'Sin ubicación';
+        const deviceStatus = device.status || device.device_status || 'unknown';
+        const lastSeen = device.last_seen || device.updated_at || device.last_connection;
         
-        // Formatear Ãºltima conexiÃ³n
-        let lastConnection = 'Nunca';
-        if (device.last_seen) {
-            try {
-                const date = new Date(device.last_seen);
-                lastConnection = date.toLocaleDateString('es-ES') + ' ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-            } catch (e) {
-                lastConnection = 'Fecha invÃ¡lida';
-            }
-        }
+        // Determinar estado
+        const isOnline = deviceStatus === 'online' || deviceStatus === 'active';
+        const statusClass = isOnline ? 'bg-success' : 'bg-secondary';
+        const statusText = isOnline ? 'En línea' : 'Fuera de línea';
+        const statusIcon = isOnline ? 'fas fa-circle' : 'fas fa-circle';
         
         return `
-            <tr class="${device.is_active ? '' : 'table-warning'}">
+            <tr data-device-id="${deviceId}">
                 <td>
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-tv text-primary me-2"></i>
-                        <div>
-                            <h6 class="mb-0">${escapeHtml(device.name || 'Sin nombre')}</h6>
-                            <small class="text-muted">${escapeHtml(device.device_id || device.mac_address || '')}</small>
+                    <div class="device-info">
+                        <div class="device-name fw-semibold text-dark">
+                            ${escapeHtml(deviceName)}
                         </div>
+                        <small class="text-muted">
+                            <i class="fas fa-network-wired me-1"></i>
+                            ${escapeHtml(deviceMac)}
+                        </small>
                     </div>
                 </td>
                 <td>
-                    <div>
-                        <span class="fw-bold">${escapeHtml(device.location || 'Sin ubicaciÃ³n')}</span>
-                        ${device.tienda ? `<br><small class="text-muted">${escapeHtml(device.tienda)}</small>` : ''}
+                    <div class="device-location">
+                        <i class="fas fa-map-marker-alt me-1 text-muted"></i>
+                        <span class="text-muted">${escapeHtml(deviceLocation)}</span>
                     </div>
                 </td>
                 <td>
-                    <span class="badge ${statusClass}">${statusText}</span>
+                    <span class="badge ${statusClass}">
+                        <i class="${statusIcon} me-1"></i>
+                        ${statusText}
+                    </span>
                 </td>
                 <td>
-                    <small class="text-muted">${lastConnection}</small>
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        ${formatDate(lastSeen)}
+                    </small>
                 </td>
                 <td class="text-end">
-                    <div class="btn-group btn-group-sm">
+                    <div class="btn-group btn-group-sm" role="group">
                         <button class="btn btn-outline-info" 
-                                onclick="viewDeviceDetails('${device.device_id || device.mac_address}')"
-                                title="Ver detalles">
+                                onclick="viewDeviceDetails('${deviceId}')" 
+                                title="Ver detalles del dispositivo">
                             <i class="fas fa-eye"></i>
                         </button>
+                        <button class="btn btn-outline-warning" 
+                                onclick="testDeviceConnection('${deviceId}')" 
+                                title="Probar conexión">
+                            <i class="fas fa-wifi"></i>
+                        </button>
                         <button class="btn btn-outline-danger" 
-                                onclick="confirmUnassignDevice('${device.device_id || device.mac_address}', '${escapeHtml(device.name || device.device_id)}')"
+                                onclick="confirmUnassignDevice('${deviceId}', '${escapeHtml(deviceName)}')" 
                                 title="Desasignar dispositivo">
                             <i class="fas fa-unlink"></i>
                         </button>
@@ -152,11 +181,11 @@ function renderAssignedDevices() {
     
     devicesList.innerHTML = devicesHTML;
     
-    console.log(`âœ… ${assignedDevicesData.length} dispositivos renderizados en la tabla`);
+    console.log(`✅ ${assignedDevicesData.length} dispositivos renderizados en la tabla`);
 }
 
 /**
- * Mostrar mensaje cuando no hay dispositivos asignados
+ * Mostrar estado vacío de dispositivos asignados
  */
 function showEmptyAssignedDevices() {
     const tableElement = document.getElementById('assignedDevicesTable');
@@ -166,17 +195,20 @@ function showEmptyAssignedDevices() {
     if (emptyElement) {
         emptyElement.classList.remove('d-none');
         emptyElement.innerHTML = `
-            <div class="text-center py-4">
-                <i class="fas fa-tv fa-2x text-muted mb-3"></i>
-                <p class="text-muted mb-2">No hay dispositivos asignados a esta lista</p>
-                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#assignDeviceModal">
+            <div class="empty-state text-center py-4">
+                <i class="fas fa-tv fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No hay dispositivos asignados</h5>
+                <p class="text-muted mb-3">
+                    Asigna dispositivos para que puedan reproducir esta lista de reproducción
+                </p>
+                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#assignDeviceModal">
                     <i class="fas fa-plus-circle me-1"></i> Asignar Dispositivo
                 </button>
             </div>
         `;
     }
     
-    console.log('ðŸ“º Mostrando mensaje de dispositivos vacÃ­o');
+    console.log('📺 Mostrando mensaje de dispositivos vacío');
 }
 
 /**
@@ -205,25 +237,31 @@ function showErrorAssignedDevices(errorMessage) {
 }
 
 /**
- * Actualizar contador de dispositivos en estadÃ­sticas
+ * Actualizar contador de dispositivos en estadísticas
  */
 function updateAssignedDevicesCount(count) {
     const countElement = document.getElementById('assignedDevices');
+    const deviceCountElement = document.getElementById('deviceCount');
+    
     if (countElement) {
         countElement.textContent = count;
-        console.log(`ðŸ“Š Contador de dispositivos actualizado: ${count}`);
+        console.log(`📊 Contador de dispositivos actualizado: ${count}`);
+    }
+    
+    if (deviceCountElement) {
+        deviceCountElement.textContent = count;
     }
 }
 
 // ==========================================
-// FUNCIONES DE GESTIÃ“N DE DISPOSITIVOS
+// FUNCIONES DE GESTIÓN DE DISPOSITIVOS
 // ==========================================
 
 /**
- * Confirmar desasignaciÃ³n de dispositivo
+ * Confirmar desasignación de dispositivo
  */
 function confirmUnassignDevice(deviceId, deviceName) {
-    if (confirm(`Â¿EstÃ¡s seguro de que deseas desasignar el dispositivo "${deviceName}" de esta lista de reproducciÃ³n?`)) {
+    if (confirm(`¿Estás seguro de que deseas desasignar el dispositivo "${deviceName}"?\n\nEste dispositivo ya no podrá reproducir esta lista de reproducción.`)) {
         unassignDeviceFromPlaylist(deviceId);
     }
 }
@@ -234,52 +272,51 @@ function confirmUnassignDevice(deviceId, deviceName) {
 async function unassignDeviceFromPlaylist(deviceId) {
     const playlistId = getPlaylistId();
     if (!playlistId) {
-        showToast('Error: No se pudo determinar el ID de la playlist', 'error');
+        console.error('❌ No se pudo obtener el ID de la playlist');
+        showToast('Error: No se pudo obtener el ID de la playlist', 'error');
         return;
     }
     
-    console.log(`ðŸ”„ Desasignando dispositivo ${deviceId} de playlist ${playlistId}...`);
+    console.log(`🔗 Desasignando dispositivo ${deviceId} de playlist ${playlistId}...`);
+    
+    // Deshabilitar botón temporalmente
+    const buttonElement = document.querySelector(`button[onclick*="confirmUnassignDevice('${deviceId}'"]`);
+    if (buttonElement) {
+        buttonElement.disabled = true;
+        buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
     
     try {
-        // Mostrar loading en el botÃ³n
-        const buttonElement = document.querySelector(`button[onclick*="confirmUnassignDevice('${deviceId}'"]`);
-        if (buttonElement) {
-            buttonElement.disabled = true;
-            buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        }
-        
-        // Usar el endpoint correcto para desasignar
-        const url = `${API_URL}/device-playlists/${deviceId}/${playlistId}`;
-        console.log(`ðŸ“¡ Desasignando dispositivo: ${url}`);
+        const url = ASSIGNED_DEVICES_API.DEVICES.UNASSIGN(deviceId, playlistId);
+        console.log(`📡 Desasignando desde: ${url}`);
         
         const response = await fetch(url, {
             method: 'DELETE',
             headers: {
-                'Content-Type': 'application/json'
-            }
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
         });
         
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.detail || `Error ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`Error ${response.status}: ${errorText}`);
         }
         
+        console.log('✅ Dispositivo desasignado correctamente');
+        
+        // Mostrar mensaje de éxito
         showToast('Dispositivo desasignado correctamente', 'success');
         
-        // Recargar lista de dispositivos asignados
+        // Recargar la lista de dispositivos asignados
         await loadAssignedDevices();
         
-        // Actualizar datos del modal de asignaciÃ³n si estÃ¡ abierto
-        if (document.getElementById('assignDeviceModal').classList.contains('show')) {
-            await loadCurrentAssignedDevices();
-            filterDevicesInModal();
-        }
-        
     } catch (error) {
-        console.error('âŒ Error desasignando dispositivo:', error);
+        console.error('❌ Error desasignando dispositivo:', error);
         showToast(`Error al desasignar dispositivo: ${error.message}`, 'error');
         
-        // Restaurar botÃ³n
+        // Restaurar botón
         const buttonElement = document.querySelector(`button[onclick*="confirmUnassignDevice('${deviceId}'"]`);
         if (buttonElement) {
             buttonElement.disabled = false;
@@ -292,47 +329,78 @@ async function unassignDeviceFromPlaylist(deviceId) {
  * Ver detalles del dispositivo
  */
 function viewDeviceDetails(deviceId) {
-    // Redirigir a la pÃ¡gina de detalles del dispositivo
+    // Redirigir a la página de detalles del dispositivo
     const detailsUrl = `/ui/devices/${deviceId}`;
     window.open(detailsUrl, '_blank');
 }
 
+/**
+ * Probar conexión del dispositivo
+ */
+async function testDeviceConnection(deviceId) {
+    console.log(`🔍 Probando conexión del dispositivo ${deviceId}...`);
+    
+    // Buscar el dispositivo en los datos
+    const device = assignedDevicesData.find(d => 
+        d.device_id === deviceId || d.id === deviceId || d.mac_address === deviceId
+    );
+    
+    if (!device) {
+        showToast('Dispositivo no encontrado', 'error');
+        return;
+    }
+    
+    // Por ahora, mostrar información básica del dispositivo
+    // En una implementación real, esto haría un ping o test de conectividad
+    const deviceInfo = `
+        Información del Dispositivo:
+        
+        Nombre: ${device.name || 'Sin nombre'}
+        MAC: ${device.mac_address || 'Sin MAC'}
+        Estado: ${device.status || 'Desconocido'}
+        Ubicación: ${device.location || device.tienda || 'Sin ubicación'}
+        Última conexión: ${formatDate(device.last_seen || device.updated_at)}
+    `;
+    
+    alert(deviceInfo);
+}
+
 // ==========================================
-// FUNCIONES DE INTEGRACIÃ“N
+// FUNCIONES DE INTEGRACIÓN
 // ==========================================
 
 /**
- * Recargar dispositivos asignados despuÃ©s de cambios en asignaciones
+ * Recargar dispositivos asignados después de cambios en asignaciones
  */
 async function refreshAssignedDevicesAfterChanges() {
-    console.log('ðŸ”„ Recargando dispositivos asignados despuÃ©s de cambios...');
+    console.log('🔄 Recargando dispositivos asignados después de cambios...');
     await loadAssignedDevices();
 }
 
 /**
- * Inicializar gestiÃ³n de dispositivos asignados
+ * Inicializar gestión de dispositivos asignados
  */
 function initializeAssignedDevicesManager() {
-    console.log('ðŸ”§ Inicializando gestor de dispositivos asignados...');
+    console.log('🔧 Inicializando gestor de dispositivos asignados...');
     
     // Cargar dispositivos asignados al inicializar
     loadAssignedDevices();
     
-    // Configurar integraciÃ³n con el modal
+    // Configurar integración con el modal
     setupModalIntegration();
     
-    console.log('âœ… Gestor de dispositivos asignados inicializado');
+    console.log('✅ Gestor de dispositivos asignados inicializado');
 }
 
 // ==========================================
-// INTEGRACIÃ“N CON EL MODAL DE ASIGNACIÃ“N
+// INTEGRACIÓN CON EL MODAL DE ASIGNACIÓN
 // ==========================================
 
 /**
- * Integrar con el modal de asignaciÃ³n de dispositivos para recargar automÃ¡ticamente
+ * Integrar con el modal de asignación de dispositivos para recargar automáticamente
  */
 function setupModalIntegration() {
-    // Escuchar el evento de cierre del modal de asignaciÃ³n
+    // Escuchar el evento de cierre del modal de asignación
     const assignModal = document.getElementById('assignDeviceModal');
     if (assignModal) {
         assignModal.addEventListener('hidden.bs.modal', function() {
@@ -341,24 +409,24 @@ function setupModalIntegration() {
         });
     }
     
-    // Override seguro de la funciÃ³n de guardado del modal si existe
+    // Override seguro de la función de guardado del modal si existe
     const checkForModalSaveFunction = () => {
         if (typeof window.saveDeviceAssignments_Click === 'function') {
             const originalSaveFunction = window.saveDeviceAssignments_Click;
             window.saveDeviceAssignments_Click = async function() {
                 const result = await originalSaveFunction();
-                // Recargar dispositivos asignados despuÃ©s de guardar
+                // Recargar dispositivos asignados después de guardar
                 setTimeout(loadAssignedDevices, 1000);
                 return result;
             };
-            console.log('âœ… FunciÃ³n de guardado del modal integrada');
+            console.log('✅ Función de guardado del modal integrada');
         } else {
-            // Intentar nuevamente despuÃ©s de un tiempo
+            // Intentar nuevamente después de un tiempo
             setTimeout(checkForModalSaveFunction, 1000);
         }
     };
     
-    // Iniciar verificaciÃ³n
+    // Iniciar verificación
     checkForModalSaveFunction();
 }
 
@@ -376,18 +444,127 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+/**
+ * Formatear fecha de manera legible
+ */
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    
+    try {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) {
+            return 'Hoy ' + date.toLocaleTimeString('es-ES', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        } else if (diffDays === 1) {
+            return 'Ayer ' + date.toLocaleTimeString('es-ES', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        } else if (diffDays < 7) {
+            return `Hace ${diffDays} días`;
+        } else {
+            return date.toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+    } catch (error) {
+        return 'Fecha inválida';
+    }
+}
+
+/**
+ * Mostrar toast notification (usar función global si existe)
+ */
+function showToast(message, type = 'info') {
+    // Si existe función global de toast, usarla
+    if (typeof window.showToast === 'function' && window.showToast !== showToast) {
+        window.showToast(message, type);
+        return;
+    }
+    
+    // Toast simple como fallback
+    console.log(`📢 [AssignedDevices] Toast ${type}: ${message}`);
+    
+    const alertClass = type === 'error' ? 'danger' : type;
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${alertClass} position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.innerHTML = `
+        <strong><i class="fas fa-tv me-2"></i>Dispositivos:</strong> ${message}
+        <button type="button" class="btn-close float-end" onclick="this.parentElement.remove()"></button>
+    `;
+    
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 5000);
+}
+
 // ==========================================
-// INICIALIZACIÃ“N
+// VERIFICACIÓN DE DEPENDENCIAS
 // ==========================================
 
 /**
- * Inicializar cuando el DOM estÃ© listo
+ * Verificar que las dependencias necesarias estén disponibles
+ */
+function checkDependencies() {
+    console.log('🔍 Verificando dependencias...');
+    
+    // Verificar getPlaylistId
+    if (typeof getPlaylistId !== 'function') {
+        console.error('❌ Función getPlaylistId no disponible');
+        return false;
+    }
+    
+    // Verificar Bootstrap para modales
+    if (typeof bootstrap === 'undefined') {
+        console.warn('⚠️ Bootstrap no detectado, algunos elementos pueden no funcionar');
+    }
+    
+    // Verificar elementos DOM esenciales
+    const requiredElements = [
+        'assignedDevicesTable',
+        'assignedDevicesEmpty',
+        'assignedDevicesList'
+    ];
+    
+    const missingElements = requiredElements.filter(id => !document.getElementById(id));
+    if (missingElements.length > 0) {
+        console.warn('⚠️ Elementos DOM faltantes:', missingElements);
+    }
+    
+    console.log('✅ Verificación de dependencias completada');
+    return true;
+}
+
+// ==========================================
+// INICIALIZACIÓN
+// ==========================================
+
+/**
+ * Inicializar cuando el DOM esté listo
  */
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('ðŸ“º Inicializando mÃ³dulo de dispositivos asignados...');
+    console.log('📺 Inicializando módulo de dispositivos asignados...');
     
-    // PequeÃ±o delay para asegurar que otros scripts se hayan cargado
-    setTimeout(initializeAssignedDevicesManager, 500);
+    // Pequeño delay para asegurar que otros scripts se hayan cargado
+    setTimeout(() => {
+        if (checkDependencies()) {
+            initializeAssignedDevicesManager();
+        } else {
+            console.error('❌ No se pudo inicializar debido a dependencias faltantes');
+        }
+    }, 500);
 });
 
 // Hacer funciones disponibles globalmente
@@ -395,6 +572,7 @@ window.loadAssignedDevices = loadAssignedDevices;
 window.confirmUnassignDevice = confirmUnassignDevice;
 window.unassignDeviceFromPlaylist = unassignDeviceFromPlaylist;
 window.viewDeviceDetails = viewDeviceDetails;
+window.testDeviceConnection = testDeviceConnection;
 window.refreshAssignedDevicesAfterChanges = refreshAssignedDevicesAfterChanges;
 
-console.log('âœ… MÃ³dulo de gestiÃ³n de dispositivos asignados cargado correctamente');
+console.log('✅ Módulo de gestión de dispositivos asignados cargado correctamente');

@@ -1,1179 +1,123 @@
+/**
+ * PLAYLISTS.CSS - Estilos Completos para Playlist Detail
+ * 
+ * Este archivo contiene todos los estilos CSS necesarios para que el template
+ * playlist_detail.html funcione correctamente y se vea profesional.
+ * 
+ * SECCIONES:
+ * 1. Variables CSS
+ * 2. Estilos generales
+ * 3. Header y título
+ * 4. Tarjetas de estadísticas
+ * 5. Botones de acción
+ * 6. Paneles principales
+ * 7. Videos de la playlist
+ * 8. Biblioteca de videos
+ * 9. Dispositivos asignados
+ * 10. Modal de asignación
+ * 11. Estados de carga y error
+ * 12. Responsive design
+ * 13. Animaciones
+ * 
+ * INSTRUCCIONES:
+ * 1. Guarda este archivo como static/css/playlists.css
+ * 2. Asegúrate de que se carga en el template
+ * 3. Compatible con Bootstrap 5.x
+ */
+
 /* ==========================================
-   ESTILOS ESPECÍFICOS PARA PLAYLISTS
+   1. VARIABLES CSS PARA CONSISTENCIA
    ========================================== */
 
-/* Variables CSS para consistencia */
 :root {
+    /* Colores principales */
     --playlist-primary: #0d6efd;
     --playlist-success: #198754;
     --playlist-danger: #dc3545;
     --playlist-warning: #ffc107;
     --playlist-info: #0dcaf0;
     --playlist-secondary: #6c757d;
-    --playlist-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --playlist-light: #f8f9fa;
+    --playlist-dark: #212529;
+    
+    /* Colores de estado */
+    --playlist-online: #28a745;
+    --playlist-offline: #6c757d;
+    --playlist-pending: #ffc107;
+    --playlist-error: #dc3545;
+    
+    /* Sombras */
+    --playlist-shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --playlist-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
     --playlist-shadow-lg: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    --playlist-border-radius: 0.375rem;
+    --playlist-shadow-xl: 0 1rem 2rem rgba(0, 0, 0, 0.2);
+    
+    /* Bordes y radio */
+    --playlist-border-radius: 0.5rem;
+    --playlist-border-radius-sm: 0.375rem;
+    --playlist-border-radius-lg: 0.75rem;
+    --playlist-border-color: #dee2e6;
+    
+    /* Transiciones */
     --playlist-transition: all 0.15s ease-in-out;
-}
-
-/* ==========================================
-   COMPONENTES GENERALES
-   ========================================== */
-
-.playlist-card {
-    transition: var(--playlist-transition);
-    border: 1px solid rgba(0, 0, 0, 0.125);
-}
-
-.playlist-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--playlist-shadow-lg);
-}
-
-.playlist-badge {
-    font-size: 0.75em;
-    padding: 0.35em 0.65em;
-}
-
-.playlist-thumbnail {
-    width: 80px;
-    height: 60px;
-    object-fit: cover;
-    border-radius: var(--playlist-border-radius);
-}
-
-.playlist-thumbnail-lg {
-    width: 120px;
-    height: 90px;
-    object-fit: cover;
-    border-radius: var(--playlist-border-radius);
-}
-
-/* ==========================================
-   VISTA DE TABLA
-   ========================================== */
-
-.table-playlist {
-    --bs-table-bg: transparent;
-}
-
-.table-playlist tbody tr {
-    transition: var(--playlist-transition);
-}
-
-.table-playlist tbody tr:hover {
-    background-color: rgba(var(--bs-primary-rgb), 0.05);
-}
-
-.table-playlist .btn-group-sm .btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-}
-
-.table-responsive {
-    border-radius: var(--playlist-border-radius);
-}
-
-/* ==========================================
-   VISTA DE TARJETAS
-   ========================================== */
-
-.playlist-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
-    padding: 1rem 0;
-}
-
-.playlist-card-item {
-    background: white;
-    border-radius: var(--playlist-border-radius);
-    overflow: hidden;
-    transition: var(--playlist-transition);
-    border: 1px solid rgba(0, 0, 0, 0.125);
-}
-
-.playlist-card-item:hover {
-    box-shadow: var(--playlist-shadow-lg);
-    transform: translateY(-4px);
-}
-
-.playlist-card-header {
-    background: linear-gradient(135deg, var(--playlist-primary), var(--playlist-info));
-    color: white;
-    padding: 1rem;
-    min-height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.playlist-card-body {
-    padding: 1rem;
-}
-
-.playlist-card-footer {
-    padding: 0.75rem 1rem;
-    background-color: rgba(0, 0, 0, 0.02);
-    border-top: 1px solid rgba(0, 0, 0, 0.125);
-}
-
-/* ==========================================
-   EDITOR DE PLAYLIST
-   ========================================== */
-
-.playlist-editor {
-    min-height: calc(100vh - 200px);
-}
-
-.video-item {
-    background: white;
-    border: 1px solid rgba(0, 0, 0, 0.125);
-    border-radius: var(--playlist-border-radius);
-    margin-bottom: 0.75rem;
-    transition: var(--playlist-transition);
-    position: relative;
-    overflow: hidden;
-}
-
-.video-item:hover {
-    box-shadow: var(--playlist-shadow);
-    border-color: var(--playlist-primary);
-}
-
-.video-item.sortable-chosen {
-    opacity: 0.8;
-    transform: scale(1.02);
-    box-shadow: var(--playlist-shadow-lg);
-}
-
-.video-item.sortable-ghost {
-    opacity: 0.3;
-    background-color: var(--playlist-info);
-}
-
-.drag-handle {
-    cursor: move;
-    padding: 0.75rem;
-    color: var(--playlist-secondary);
-    transition: var(--playlist-transition);
-    border-radius: var(--playlist-border-radius);
-    margin-right: 0.5rem;
-}
-
-.drag-handle:hover {
-    background-color: rgba(var(--bs-primary-rgb), 0.1);
-    color: var(--playlist-primary);
-}
-
-.video-thumbnail-container {
-    position: relative;
-    display: inline-block;
-}
-
-.video-duration-overlay {
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 0.125rem 0.375rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-/* ==========================================
-   ZONA DE DRAG & DROP
-   ========================================== */
-
-.drop-zone {
-    border: 2px dashed var(--playlist-secondary);
-    border-radius: var(--playlist-border-radius);
-    padding: 2rem;
-    text-align: center;
-    transition: var(--playlist-transition);
-    background-color: rgba(0, 0, 0, 0.02);
-    margin-bottom: 1.5rem;
-}
-
-.drop-zone.drag-over {
-    border-color: var(--playlist-primary);
-    background-color: rgba(var(--bs-primary-rgb), 0.05);
-    transform: scale(1.02);
-}
-
-.drop-zone-icon {
-    font-size: 3rem;
-    color: var(--playlist-secondary);
-    margin-bottom: 1rem;
-}
-
-.drop-zone.drag-over .drop-zone-icon {
-    color: var(--playlist-primary);
-    animation: bounce 0.6s ease-in-out;
-}
-
-@keyframes bounce {
-    0%, 20%, 60%, 100% { transform: translateY(0); }
-    40% { transform: translateY(-10px); }
-    80% { transform: translateY(-5px); }
-}
-
-/* ==========================================
-   ESTADÍSTICAS
-   ========================================== */
-
-.stats-card {
-    background: linear-gradient(135deg, var(--color-start), var(--color-end));
-    color: white;
-    border-radius: var(--playlist-border-radius);
-    overflow: hidden;
-    transition: var(--playlist-transition);
-}
-
-.stats-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--playlist-shadow-lg);
-}
-
-.stats-card.stats-primary {
-    --color-start: #0d6efd;
-    --color-end: #0a58ca;
-}
-
-.stats-card.stats-success {
-    --color-start: #198754;
-    --color-end: #146c43;
-}
-
-.stats-card.stats-info {
-    --color-start: #0dcaf0;
-    --color-end: #0aa2c0;
-}
-
-.stats-card.stats-warning {
-    --color-start: #ffc107;
-    --color-end: #f59e0b;
-}
-
-.stats-icon {
-    font-size: 2.5rem;
-    opacity: 0.8;
-}
-
-/* ==========================================
-   CONTROLES Y FILTROS
-   ========================================== */
-
-.filter-controls {
-    background: white;
-    padding: 1rem;
-    border-radius: var(--playlist-border-radius);
-    box-shadow: var(--playlist-shadow);
-    margin-bottom: 1.5rem;
-}
-
-.search-input-group {
-    position: relative;
-}
-
-.search-input-group .form-control {
-    padding-right: 3rem;
-}
-
-.search-clear-btn {
-    position: absolute;
-    right: 0.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: var(--playlist-secondary);
-    font-size: 1.2rem;
-    cursor: pointer;
-    z-index: 3;
-}
-
-.search-clear-btn:hover {
-    color: var(--playlist-danger);
-}
-
-/* ==========================================
-   PAGINACIÓN PERSONALIZADA
-   ========================================== */
-
-.pagination-playlist {
-    margin: 0;
-}
-
-.pagination-playlist .page-link {
-    border-color: var(--playlist-secondary);
-    color: var(--playlist-primary);
-    transition: var(--playlist-transition);
-}
-
-.pagination-playlist .page-item.active .page-link {
-    background-color: var(--playlist-primary);
-    border-color: var(--playlist-primary);
-}
-
-.pagination-playlist .page-link:hover {
-    background-color: rgba(var(--bs-primary-rgb), 0.1);
-    border-color: var(--playlist-primary);
-}
-
-/* ==========================================
-   MODALES
-   ========================================== */
-
-.modal-playlist .modal-content {
-    border-radius: var(--playlist-border-radius);
-    border: none;
-    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
-}
-
-.modal-playlist .modal-header {
-    background: linear-gradient(135deg, var(--playlist-primary), var(--playlist-info));
-    color: white;
-    border-bottom: none;
-}
-
-.modal-playlist .modal-header .btn-close {
-    filter: brightness(0) invert(1);
-}
-
-.modal-fullscreen-custom {
-    max-width: 95vw;
-    max-height: 95vh;
-    margin: 2.5vh auto;
-}
-
-/* ==========================================
-   REPRODUCTOR DE VISTA PREVIA
-   ========================================== */
-
-.preview-player {
-    background: #000;
-    border-radius: var(--playlist-border-radius);
-    overflow: hidden;
-    aspect-ratio: 16/9;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    position: relative;
-}
-
-.player-controls {
-    background: rgba(0, 0, 0, 0.8);
-    padding: 1rem;
-    border-radius: var(--playlist-border-radius);
-    margin-top: 1rem;
-}
-
-.playlist-preview-item {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
-    cursor: pointer;
-    transition: var(--playlist-transition);
-}
-
-.playlist-preview-item:hover {
-    background-color: rgba(var(--bs-primary-rgb), 0.05);
-}
-
-.playlist-preview-item.active {
-    background-color: var(--playlist-primary);
-    color: white;
-}
-
-.playlist-preview-item:last-child {
-    border-bottom: none;
-}
-
-/* ==========================================
-   TOASTS Y NOTIFICACIONES
-   ========================================== */
-
-.toast-playlist {
-    border-radius: var(--playlist-border-radius);
-    box-shadow: var(--playlist-shadow-lg);
-    border: none;
-    overflow: hidden;
-}
-
-.toast-playlist .toast-header {
-    background: var(--playlist-primary);
-    color: white;
-    border-bottom: none;
-}
-
-.toast-playlist .toast-body {
-    padding: 1rem;
-}
-
-.toast-success .toast-header {
-    background: var(--playlist-success);
-}
-
-.toast-error .toast-header {
-    background: var(--playlist-danger);
-}
-
-.toast-warning .toast-header {
-    background: var(--playlist-warning);
-}
-
-/* ==========================================
-   ESTADOS ESPECIALES
-   ========================================== */
-
-.playlist-empty {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--playlist-secondary);
-}
-
-.playlist-empty-icon {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    opacity: 0.5;
-}
-
-.playlist-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3rem;
-    color: var(--playlist-secondary);
-}
-
-.loading-spinner {
-    width: 3rem;
-    height: 3rem;
-    margin-right: 1rem;
-}
-
-/* ==========================================
-   BADGES Y ETIQUETAS
-   ========================================== */
-
-.status-badge {
-    font-size: 0.75rem;
-    padding: 0.35em 0.65em;
-    border-radius: 50px;
-    font-weight: 600;
-}
-
-.status-active {
-    background: linear-gradient(135deg, var(--playlist-success), #20c997);
-    color: white;
-}
-
-.status-inactive {
-    background: var(--playlist-secondary);
-    color: white;
-}
-
-.status-expired {
-    background: linear-gradient(135deg, var(--playlist-danger), #e74c3c);
-    color: white;
-}
-
-.status-scheduled {
-    background: linear-gradient(135deg, var(--playlist-warning), #f39c12);
-    color: white;
-}
-
-.video-tag {
-    background: rgba(var(--bs-info-rgb), 0.1);
-    color: var(--playlist-info);
-    border: 1px solid rgba(var(--bs-info-rgb), 0.3);
-    font-size: 0.75rem;
-    padding: 0.25em 0.5em;
-    border-radius: 0.25rem;
-    margin-right: 0.25rem;
-    display: inline-block;
-}
-
-/* ==========================================
-   RESPONSIVE DESIGN
-   ========================================== */
-
-@media (max-width: 768px) {
-    .playlist-grid {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
+    --playlist-transition-fast: all 0.1s ease-in-out;
+    --playlist-transition-slow: all 0.3s ease-in-out;
     
-    .filter-controls {
-        padding: 0.75rem;
-    }
+    /* Espaciado */
+    --playlist-spacing-xs: 0.25rem;
+    --playlist-spacing-sm: 0.5rem;
+    --playlist-spacing: 1rem;
+    --playlist-spacing-lg: 1.5rem;
+    --playlist-spacing-xl: 2rem;
     
-    .filter-controls .row > [class*="col-"] {
-        margin-bottom: 0.75rem;
-    }
+    /* Tipografía */
+    --playlist-font-size-xs: 0.75rem;
+    --playlist-font-size-sm: 0.875rem;
+    --playlist-font-size: 1rem;
+    --playlist-font-size-lg: 1.25rem;
+    --playlist-font-size-xl: 1.5rem;
     
-    .video-item .row {
-        margin: 0;
-    }
-    
-    .video-item .col-auto {
-        padding: 0.5rem;
-    }
-    
-    .table-responsive {
-        font-size: 0.875rem;
-    }
-    
-    .d-mobile-none {
-        display: none !important;
-    }
-    
-    .modal-fullscreen-custom {
-        max-width: 100vw;
-        max-height: 100vh;
-        margin: 0;
-        border-radius: 0;
-    }
-    
-    .preview-player {
-        aspect-ratio: 16/9;
-        min-height: 200px;
-    }
-}
-
-@media (max-width: 576px) {
-    .playlist-card-header {
-        padding: 0.75rem;
-        min-height: 60px;
-    }
-    
-    .stats-card .card-body {
-        padding: 1rem 0.75rem;
-    }
-    
-    .btn-group-sm .btn {
-        padding: 0.125rem 0.25rem;
-        font-size: 0.75rem;
-    }
-    
-    .video-thumbnail,
-    .playlist-thumbnail {
-        width: 60px;
-        height: 45px;
-    }
+    /* Z-index */
+    --playlist-z-modal: 1050;
+    --playlist-z-toast: 9999;
+    --playlist-z-sticky: 1020;
 }
 
 /* ==========================================
-   ANIMACIONES
+   2. ESTILOS GENERALES
    ========================================== */
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+/* Scroll suave */
+html {
+    scroll-behavior: smooth;
 }
 
-@keyframes slideIn {
-    from { transform: translateX(-100%); }
-    to { transform: translateX(0); }
+/* Contenedor principal */
+.container-fluid {
+    max-width: 1400px;
 }
 
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
-}
-
-.animate-fade-in {
-    animation: fadeIn 0.5s ease-out;
-}
-
-.animate-slide-in {
-    animation: slideIn 0.3s ease-out;
-}
-
-.animate-pulse {
-    animation: pulse 2s infinite;
-}
-
-/* ==========================================
-   UTILIDADES ADICIONALES
-   ========================================== */
-
+/* Utilidades de texto */
 .text-truncate-2 {
+    overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    overflow: hidden;
+    line-height: 1.4;
 }
 
 .text-truncate-3 {
+    overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
-    overflow: hidden;
+    line-height: 1.4;
 }
 
+/* Utilidades de cursor */
 .cursor-pointer {
     cursor: pointer;
 }
-
-.border-dashed {
-    border-style: dashed !important;
-}
-
-.shadow-playlist {
-    box-shadow: var(--playlist-shadow) !important;
-}
-
-.shadow-playlist-lg {
-    box-shadow: var(--playlist-shadow-lg) !important;
-}
-
-/* ==========================================
-   MODO OSCURO (OPCIONAL)
-   ========================================== */
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --playlist-bg: #1a1a1a;
-        --playlist-card-bg: #2d2d2d;
-        --playlist-text: #ffffff;
-        --playlist-text-muted: #adb5bd;
-        --playlist-border: #404040;
-    }
-    
-    .dark-mode .playlist-card,
-    .dark-mode .video-item,
-    .dark-mode .filter-controls {
-        background-color: var(--playlist-card-bg);
-        border-color: var(--playlist-border);
-        color: var(--playlist-text);
-    }
-    
-    .dark-mode .drop-zone {
-        background-color: rgba(255, 255, 255, 0.05);
-        border-color: var(--playlist-border);
-    }
-    
-    .dark-mode .table-playlist tbody tr:hover {
-        background-color: rgba(255, 255, 255, 0.05);
-    }
-}
-
-
-/* ==========================================
-   ESTILOS ADICIONALES PARA EDIT-PLAYLISTS
-   ========================================== */
-
-/* Variables CSS mejoradas */
-:root {
-    --editor-primary: #0d6efd;
-    --editor-success: #198754;
-    --editor-danger: #dc3545;
-    --editor-warning: #ffc107;
-    --editor-info: #0dcaf0;
-    --editor-light: #f8f9fa;
-    --editor-dark: #212529;
-    --editor-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    --editor-shadow-hover: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    --editor-border-radius: 0.375rem;
-    --editor-transition: all 0.15s ease-in-out;
-}
-
-/* ==========================================
-   CARDS DE VIDEOS MEJORADOS
-   ========================================== */
-
-.video-card {
-    transition: var(--editor-transition);
-    cursor: grab;
-    border: 1px solid #dee2e6;
-    background: white;
-    position: relative;
-    overflow: hidden;
-}
-
-.video-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--editor-shadow-hover);
-    border-color: var(--editor-primary);
-}
-
-.video-card:active {
-    cursor: grabbing;
-    transform: scale(0.98);
-}
-
-.video-card.dragging {
-    opacity: 0.8;
-    transform: rotate(2deg);
-    z-index: 1000;
-}
-
-/* Indicadores visuales para diferentes tipos de cards */
-.available-video-card {
-    border-left: 4px solid var(--editor-primary) !important;
-}
-
-.available-video-card::before {
-    content: "\f067"; /* Plus icon */
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900;
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    color: var(--editor-primary);
-    font-size: 0.75rem;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
-.available-video-card:hover::before {
-    opacity: 1;
-}
-
-.playlist-video-card {
-    border-left: 4px solid var(--editor-success) !important;
-}
-
-.playlist-video-card::before {
-    content: "\f0c9"; /* Grip lines */
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900;
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    color: var(--editor-success);
-    font-size: 0.75rem;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
-.playlist-video-card:hover::before {
-    opacity: 1;
-}
-
-/* ==========================================
-   THUMBNAILS Y MEDIA
-   ========================================== */
-
-.video-thumbnail-sm {
-    width: 60px;
-    height: 45px;
-    object-fit: cover;
-    border-radius: var(--editor-border-radius);
-    border: 1px solid #dee2e6;
-    background: var(--editor-light);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.video-thumbnail-md {
-    width: 80px;
-    height: 60px;
-    object-fit: cover;
-    border-radius: var(--editor-border-radius);
-}
-
-.video-thumbnail-lg {
-    width: 120px;
-    height: 90px;
-    object-fit: cover;
-    border-radius: var(--editor-border-radius);
-}
-
-/* Placeholder para videos sin thumbnail */
-.video-thumbnail-placeholder {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #6c757d;
-    font-size: 1.5rem;
-    border: 2px dashed #dee2e6;
-}
-
-/* ==========================================
-   DRAG & DROP ZONES
-   ========================================== */
-
-.drop-zone {
-    min-height: 200px;
-    border: 2px dashed transparent;
-    border-radius: var(--editor-border-radius);
-    transition: var(--editor-transition);
-    position: relative;
-}
-
-.drop-zone.drag-over {
-    border-color: var(--editor-success);
-    background-color: rgba(25, 135, 84, 0.05);
-}
-
-.drop-zone.drag-over::after {
-    content: "\f0ee"; /* Plus circle */
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 3rem;
-    color: var(--editor-success);
-    opacity: 0.7;
-    z-index: 10;
-}
-
-.available-videos-drop-zone {
-    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-    border: 1px solid #e0e0e0;
-}
-
-.playlist-drop-zone {
-    background: linear-gradient(135deg, #ffffff 0%, #f0f8f0 100%);
-    border: 1px solid #d4edda;
-}
-
-/* ==========================================
-   SORTABLE STATES
-   ========================================== */
-
-.sortable-ghost {
-    opacity: 0.4;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border: 2px dashed var(--editor-primary);
-    transform: scale(0.95);
-}
-
-.sortable-chosen {
-    transform: scale(1.02);
-    box-shadow: var(--editor-shadow-hover);
-    z-index: 999;
-}
-
-.sortable-drag {
-    transform: rotate(5deg);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-}
-
-/* ==========================================
-   DRAG HANDLES
-   ========================================== */
-
-.drag-handle {
-    cursor: move;
-    padding: 0.5rem;
-    border-radius: var(--editor-border-radius);
-    transition: var(--editor-transition);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.drag-handle:hover {
-    background-color: rgba(13, 110, 253, 0.1);
-    color: var(--editor-primary);
-    transform: scale(1.1);
-}
-
-.drag-handle:active {
-    background-color: rgba(13, 110, 253, 0.2);
-}
-
-/* ==========================================
-   SEARCH Y FILTERS
-   ========================================== */
-
-.search-container {
-    position: relative;
-}
-
-.search-container .form-control {
-    padding-left: 2.5rem;
-}
-
-.search-container::before {
-    content: "\f002"; /* Search icon */
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900;
-    position: absolute;
-    left: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #6c757d;
-    z-index: 5;
-}
-
-.search-results-count {
-    font-size: 0.875rem;
-    color: #6c757d;
-    margin-top: 0.25rem;
-}
-
-/* ==========================================
-   ESTADÍSTICAS Y BADGES
-   ========================================== */
-
-.stats-card {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    border: 1px solid #e0e0e0;
-    border-radius: var(--editor-border-radius);
-    padding: 1rem;
-    transition: var(--editor-transition);
-}
-
-.stats-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--editor-shadow-hover);
-}
-
-.stats-number {
-    font-size: 2rem;
-    font-weight: bold;
-    line-height: 1;
-}
-
-.stats-label {
-    font-size: 0.875rem;
-    color: #6c757d;
-    margin-top: 0.25rem;
-}
-
-.duration-badge {
-    background: linear-gradient(135deg, var(--editor-info) 0%, #0dcaf0 100%);
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 1rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-/* ==========================================
-   BUTTONS Y ACTIONS
-   ========================================== */
-
-.action-button {
-    transition: var(--editor-transition);
-    position: relative;
-    overflow: hidden;
-}
-
-.action-button::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-    transition: left 0.5s;
-}
-
-.action-button:hover::before {
-    left: 100%;
-}
-
-.btn-add-video {
-    background: linear-gradient(135deg, var(--editor-success) 0%, #20c997 100%);
-    border: none;
-    color: white;
-}
-
-.btn-remove-video {
-    background: linear-gradient(135deg, var(--editor-danger) 0%, #fd7e14 100%);
-    border: none;
-    color: white;
-}
-
-.btn-reorder {
-    background: linear-gradient(135deg, var(--editor-primary) 0%, #6f42c1 100%);
-    border: none;
-    color: white;
-}
-
-/* ==========================================
-   LOADING STATES
-   ========================================== */
-
-.loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.9);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    border-radius: var(--editor-border-radius);
-}
-
-.loading-content {
-    text-align: center;
-    color: var(--editor-primary);
-}
-
-.loading-spinner {
-    width: 3rem;
-    height: 3rem;
-    margin-bottom: 1rem;
-}
-
-/* ==========================================
-   EMPTY STATES
-   ========================================== */
-
-.empty-state {
-    padding: 3rem 1rem;
-    text-align: center;
-    color: #6c757d;
-}
-
-.empty-state-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-    opacity: 0.5;
-}
-
-.empty-state-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: #495057;
-}
-
-.empty-state-description {
-    font-size: 0.875rem;
-    margin-bottom: 1.5rem;
-}
-
-/* ==========================================
-   RESPONSIVE DESIGN
-   ========================================== */
-
-@media (max-width: 768px) {
-    .video-card {
-        margin-bottom: 0.75rem;
-    }
-    
-    .video-thumbnail-sm {
-        width: 50px;
-        height: 38px;
-    }
-    
-    .drag-handle {
-        padding: 0.25rem;
-    }
-    
-    .stats-number {
-        font-size: 1.5rem;
-    }
-    
-    .drop-zone {
-        min-height: 150px;
-    }
-    
-    .action-button {
-        padding: 0.375rem 0.5rem;
-        font-size: 0.875rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .video-card .row {
-        --bs-gutter-x: 0.5rem;
-    }
-    
-    .video-thumbnail-sm {
-        width: 40px;
-        height: 30px;
-    }
-    
-    .stats-card {
-        padding: 0.75rem;
-    }
-    
-    .empty-state {
-        padding: 2rem 0.5rem;
-    }
-    
-    .empty-state-icon {
-        font-size: 2rem;
-    }
-}
-
-/* ==========================================
-   ACCESSIBILITY IMPROVEMENTS
-   ========================================== */
-
-.video-card:focus {
-    outline: 2px solid var(--editor-primary);
-    outline-offset: 2px;
-}
-
-.drag-handle:focus {
-    outline: 2px solid var(--editor-primary);
-    outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .video-card,
-    .drag-handle,
-    .action-button,
-    .stats-card {
-        transition: none;
-    }
-    
-    .video-card:hover,
-    .stats-card:hover {
-        transform: none;
-    }
-}
-
-/* ==========================================
-   DARK MODE SUPPORT (opcional)
-   ========================================== */
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --editor-light: #343a40;
-        --editor-dark: #f8f9fa;
-    }
-    
-    .video-card {
-        background: #2d3748;
-        border-color: #4a5568;
-        color: #f8f9fa;
-    }
-    
-    .drop-zone {
-        background: #2d3748;
-        border-color: #4a5568;
-    }
-    
-    .stats-card {
-        background: #2d3748;
-        border-color: #4a5568;
-        color: #f8f9fa;
-    }
-    
-    .empty-state {
-        color: #a0aec0;
-    }
-    
-    .empty-state-title {
-        color: #e2e8f0;
-    }
-}
-
-/* ==========================================
-   UTILITY CLASSES
-   ========================================== */
 
 .cursor-grab {
     cursor: grab;
@@ -1183,33 +127,1003 @@
     cursor: grabbing;
 }
 
-.no-select {
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
+/* Utilidades de selección */
+.user-select-none {
     user-select: none;
 }
 
-.transition-fast {
-    transition: all 0.1s ease-in-out;
+/* ==========================================
+   3. HEADER Y TÍTULO
+   ========================================== */
+
+.page-header {
+    background: linear-gradient(135deg, var(--playlist-primary), var(--playlist-info));
+    color: white;
+    padding: var(--playlist-spacing-xl) 0;
+    margin-bottom: var(--playlist-spacing-xl);
+    border-radius: var(--playlist-border-radius);
+    box-shadow: var(--playlist-shadow-lg);
+    position: relative;
+    overflow: hidden;
 }
 
-.transition-normal {
-    transition: var(--editor-transition);
+.page-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+    opacity: 0.3;
 }
 
-.transition-slow {
-    transition: all 0.3s ease-in-out;
+.page-header .container-fluid {
+    position: relative;
+    z-index: 2;
 }
 
-.shadow-soft {
-    box-shadow: var(--editor-shadow);
+.page-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: var(--playlist-spacing-sm);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.shadow-hover {
-    box-shadow: var(--editor-shadow-hover);
+.page-subtitle {
+    opacity: 0.9;
+    font-size: var(--playlist-font-size-lg);
+    font-weight: 300;
 }
 
-.border-radius-custom {
-    border-radius: var(--editor-border-radius);
+/* ==========================================
+   4. TARJETAS DE ESTADÍSTICAS
+   ========================================== */
+
+.stat-card {
+    background: white;
+    padding: var(--playlist-spacing-lg);
+    border-radius: var(--playlist-border-radius);
+    text-align: center;
+    box-shadow: var(--playlist-shadow);
+    transition: var(--playlist-transition);
+    border: 1px solid var(--playlist-border-color);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--playlist-primary), var(--playlist-info));
+    opacity: 0;
+    transition: var(--playlist-transition);
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--playlist-shadow-lg);
+}
+
+.stat-card:hover::before {
+    opacity: 1;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--playlist-primary);
+    margin-bottom: var(--playlist-spacing-sm);
+    line-height: 1;
+}
+
+.stat-label {
+    color: var(--playlist-secondary);
+    font-size: var(--playlist-font-size-sm);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+/* ==========================================
+   5. BOTONES DE ACCIÓN
+   ========================================== */
+
+.action-buttons {
+    background: white;
+    padding: var(--playlist-spacing);
+    border-radius: var(--playlist-border-radius);
+    box-shadow: var(--playlist-shadow);
+    margin-bottom: var(--playlist-spacing-xl);
+    border: 1px solid var(--playlist-border-color);
+}
+
+.btn-action {
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    border-radius: var(--playlist-border-radius-sm);
+    transition: var(--playlist-transition);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--playlist-spacing-sm);
+    border: 2px solid transparent;
+}
+
+.btn-action:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--playlist-shadow);
+}
+
+.btn-action:active {
+    transform: translateY(0);
+}
+
+.btn-action i {
+    font-size: 1rem;
+}
+
+/* Estados específicos de botones */
+.btn-action.btn-primary {
+    background: linear-gradient(135deg, var(--playlist-primary), #0056b3);
+}
+
+.btn-action.btn-success {
+    background: linear-gradient(135deg, var(--playlist-success), #145a32);
+}
+
+.btn-action.btn-warning {
+    background: linear-gradient(135deg, var(--playlist-warning), #e6a800);
+    color: var(--playlist-dark);
+}
+
+.btn-action.btn-info {
+    background: linear-gradient(135deg, var(--playlist-info), #0891b2);
+}
+
+.btn-action.btn-danger {
+    background: linear-gradient(135deg, var(--playlist-danger), #a71e34);
+}
+
+/* ==========================================
+   6. PANELES PRINCIPALES
+   ========================================== */
+
+.main-panel {
+    background: white;
+    border-radius: var(--playlist-border-radius);
+    box-shadow: var(--playlist-shadow);
+    overflow: hidden;
+    border: 1px solid var(--playlist-border-color);
+    transition: var(--playlist-transition);
+}
+
+.main-panel:hover {
+    box-shadow: var(--playlist-shadow-lg);
+}
+
+.panel-header {
+    background: var(--playlist-light);
+    padding: var(--playlist-spacing) var(--playlist-spacing-lg);
+    border-bottom: 1px solid var(--playlist-border-color);
+    font-weight: 600;
+    position: relative;
+}
+
+.panel-header h5 {
+    margin: 0;
+    color: var(--playlist-dark);
+}
+
+.panel-header i {
+    color: var(--playlist-primary);
+}
+
+.panel-body {
+    padding: var(--playlist-spacing-lg);
+}
+
+/* ==========================================
+   7. VIDEOS DE LA PLAYLIST
+   ========================================== */
+
+.playlist-videos-container {
+    min-height: 400px;
+    max-height: 600px;
+    overflow-y: auto;
+    padding: var(--playlist-spacing-sm);
+}
+
+/* Scrollbar personalizado */
+.playlist-videos-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.playlist-videos-container::-webkit-scrollbar-track {
+    background: var(--playlist-light);
+    border-radius: 4px;
+}
+
+.playlist-videos-container::-webkit-scrollbar-thumb {
+    background: var(--playlist-secondary);
+    border-radius: 4px;
+}
+
+.playlist-videos-container::-webkit-scrollbar-thumb:hover {
+    background: var(--playlist-primary);
+}
+
+.video-item {
+    display: flex;
+    align-items: center;
+    padding: var(--playlist-spacing);
+    border: 1px solid var(--playlist-border-color);
+    border-radius: var(--playlist-border-radius-sm);
+    margin-bottom: var(--playlist-spacing-sm);
+    background: white;
+    transition: var(--playlist-transition);
+    cursor: grab;
+    position: relative;
+}
+
+.video-item:hover {
+    border-color: var(--playlist-primary);
+    box-shadow: 0 0.125rem 0.25rem rgba(13, 110, 253, 0.15);
+    transform: translateX(2px);
+}
+
+.video-item.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg) scale(0.98);
+    z-index: 1000;
+    box-shadow: var(--playlist-shadow-lg);
+}
+
+.video-item:active {
+    cursor: grabbing;
+}
+
+.video-thumbnail {
+    width: 80px;
+    height: 60px;
+    border-radius: var(--playlist-border-radius-sm);
+    object-fit: cover;
+    margin-right: var(--playlist-spacing);
+    background: var(--playlist-light);
+    border: 1px solid var(--playlist-border-color);
+    transition: var(--playlist-transition);
+}
+
+.video-item:hover .video-thumbnail {
+    transform: scale(1.05);
+}
+
+.video-info {
+    flex: 1;
+    min-width: 0; /* Para truncar texto */
+}
+
+.video-title {
+    font-weight: 600;
+    margin-bottom: var(--playlist-spacing-xs);
+    color: var(--playlist-dark);
+    font-size: var(--playlist-font-size);
+}
+
+.video-description {
+    color: var(--playlist-secondary);
+    font-size: var(--playlist-font-size-sm);
+    margin-bottom: var(--playlist-spacing-xs);
+    line-height: 1.4;
+}
+
+.video-meta {
+    display: flex;
+    gap: var(--playlist-spacing);
+    font-size: var(--playlist-font-size-xs);
+    color: var(--playlist-secondary);
+    align-items: center;
+}
+
+.video-meta span {
+    display: flex;
+    align-items: center;
+    gap: var(--playlist-spacing-xs);
+}
+
+.video-actions {
+    display: flex;
+    gap: var(--playlist-spacing-xs);
+    opacity: 0;
+    transition: var(--playlist-transition);
+}
+
+.video-item:hover .video-actions {
+    opacity: 1;
+}
+
+.drag-handle {
+    cursor: grab;
+    color: var(--playlist-secondary);
+    padding: var(--playlist-spacing-sm);
+    margin-right: var(--playlist-spacing-xs);
+    border-radius: var(--playlist-border-radius-sm);
+    transition: var(--playlist-transition);
+}
+
+.drag-handle:hover {
+    color: var(--playlist-primary);
+    background: rgba(13, 110, 253, 0.1);
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+/* ==========================================
+   8. BIBLIOTECA DE VIDEOS
+   ========================================== */
+
+.video-library {
+    max-height: 600px;
+    overflow-y: auto;
+    padding: var(--playlist-spacing-sm);
+}
+
+.video-library::-webkit-scrollbar {
+    width: 8px;
+}
+
+.video-library::-webkit-scrollbar-track {
+    background: var(--playlist-light);
+    border-radius: 4px;
+}
+
+.video-library::-webkit-scrollbar-thumb {
+    background: var(--playlist-secondary);
+    border-radius: 4px;
+}
+
+.video-library::-webkit-scrollbar-thumb:hover {
+    background: var(--playlist-success);
+}
+
+.available-video {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    border: 1px solid var(--playlist-border-color);
+    border-radius: var(--playlist-border-radius-sm);
+    margin-bottom: var(--playlist-spacing-sm);
+    background: white;
+    transition: var(--playlist-transition);
+    cursor: pointer;
+}
+
+.available-video:hover {
+    border-color: var(--playlist-success);
+    background: rgba(25, 135, 84, 0.05);
+    transform: translateX(2px);
+}
+
+.available-video .video-thumbnail {
+    width: 60px;
+    height: 45px;
+    margin-right: 0.75rem;
+}
+
+.available-video .video-actions {
+    opacity: 0;
+    transition: var(--playlist-transition);
+}
+
+.available-video:hover .video-actions {
+    opacity: 1;
+}
+
+/* ==========================================
+   9. DISPOSITIVOS ASIGNADOS
+   ========================================== */
+
+.devices-section {
+    margin-top: var(--playlist-spacing-xl);
+}
+
+.device-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--playlist-spacing);
+    border: 1px solid var(--playlist-border-color);
+    border-radius: var(--playlist-border-radius-sm);
+    margin-bottom: var(--playlist-spacing-sm);
+    background: white;
+    transition: var(--playlist-transition);
+}
+
+.device-item:hover {
+    border-color: var(--playlist-info);
+    background: rgba(13, 202, 240, 0.05);
+    transform: translateX(2px);
+}
+
+.device-info {
+    flex: 1;
+}
+
+.device-name {
+    font-weight: 600;
+    margin-bottom: var(--playlist-spacing-xs);
+    color: var(--playlist-dark);
+}
+
+.device-meta {
+    color: var(--playlist-secondary);
+    font-size: var(--playlist-font-size-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--playlist-spacing-xs);
+}
+
+.device-status {
+    margin-right: var(--playlist-spacing);
+}
+
+.status-online {
+    color: var(--playlist-online);
+}
+
+.status-offline {
+    color: var(--playlist-offline);
+}
+
+.device-location {
+    display: flex;
+    align-items: center;
+    gap: var(--playlist-spacing-xs);
+    color: var(--playlist-secondary);
+}
+
+/* ==========================================
+   10. MODAL DE ASIGNACIÓN
+   ========================================== */
+
+.modal-xl {
+    max-width: 90%;
+}
+
+#assignDeviceModal .modal-header {
+    background: linear-gradient(135deg, var(--playlist-primary), var(--playlist-info));
+    color: white;
+    border-bottom: none;
+}
+
+#assignDeviceModal .modal-title {
+    font-weight: 600;
+}
+
+#assignDeviceModal .btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+#assignDeviceModal .table-responsive {
+    max-height: 400px;
+    border: 1px solid var(--playlist-border-color);
+    border-radius: var(--playlist-border-radius-sm);
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#assignDeviceModal .table {
+    margin-bottom: 0;
+}
+
+#assignDeviceModal .table thead th {
+    background-color: var(--playlist-light) !important;
+    border-bottom: 2px solid var(--playlist-border-color);
+    font-weight: 600;
+    color: var(--playlist-dark);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#assignDeviceModal .table tbody tr {
+    transition: var(--playlist-transition);
+}
+
+#assignDeviceModal .table tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+#assignDeviceModal .pending-change {
+    background-color: #fff3cd !important;
+    border-left: 4px solid var(--playlist-warning);
+    animation: pulse-warning 2s infinite;
+}
+
+@keyframes pulse-warning {
+    0% { border-left-color: var(--playlist-warning); }
+    50% { border-left-color: rgba(255, 193, 7, 0.5); }
+    100% { border-left-color: var(--playlist-warning); }
+}
+
+#assignDeviceModal .form-check-input {
+    width: 1.2em;
+    height: 1.2em;
+}
+
+#assignDeviceModal .form-check-input:checked {
+    background-color: var(--playlist-primary);
+    border-color: var(--playlist-primary);
+}
+
+#assignDeviceModal .badge {
+    font-size: 0.75rem;
+    padding: 0.4em 0.8em;
+}
+
+/* ==========================================
+   11. CONTROLES Y FILTROS
+   ========================================== */
+
+.search-controls {
+    background: var(--playlist-light);
+    padding: var(--playlist-spacing);
+    border-radius: var(--playlist-border-radius-sm);
+    margin-bottom: var(--playlist-spacing);
+    border: 1px solid var(--playlist-border-color);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--playlist-primary);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.input-group-text {
+    background: var(--playlist-light);
+    border-color: var(--playlist-border-color);
+    color: var(--playlist-secondary);
+}
+
+/* ==========================================
+   12. BADGES Y LABELS
+   ========================================== */
+
+.badge-custom {
+    padding: 0.5rem 0.75rem;
+    font-size: var(--playlist-font-size-xs);
+    font-weight: 500;
+    border-radius: var(--playlist-border-radius-sm);
+}
+
+.duration-badge {
+    background: linear-gradient(45deg, var(--playlist-info), #0891b2);
+    color: white;
+}
+
+.video-count-badge {
+    background: linear-gradient(45deg, var(--playlist-primary), var(--playlist-info));
+    color: white;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: var(--playlist-font-size-xs);
+    font-weight: 500;
+}
+
+.assigned-badge {
+    font-size: 0.75rem;
+    padding: 0.35em 0.65em;
+}
+
+/* ==========================================
+   13. ESTADOS DE CARGA Y ERROR
+   ========================================== */
+
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--playlist-spacing-xl);
+    color: var(--playlist-secondary);
+    min-height: 200px;
+}
+
+.loading-spinner .spinner-border {
+    width: 3rem;
+    height: 3rem;
+    margin-bottom: var(--playlist-spacing);
+}
+
+.empty-state {
+    text-align: center;
+    padding: var(--playlist-spacing-xl);
+    color: var(--playlist-secondary);
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: var(--playlist-spacing);
+    opacity: 0.5;
+    color: var(--playlist-secondary);
+}
+
+.empty-state h5 {
+    color: var(--playlist-secondary);
+    margin-bottom: var(--playlist-spacing-sm);
+}
+
+.error-message {
+    text-align: center;
+    padding: var(--playlist-spacing-xl);
+    color: var(--playlist-danger);
+    background: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.2);
+    border-radius: var(--playlist-border-radius);
+    margin: var(--playlist-spacing);
+}
+
+/* ==========================================
+   14. RESPONSIVE DESIGN
+   ========================================== */
+
+/* Tablets */
+@media (max-width: 768px) {
+    .page-title {
+        font-size: 2rem;
+    }
+    
+    .stat-card {
+        margin-bottom: var(--playlist-spacing);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+    }
+    
+    .video-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: var(--playlist-spacing);
+    }
+    
+    .video-thumbnail {
+        width: 100%;
+        height: 120px;
+        margin-right: 0;
+        margin-bottom: var(--playlist-spacing-sm);
+    }
+    
+    .video-actions {
+        width: 100%;
+        justify-content: center;
+        opacity: 1;
+    }
+    
+    .action-buttons {
+        text-align: center;
+    }
+    
+    .action-buttons .btn-action {
+        margin-bottom: var(--playlist-spacing-sm);
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .device-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--playlist-spacing-sm);
+    }
+    
+    .device-actions {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .modal-xl {
+        max-width: 95%;
+        margin: 0.5rem;
+    }
+}
+
+/* Móviles */
+@media (max-width: 576px) {
+    .page-header {
+        padding: var(--playlist-spacing) 0;
+        margin-bottom: var(--playlist-spacing);
+    }
+    
+    .page-title {
+        font-size: 1.75rem;
+    }
+    
+    .page-subtitle {
+        font-size: var(--playlist-font-size);
+    }
+    
+    .stat-card {
+        padding: var(--playlist-spacing);
+    }
+    
+    .stat-value {
+        font-size: 1.75rem;
+    }
+    
+    .panel-body {
+        padding: var(--playlist-spacing);
+    }
+    
+    .video-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--playlist-spacing-xs);
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: var(--playlist-font-size-xs);
+    }
+    
+    #assignDeviceModal .table-responsive {
+        font-size: var(--playlist-font-size-sm);
+    }
+    
+    #assignDeviceModal .btn-group .btn {
+        min-width: 100px;
+        font-size: var(--playlist-font-size-sm);
+    }
+}
+
+/* Pantallas muy pequeñas */
+@media (max-width: 375px) {
+    .container-fluid {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    
+    .stat-card {
+        padding: 0.75rem;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+    
+    .video-item {
+        padding: 0.75rem;
+    }
+    
+    .available-video {
+        padding: 0.5rem;
+    }
+    
+    .device-item {
+        padding: 0.75rem;
+    }
+}
+
+/* ==========================================
+   15. ANIMACIONES
+   ========================================== */
+
+/* Animación de entrada */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Clases de animación */
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.slide-in-up {
+    animation: slideInUp 0.3s ease-out;
+}
+
+.slide-in-left {
+    animation: slideInLeft 0.3s ease-out;
+}
+
+.slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+}
+
+/* Animaciones de hover específicas */
+.video-item:hover {
+    animation: none;
+}
+
+.stat-card:hover .stat-value {
+    animation: pulse 0.6s ease-in-out;
+}
+
+/* ==========================================
+   16. UTILIDADES ESPECÍFICAS
+   ========================================== */
+
+/* Scrollbar moderno para webkit */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--playlist-light);
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--playlist-secondary);
+    border-radius: 4px;
+    transition: var(--playlist-transition);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--playlist-primary);
+}
+
+/* Estado de dragging global */
+.dragging {
+    cursor: grabbing !important;
+}
+
+.dragging * {
+    cursor: grabbing !important;
+}
+
+/* Focus visible mejorado */
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible {
+    outline: 2px solid var(--playlist-primary);
+    outline-offset: 2px;
+}
+
+/* Toast notifications */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: var(--playlist-z-toast);
+}
+
+/* Indicadores de estado */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: var(--playlist-spacing-xs);
+}
+
+.status-indicator.online {
+    background: var(--playlist-online);
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.3);
+}
+
+.status-indicator.offline {
+    background: var(--playlist-offline);
+}
+
+.status-indicator.pending {
+    background: var(--playlist-pending);
+    animation: pulse 1.5s infinite;
+}
+
+/* ==========================================
+   17. IMPRESIÓN
+   ========================================== */
+
+@media print {
+    .page-header,
+    .action-buttons,
+    .btn,
+    .modal {
+        display: none !important;
+    }
+    
+    .main-panel {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+    
+    .video-item,
+    .device-item {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}
+
+/* ==========================================
+   18. MODO OSCURO (OPCIONAL)
+   ========================================== */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --playlist-light: #2d3748;
+        --playlist-dark: #f7fafc;
+        --playlist-border-color: #4a5568;
+    }
+    
+    .main-panel,
+    .stat-card,
+    .video-item,
+    .available-video,
+    .device-item {
+        background: #2d3748;
+        color: #f7fafc;
+    }
+    
+    .panel-header {
+        background: #1a202c;
+        color: #f7fafc;
+    }
+    
+    .search-controls {
+        background: #1a202c;
+    }
 }
