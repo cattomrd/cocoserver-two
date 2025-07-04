@@ -35,12 +35,13 @@ console.log('🔧 Cargando configuración de API...');
         const protocol = window.location.protocol;
         const port = window.location.port;
         
+     
         // Construir URL base
-        let baseUrl = `${protocol}//${hostname}`;
+       let baseUrl = `${protocol}//${hostname}`;
         if (port && port !== '80' && port !== '443') {
             baseUrl += `:${port}`;
         }
-        
+          console.log(baseUrl);
         // Detectar tipo de entorno
         let environment = 'production';
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
@@ -60,8 +61,9 @@ console.log('🔧 Cargando configuración de API...');
         };
     }
 
-    const ENV = detectEnvironment();
+   const ENV = detectEnvironment();
     console.log('🌐 Entorno detectado:', ENV);
+     //console.log("URL "+baseUrl);
 
     // ==========================================
     // CONFIGURACIÓN DE ENDPOINTS
@@ -512,7 +514,8 @@ console.log('🔧 Cargando configuración de API...');
 
     // Funciones de compatibilidad (para scripts existentes)
     window.secureFetch = secureFetch;
-    window.isSecureContext = isSecureContext;
+    // window.isSecureContext = isSecureContext;
+    window.checkSecureContext = isSecureContext
     window.getSecureBaseUrl = getBaseUrl;
     window.buildApiUrl = (endpoint) => `${ENV.apiUrl}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
 

@@ -7,12 +7,33 @@ let assignedDevicesData = [];
 let isLoadingAssignedDevices = false;
 
 // API Configuration - usar la global si existe
-const ASSIGNED_DEVICES_API = window.API_CONFIG || {
+
+// API Configuration - usar la global si existe
+const ASSIGNED_DEVICES_API = window.API_CONFIG ? {
+    DEVICES: {
+        PLAYLIST_DEVICES: (playlistId) => {
+            if (window.API_CONFIG.DEVICE_PLAYLISTS && window.API_CONFIG.DEVICE_PLAYLISTS.PLAYLIST_DEVICES) {
+                return window.API_CONFIG.DEVICE_PLAYLISTS.PLAYLIST_DEVICES(playlistId);
+            }
+            // Fallback si no existe
+            return `${window.location.origin}/api/device-playlists/playlist/${playlistId}/devices`;
+        },
+        UNASSIGN: (deviceId, playlistId) => {
+            if (window.API_CONFIG.DEVICE_PLAYLISTS && window.API_CONFIG.DEVICE_PLAYLISTS.UNASSIGN) {
+                return window.API_CONFIG.DEVICE_PLAYLISTS.UNASSIGN(deviceId, playlistId);
+            }
+            // Fallback si no existe
+            return `${window.location.origin}/api/device-playlists/${deviceId}/${playlistId}`;
+        }
+    }
+} : {
+    // Configuración por defecto si no hay API_CONFIG
     DEVICES: {
         PLAYLIST_DEVICES: (playlistId) => `${window.location.origin}/api/device-playlists/playlist/${playlistId}/devices`,
         UNASSIGN: (deviceId, playlistId) => `${window.location.origin}/api/device-playlists/${deviceId}/${playlistId}`
     }
 };
+
 
 // ==========================================
 // FUNCIONES PRINCIPALES PARA DISPOSITIVOS ASIGNADOS

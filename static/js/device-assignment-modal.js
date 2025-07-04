@@ -1,27 +1,11 @@
 /**
  * DEVICE ASSIGNMENT MODAL - Modal de Asignación de Dispositivos
  * 
- * Este archivo maneja específicamente el modal para asignar/desasignar dispositivos
- * a listas de reproducción. Incluye funcionalidades de búsqueda, filtrado,
- * selección múltiple y guardado de cambios.
- * 
- * FUNCIONALIDADES:
- * - Modal Bootstrap completamente funcional
- * - Búsqueda en tiempo real de dispositivos
- * - Filtros por estado y asignación
- * - Selección múltiple con "Seleccionar todos"
- * - Vista previa de cambios pendientes
- * - Guardado batch de asignaciones
- * - Manejo robusto de errores
- * - Integración con assigned-devices-manager.js
- * 
- * INSTRUCCIONES:
- * 1. Guarda este archivo como static/js/device-assignment-modal.js
- * 2. Carga después de assigned-devices-manager.js
- * 3. Asegúrate de que el HTML del modal esté presente
+ * Este archivo corrige problemas de carga de datos en el modal para asignar/desasignar 
+ * dispositivos a listas de reproducción.
  */
 
-console.log('🔧 Cargando módulo del modal de asignación de dispositivos...');
+console.log('🔧 Cargando módulo del modal de asignación de dispositivos (versión corregida)...');
 
 // ==========================================
 // FUNCIONES DE SEGURIDAD HTTPS
@@ -64,7 +48,7 @@ function buildApiUrl(endpoint = '') {
 }
 
 /**
- * Realizar petición fetch segura
+ * Realizar petición fetch segura con mejor manejo de errores
  */
 async function secureFetch(url, options = {}) {
     try {
@@ -88,12 +72,21 @@ async function secureFetch(url, options = {}) {
             }
         };
 
-        console.log(`🔒 [Modal] Fetch a: ${url}`);
+        console.log(`🔒 [Modal] Fetch a: ${url}`, finalOptions.method || 'GET');
         const response = await fetch(url, finalOptions);
         
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+            let errorMessage;
+            try {
+                // Intentar parsear respuesta como JSON
+                const errorData = await response.json();
+                errorMessage = errorData.detail || errorData.message || `Error HTTP ${response.status}`;
+            } catch (e) {
+                // Si no es JSON, obtener texto
+                const errorText = await response.text();
+                errorMessage = errorText || `Error HTTP ${response.status}`;
+            }
+            throw new Error(errorMessage);
         }
         
         return response;
@@ -114,11 +107,11 @@ let isLoadingDevices = false;
 let currentSearchTerm = '';
 let currentStatusFilter = 'all';
 
-// API Endpoints - usar configuración global si existe
-const MODAL_API = window.API_CONFIG || {
+// API Endpoints - Configuración explícita para evitar dependencias
+const MODAL_API = {
     DEVICES: {
         LIST: buildApiUrl('/devices'),
-        PLAYLIST_DEVICES: (playlistId) => buildApiUrl(`/device-playlists/playlist/${playlistId}/devices`),
+        PLAYLIST_DEVICES: (playlistId) => buildApiUrl(`/playlists/${playlistId}/devices`),
         ASSIGN: buildApiUrl('/device-playlists'),
         UNASSIGN: (deviceId, playlistId) => buildApiUrl(`/device-playlists/${deviceId}/${playlistId}`)
     }
@@ -139,16 +132,18 @@ function initializeDeviceAssignmentModal() {
     try {
         // Verificar contexto de seguridad
         const secure = isSecureContext();
-        console.log(`🔒 [Modal] Contexto ${secure ? 'SEGURO' : 'INSEGURO'}`);
+        console.log(`🔒 [Modal] Contexto ${secure ? 'seguro' : 'no seguro'}`);
         
-        // Configurar event listeners
-        setupDeviceModalEventListeners();
-        
-        // Configurar eventos del modal Bootstrap
+        // Configurar eventos del modal
         setupModalEvents();
         
-        console.log('✅ [Modal] Modal inicializado correctamente');
+        // Configurar listeners para filtros y búsquedas
+        setupFilterListeners();
         
+        // Configurar botones de acciones
+        setupActionButtons();
+        
+        console.log('✅ [Modal] Modal inicializado correctamente');
     } catch (error) {
         console.error('❌ [Modal] Error inicializando modal:', error);
         showModalError('Error de inicialización', error.message);
@@ -156,85 +151,46 @@ function initializeDeviceAssignmentModal() {
 }
 
 /**
- * Configurar event listeners del modal
- */
-function setupDeviceModalEventListeners() {
-    console.log('🔧 [Modal] Configurando event listeners...');
-    
-    try {
-        // Búsqueda de dispositivos
-        const searchInput = document.getElementById('deviceSearchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', debounce((e) => {
-                currentSearchTerm = e.target.value.toLowerCase().trim();
-                filterAndDisplayDevices();
-            }, 300));
-        }
-        
-        // Limpiar búsqueda
-        const clearSearch = document.getElementById('clearDeviceSearch');
-        if (clearSearch) {
-            clearSearch.addEventListener('click', () => {
-                if (searchInput) searchInput.value = '';
-                currentSearchTerm = '';
-                filterAndDisplayDevices();
-            });
-        }
-        
-        // Filtro de estado
-        const statusFilter = document.getElementById('deviceStatusFilter');
-        if (statusFilter) {
-            statusFilter.addEventListener('change', (e) => {
-                currentStatusFilter = e.target.value;
-                filterAndDisplayDevices();
-            });
-        }
-        
-        // Limpiar todos los filtros
-        const clearFilters = document.getElementById('clearDeviceFilters');
-        if (clearFilters) {
-            clearFilters.addEventListener('click', clearAllFilters);
-        }
-        
-        // Seleccionar todos
-        const selectAll = document.getElementById('selectAllDevices');
-        if (selectAll) {
-            selectAll.addEventListener('change', handleSelectAllDevices);
-        }
-        
-        // Botón guardar
-        const saveBtn = document.getElementById('saveDeviceAssignments');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', saveDeviceAssignments_Click);
-        }
-        
-        console.log('✅ [Modal] Event listeners configurados');
-        
-    } catch (error) {
-        console.error('❌ [Modal] Error configurando event listeners:', error);
-    }
-}
-
-/**
- * Configurar eventos del modal Bootstrap
+ * Configurar eventos del modal
  */
 function setupModalEvents() {
     const modal = document.getElementById('assignDeviceModal');
     if (!modal) {
-        console.error('❌ [Modal] Elemento del modal no encontrado');
+        console.error('❌ [Modal] No se encontró el elemento modal #assignDeviceModal');
         return;
     }
     
     // Cuando se abre el modal
     modal.addEventListener('show.bs.modal', async () => {
         console.log('📂 [Modal] Abriendo modal...');
+        
+        // Mostrar indicador de carga
+        showLoading(true);
+        
         try {
-            showModalSecurityStatus();
+            // Obtener ID de la playlist actual
+            const playlistId = getPlaylistId();
+            if (!playlistId) {
+                throw new Error('No se pudo obtener el ID de la playlist');
+            }
+            
+            console.log(`🔍 [Modal] Cargando datos para playlist ID: ${playlistId}`);
+            
+            // Cargar dispositivos disponibles
             await loadDevicesForAssignment();
+            
+            // Cargar dispositivos asignados
             await loadCurrentAssignedDevices();
+            
+            // Actualizar UI con los datos cargados
+            updateModalUI();
+            
+            // Ocultar indicador de carga
+            showLoading(false);
         } catch (error) {
             console.error('❌ [Modal] Error al abrir modal:', error);
             showModalError('Error cargando datos', error.message);
+            showLoading(false);
         }
     });
     
@@ -253,7 +209,7 @@ function setupModalEvents() {
 async function loadDevicesForAssignment() {
     if (isLoadingDevices) return;
     
-    console.log('📥 [Modal] Cargando dispositivos...');
+    console.log('📥 [Modal] Cargando dispositivos disponibles...');
     isLoadingDevices = true;
     
     const devicesList = document.getElementById('availableDevicesList');
@@ -271,11 +227,30 @@ async function loadDevicesForAssignment() {
     }
     
     try {
+        // Realizar petición a la API
         const response = await secureFetch(MODAL_API.DEVICES.LIST);
-        const data = await response.json();
+        
+        // Debug para ver la estructura de la respuesta
+        const rawData = await response.text();
+        console.log(`📋 [Modal] Respuesta raw de API:`, rawData.substring(0, 100) + '...');
+        
+        // Parsear la respuesta
+        const data = JSON.parse(rawData);
+        
+        console.log(`📋 [Modal] Respuesta de API:`, data);
+        
+        // Validar la estructura de la respuesta
+        if (!data) {
+            throw new Error('La API no devolvió datos');
+        }
         
         // La respuesta puede ser array directo o objeto con propiedad devices
         allDevicesForAssignment = Array.isArray(data) ? data : (data.devices || []);
+        
+        if (!Array.isArray(allDevicesForAssignment)) {
+            console.error('❌ [Modal] Estructura de datos inválida:', data);
+            throw new Error('Formato de datos inválido desde la API');
+        }
         
         console.log(`✅ [Modal] ${allDevicesForAssignment.length} dispositivos cargados`);
         
@@ -303,19 +278,45 @@ async function loadCurrentAssignedDevices() {
     }
     
     try {
-        const response = await secureFetch(MODAL_API.DEVICES.PLAYLIST_DEVICES(playlistId));
-        const assignedDevices = await response.json();
+        // Intentar la URL principal primero
+        const url = MODAL_API.DEVICES.PLAYLIST_DEVICES(playlistId);
+        console.log(`🔍 [Modal] Consultando URL: ${url}`);
         
-        // Extraer IDs de dispositivos asignados
-        currentAssignedDeviceIds = assignedDevices.map(device => 
-            device.device_id || device.id || device.mac_address
-        ).filter(id => id); // Filtrar valores vacíos
-        
-        console.log(`✅ [Modal] ${currentAssignedDeviceIds.length} dispositivos asignados identificados`);
+        try {
+            const response = await secureFetch(url);
+            const assignedDevices = await response.json();
+            
+            // Extraer IDs de dispositivos asignados
+            currentAssignedDeviceIds = assignedDevices.map(device => 
+                device.device_id || device.id || device.mac_address
+            ).filter(id => id); // Filtrar valores vacíos
+            
+            console.log(`✅ [Modal] ${currentAssignedDeviceIds.length} dispositivos asignados identificados`);
+            
+        } catch (error) {
+            console.warn(`⚠️ [Modal] Error con URL principal, probando URL alternativa:`, error);
+            
+            // Probar URL alternativa si la primera falla
+            const alternativeUrl = buildApiUrl(`/device-playlists/playlist/${playlistId}/devices`);
+            console.log(`🔍 [Modal] Consultando URL alternativa: ${alternativeUrl}`);
+            
+            const altResponse = await secureFetch(alternativeUrl);
+            const assignedDevices = await altResponse.json();
+            
+            // Extraer IDs de dispositivos asignados
+            currentAssignedDeviceIds = assignedDevices.map(device => 
+                device.device_id || device.id || device.mac_address
+            ).filter(id => id);
+            
+            console.log(`✅ [Modal] ${currentAssignedDeviceIds.length} dispositivos asignados identificados (alt)`);
+        }
+        alert(MODAL_API.DEVICES.PLAYLIST_DEVICES(playlistId));
+        // Actualizar interfaz de usuario
+        updateDeviceCheckboxes();
         
     } catch (error) {
         console.error('❌ [Modal] Error cargando dispositivos asignados:', error);
-        currentAssignedDeviceIds = [];
+        showDevicesError(`Error cargando dispositivos asignados: ${error.message}`);
     }
 }
 
@@ -323,122 +324,191 @@ async function loadCurrentAssignedDevices() {
  * Filtrar y mostrar dispositivos
  */
 function filterAndDisplayDevices() {
-    console.log(`🔍 [Modal] Filtrando dispositivos (${allDevicesForAssignment.length} total)...`);
+    console.log('🔍 [Modal] Filtrando dispositivos...');
     
-    // Aplicar filtros
+    // Aplicar filtros actuales
     filteredDevicesForAssignment = allDevicesForAssignment.filter(device => {
-        // Filtro de búsqueda
+        // Filtrar por texto de búsqueda
         if (currentSearchTerm) {
-            const searchableText = [
-                device.name || '',
-                device.mac_address || '',
-                device.location || '',
-                device.tienda || ''
-            ].join(' ').toLowerCase();
+            const searchTermLower = currentSearchTerm.toLowerCase();
+            const deviceName = (device.name || device.device_name || '').toLowerCase();
+            const deviceLocation = (device.location || device.tienda || '').toLowerCase();
+            const deviceMac = (device.mac_address || '').toLowerCase();
             
-            if (!searchableText.includes(currentSearchTerm)) {
+            if (!deviceName.includes(searchTermLower) && 
+                !deviceLocation.includes(searchTermLower) && 
+                !deviceMac.includes(searchTermLower)) {
                 return false;
             }
         }
         
-        // Filtro de estado
-        const deviceId = device.id || device.mac_address;
-        const isAssigned = currentAssignedDeviceIds.includes(deviceId);
-        
+        // Filtrar por estado
         switch (currentStatusFilter) {
             case 'online':
-                return device.status === 'online';
+                return device.status === 'online' || device.status === 'connected';
             case 'offline':
-                return device.status !== 'online';
+                return device.status === 'offline' || device.status === 'disconnected';
             case 'assigned':
-                return isAssigned;
+                return currentAssignedDeviceIds.includes(device.id || device.device_id || device.mac_address);
             case 'unassigned':
-                return !isAssigned;
+                return !currentAssignedDeviceIds.includes(device.id || device.device_id || device.mac_address);
+            case 'all':
             default:
                 return true;
         }
     });
     
-    console.log(`🎯 [Modal] ${filteredDevicesForAssignment.length} dispositivos después del filtro`);
+    console.log(`🔍 [Modal] ${filteredDevicesForAssignment.length} dispositivos después de filtrar`);
     
-    // Mostrar dispositivos
-    displayDevices();
-    
-    // Actualizar estadísticas
-    updateModalStatistics();
+    // Actualizar UI
+    renderDevicesList();
 }
 
 /**
- * Mostrar dispositivos en la tabla
+ * Renderizar lista de dispositivos
  */
-function displayDevices() {
+function renderDevicesList() {
     const devicesList = document.getElementById('availableDevicesList');
-    if (!devicesList) return;
+    if (!devicesList) {
+        console.error('❌ [Modal] No se encontró el elemento para la lista de dispositivos');
+        return;
+    }
     
+    // Si no hay dispositivos después de filtrar
     if (filteredDevicesForAssignment.length === 0) {
         devicesList.innerHTML = `
             <tr>
                 <td colspan="6" class="text-center py-4">
-                    <i class="fas fa-search fa-2x text-muted mb-3"></i>
-                    <p class="text-muted mb-2">No se encontraron dispositivos</p>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="clearAllFilters()">
-                        <i class="fas fa-eraser me-1"></i>Limpiar Filtros
-                    </button>
+                    <div class="empty-state">
+                        <i class="fas fa-search"></i>
+                        <h6 class="mt-3">No se encontraron dispositivos</h6>
+                        <p class="text-muted small mb-0">Intenta con otros términos de búsqueda o cambia los filtros</p>
+                    </div>
                 </td>
             </tr>
         `;
         return;
     }
     
-    const devicesHTML = filteredDevicesForAssignment.map(device => {
-        const deviceId = device.id || device.mac_address;
+    // Construir filas HTML
+    const rowsHtml = filteredDevicesForAssignment.map(device => {
+        const deviceId = device.id || device.device_id || device.mac_address;
         const isAssigned = currentAssignedDeviceIds.includes(deviceId);
-        const hasPendingChange = pendingDeviceChanges.has(deviceId);
-        const willBeAssigned = hasPendingChange ? !isAssigned : isAssigned;
+        const isPending = pendingDeviceChanges.has(deviceId);
+        const willBeAssigned = (isAssigned && !isPending) || (!isAssigned && isPending);
         
-        // Estado del dispositivo
-        const isOnline = device.status === 'online';
-        const statusBadge = isOnline ? 
-            '<span class="badge bg-success"><i class="fas fa-circle me-1"></i>En línea</span>' :
-            '<span class="badge bg-secondary"><i class="fas fa-circle me-1"></i>Fuera de línea</span>';
+        const statusClass = device.status === 'online' || device.status === 'connected' ? 
+            'bg-success' : 'bg-secondary';
         
-        // Estado de asignación
-        const assignmentBadge = willBeAssigned ?
-            '<span class="badge bg-primary">Asignado</span>' :
-            '<span class="badge bg-outline-secondary">No asignado</span>';
-        
-        // Clase para cambios pendientes
-        const rowClass = hasPendingChange ? 'pending-change' : '';
+        const lastSeen = device.last_seen || device.updated_at || 'Desconocido';
+        const formattedLastSeen = lastSeen instanceof Date ? 
+            lastSeen.toLocaleString() : typeof lastSeen === 'string' ? 
+            lastSeen : 'Desconocido';
         
         return `
-            <tr class="${rowClass}">
-                <td>
+            <tr class="${willBeAssigned ? 'table-active' : ''} ${isPending ? 'pending-change' : ''}">
+                <td class="align-middle">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" 
-                               id="device_${deviceId}" 
-                               value="${deviceId}"
+                        <input class="form-check-input device-checkbox" type="checkbox" 
+                               id="device-${deviceId}" 
+                               value="${deviceId}" 
                                ${willBeAssigned ? 'checked' : ''}
                                onchange="handleDeviceCheckboxChange('${deviceId}')">
+                        <label class="form-check-label" for="device-${deviceId}">
+                            ${device.name || device.device_name || 'Sin nombre'}
+                        </label>
+                        ${isPending ? '<span class="badge bg-warning text-dark ms-2">Cambio pendiente</span>' : ''}
                     </div>
                 </td>
-                <td>
-                    <div class="fw-semibold">${escapeHtml(device.name || 'Sin nombre')}</div>
-                    <small class="text-muted">${escapeHtml(device.mac_address || '')}</small>
+                <td class="align-middle">${device.location || device.tienda || 'Sin ubicación'}</td>
+                <td class="align-middle">
+                    <span class="badge ${statusClass}">${device.status || 'Desconocido'}</span>
                 </td>
-                <td>${statusBadge}</td>
-                <td>${assignmentBadge}</td>
-                <td>
-                    <small class="text-muted">${escapeHtml(device.location || device.tienda || 'Sin ubicación')}</small>
-                </td>
-                <td>
-                    <small class="text-muted">${formatDate(device.last_seen || device.updated_at)}</small>
+                <td class="align-middle">${formattedLastSeen}</td>
+                <td class="align-middle">${device.mac_address || 'Sin MAC'}</td>
+                <td class="align-middle text-end">
+                    <button class="btn btn-sm btn-outline-secondary" 
+                            onclick="viewDeviceDetails('${deviceId}')">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
                 </td>
             </tr>
         `;
     }).join('');
     
-    devicesList.innerHTML = devicesHTML;
+    // Actualizar la tabla
+    devicesList.innerHTML = rowsHtml;
+    
+    // Actualizar contador
+    updateDeviceCounter();
+}
+
+/**
+ * Actualizar checkboxes de dispositivos
+ */
+function updateDeviceCheckboxes() {
+    // Por cada dispositivo filtrado
+    filteredDevicesForAssignment.forEach(device => {
+        const deviceId = device.id || device.device_id || device.mac_address;
+        const checkbox = document.getElementById(`device-${deviceId}`);
+        
+        if (checkbox) {
+            const isAssigned = currentAssignedDeviceIds.includes(deviceId);
+            const isPending = pendingDeviceChanges.has(deviceId);
+            const willBeAssigned = (isAssigned && !isPending) || (!isAssigned && isPending);
+            
+            checkbox.checked = willBeAssigned;
+        }
+    });
+    
+    // Actualizar contador
+    updateDeviceCounter();
+}
+
+/**
+ * Actualizar contador de dispositivos
+ */
+function updateDeviceCounter() {
+    const counter = document.getElementById('deviceCounter');
+    if (counter) {
+        const totalDevices = filteredDevicesForAssignment.length;
+        const selectedDevices = getSelectedDevicesCount();
+        
+        counter.textContent = `${selectedDevices} seleccionados de ${totalDevices} dispositivos`;
+    }
+    
+    // Actualizar también el botón de guardar
     updateSaveButtonState();
+}
+
+/**
+ * Obtener cuenta de dispositivos seleccionados
+ */
+function getSelectedDevicesCount() {
+    // Contar los dispositivos que estarán asignados después de los cambios
+    return filteredDevicesForAssignment.reduce((count, device) => {
+        const deviceId = device.id || device.device_id || device.mac_address;
+        const isAssigned = currentAssignedDeviceIds.includes(deviceId);
+        const isPending = pendingDeviceChanges.has(deviceId);
+        const willBeAssigned = (isAssigned && !isPending) || (!isAssigned && isPending);
+        
+        return willBeAssigned ? count + 1 : count;
+    }, 0);
+}
+
+/**
+ * Actualizar estado del botón de guardar
+ */
+function updateSaveButtonState() {
+    const saveButton = document.getElementById('saveDeviceAssignments');
+    if (saveButton) {
+        const hasPendingChanges = pendingDeviceChanges.size > 0;
+        
+        saveButton.disabled = !hasPendingChanges;
+        saveButton.innerHTML = hasPendingChanges ? 
+            `<i class="fas fa-save me-1"></i> Guardar Cambios (${pendingDeviceChanges.size})` : 
+            `<i class="fas fa-save me-1"></i> Guardar Cambios`;
+    }
 }
 
 /**
@@ -447,141 +517,15 @@ function displayDevices() {
 function handleDeviceCheckboxChange(deviceId) {
     console.log(`🔄 [Modal] Cambio en dispositivo: ${deviceId}`);
     
-    const wasAssigned = currentAssignedDeviceIds.includes(deviceId);
-    const checkbox = document.getElementById(`device_${deviceId}`);
-    const isNowChecked = checkbox ? checkbox.checked : false;
-    
-    // Si el estado cambió respecto al original, marcar como pendiente
-    if (isNowChecked !== wasAssigned) {
-        pendingDeviceChanges.add(deviceId);
-    } else {
+    // Invertir estado en pendingChanges
+    if (pendingDeviceChanges.has(deviceId)) {
         pendingDeviceChanges.delete(deviceId);
+    } else {
+        pendingDeviceChanges.add(deviceId);
     }
-    
-    console.log(`📝 [Modal] Cambios pendientes: ${pendingDeviceChanges.size}`);
     
     // Actualizar UI
-    updateSaveButtonState();
-    updateModalStatistics();
-    
-    // Re-aplicar estilos a la fila
-    const row = checkbox?.closest('tr');
-    if (row) {
-        if (pendingDeviceChanges.has(deviceId)) {
-            row.classList.add('pending-change');
-        } else {
-            row.classList.remove('pending-change');
-        }
-    }
-}
-
-/**
- * Manejar seleccionar todos los dispositivos
- */
-function handleSelectAllDevices() {
-    const selectAllCheckbox = document.getElementById('selectAllDevices');
-    const isChecked = selectAllCheckbox?.checked || false;
-    
-    console.log(`🔄 [Modal] Seleccionar todos: ${isChecked}`);
-    
-    filteredDevicesForAssignment.forEach(device => {
-        const deviceId = device.id || device.mac_address;
-        const checkbox = document.getElementById(`device_${deviceId}`);
-        
-        if (checkbox) {
-            checkbox.checked = isChecked;
-            handleDeviceCheckboxChange(deviceId);
-        }
-    });
-}
-
-/**
- * Actualizar estado del botón guardar
- */
-function updateSaveButtonState() {
-    const saveBtn = document.getElementById('saveDeviceAssignments');
-    const changesInfo = document.getElementById('changesInfo');
-    
-    if (saveBtn) {
-        saveBtn.disabled = pendingDeviceChanges.size === 0;
-        
-        if (pendingDeviceChanges.size > 0) {
-            saveBtn.innerHTML = `<i class="fas fa-save me-1"></i>Guardar Cambios (${pendingDeviceChanges.size})`;
-            saveBtn.className = 'btn btn-warning';
-        } else {
-            saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Guardar Cambios';
-            saveBtn.className = 'btn btn-primary';
-        }
-    }
-    
-    if (changesInfo) {
-        if (pendingDeviceChanges.size > 0) {
-            changesInfo.textContent = `${pendingDeviceChanges.size} cambio(s) pendiente(s)`;
-            changesInfo.className = 'text-warning fw-semibold';
-        } else {
-            changesInfo.textContent = 'No hay cambios pendientes';
-            changesInfo.className = 'text-muted';
-        }
-    }
-}
-
-/**
- * Actualizar estadísticas del modal
- */
-function updateModalStatistics() {
-    // Total de dispositivos
-    const totalBadge = document.getElementById('totalDevicesBadge');
-    if (totalBadge) {
-        totalBadge.innerHTML = `<i class="fas fa-tv me-1"></i>${filteredDevicesForAssignment.length} dispositivos`;
-    }
-    
-    // Dispositivos en línea
-    const onlineBadge = document.getElementById('onlineDevicesBadge');
-    if (onlineBadge) {
-        const onlineCount = filteredDevicesForAssignment.filter(d => d.status === 'online').length;
-        onlineBadge.innerHTML = `<i class="fas fa-circle me-1"></i>${onlineCount} en línea`;
-    }
-    
-    // Dispositivos asignados
-    const assignedBadge = document.getElementById('assignedDevicesBadge');
-    if (assignedBadge) {
-        const assignedCount = filteredDevicesForAssignment.filter(d => {
-            const deviceId = d.id || d.mac_address;
-            return currentAssignedDeviceIds.includes(deviceId);
-        }).length;
-        assignedBadge.innerHTML = `<i class="fas fa-link me-1"></i>${assignedCount} asignados`;
-    }
-    
-    // Cambios pendientes
-    const pendingBadge = document.getElementById('pendingChangesBadge');
-    if (pendingBadge) {
-        pendingBadge.innerHTML = `<i class="fas fa-clock me-1"></i>${pendingDeviceChanges.size} cambios pendientes`;
-        pendingBadge.className = pendingDeviceChanges.size > 0 ? 'badge bg-warning' : 'badge bg-info';
-    }
-    
-    // Información de paginación
-    const paginationInfo = document.getElementById('devicesPaginationInfo');
-    if (paginationInfo) {
-        paginationInfo.textContent = `Mostrando ${filteredDevicesForAssignment.length} de ${allDevicesForAssignment.length} dispositivos`;
-    }
-}
-
-/**
- * Limpiar todos los filtros
- */
-function clearAllFilters() {
-    console.log('🧹 [Modal] Limpiando todos los filtros...');
-    
-    const searchInput = document.getElementById('deviceSearchInput');
-    const statusFilter = document.getElementById('deviceStatusFilter');
-    
-    if (searchInput) searchInput.value = '';
-    if (statusFilter) statusFilter.value = 'all';
-    
-    currentSearchTerm = '';
-    currentStatusFilter = 'all';
-    
-    filterAndDisplayDevices();
+    updateDeviceCheckboxes();
 }
 
 /**
@@ -589,80 +533,86 @@ function clearAllFilters() {
  */
 async function saveDeviceAssignments_Click() {
     if (pendingDeviceChanges.size === 0) {
-        console.log('📝 [Modal] No hay cambios para guardar');
-        showToast('No hay cambios para guardar', 'info');
+        console.log('ℹ️ [Modal] No hay cambios pendientes para guardar');
         return;
     }
     
-    console.log(`💾 [Modal] Guardando ${pendingDeviceChanges.size} cambios...`);
-    
-    const saveBtn = document.getElementById('saveDeviceAssignments');
-    if (saveBtn) {
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
-    }
+    console.log(`🔄 [Modal] Guardando cambios para ${pendingDeviceChanges.size} dispositivos...`);
     
     const playlistId = getPlaylistId();
     if (!playlistId) {
-        showToast('Error: No se pudo obtener el ID de la playlist', 'error');
-        return;
+        showModalError('Error al guardar', 'No se pudo obtener el ID de la playlist');
+        return false;
     }
     
+    // Mostrar loading
+    const saveButton = document.getElementById('saveDeviceAssignments');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.innerHTML = `
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Guardando...
+        `;
+    }
+    
+    // Procesar cambios
+    let successCount = 0;
+    let errorCount = 0;
+    
     try {
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const deviceId of pendingDeviceChanges) {
-            const checkbox = document.getElementById(`device_${deviceId}`);
-            if (!checkbox) continue;
-            
-            const isChecked = checkbox.checked;
-            const wasAssigned = currentAssignedDeviceIds.includes(deviceId);
+        // Crear lista de promesas para procesar en paralelo
+        const promises = Array.from(pendingDeviceChanges).map(async (deviceId) => {
+            const isCurrentlyAssigned = currentAssignedDeviceIds.includes(deviceId);
             
             try {
-                if (isChecked && !wasAssigned) {
-                    // Asignar dispositivo
-                    await assignDeviceToPlaylist(deviceId, playlistId);
-                    successCount++;
-                } else if (!isChecked && wasAssigned) {
-                    // Desasignar dispositivo
+                if (isCurrentlyAssigned) {
+                    // Desasignar
                     await unassignDeviceFromPlaylist(deviceId, playlistId);
-                    successCount++;
+                } else {
+                    // Asignar
+                    await assignDeviceToPlaylist(deviceId, playlistId);
                 }
+                successCount++;
+                return { success: true, deviceId };
             } catch (error) {
-                console.error(`❌ [Modal] Error procesando dispositivo ${deviceId}:`, error);
                 errorCount++;
+                console.error(`❌ [Modal] Error procesando dispositivo ${deviceId}:`, error);
+                return { success: false, deviceId, error };
             }
-        }
+        });
         
-        // Limpiar cambios pendientes
-        pendingDeviceChanges.clear();
+        // Esperar a que se completen todas las operaciones
+        const results = await Promise.all(promises);
+        
+        console.log(`✅ [Modal] Cambios guardados: ${successCount} exitosos, ${errorCount} errores`);
+        
+        // Mostrar mensaje de resultado
+        if (errorCount === 0) {
+            showSuccessMessage(`¡Cambios guardados! Se actualizaron ${successCount} dispositivos.`);
+        } else {
+            showWarningMessage(`Se guardaron ${successCount} dispositivos, pero ${errorCount} fallaron. Revise la consola para más detalles.`);
+        }
         
         // Recargar datos
+        pendingDeviceChanges.clear();
         await loadCurrentAssignedDevices();
-        filterAndDisplayDevices();
         
-        // Mostrar resultado
-        if (errorCount === 0) {
-            showToast(`✅ Todos los cambios guardados correctamente (${successCount})`, 'success');
-            
-            // Cerrar modal si todo fue exitoso
-            const modal = bootstrap.Modal.getInstance(document.getElementById('assignDeviceModal'));
-            if (modal) modal.hide();
-            
-            // Recargar dispositivos asignados en la página principal
-            if (typeof refreshAssignedDevicesAfterChanges === 'function') {
-                refreshAssignedDevicesAfterChanges();
-            }
-        } else {
-            showToast(`⚠️ ${successCount} cambios guardados, ${errorCount} errores`, 'warning');
+        // Notificar al gestor de dispositivos para que actualice la vista principal
+        if (typeof refreshAssignedDevicesAfterChanges === 'function') {
+            setTimeout(refreshAssignedDevicesAfterChanges, 500);
         }
         
+        return true;
     } catch (error) {
-        console.error('❌ [Modal] Error general guardando:', error);
-        showToast(`Error guardando cambios: ${error.message}`, 'error');
+        console.error('❌ [Modal] Error guardando cambios:', error);
+        showModalError('Error guardando cambios', error.message);
+        return false;
     } finally {
-        updateSaveButtonState();
+        // Restaurar botón
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.innerHTML = `<i class="fas fa-save me-1"></i> Guardar Cambios`;
+        }
     }
 }
 
@@ -670,106 +620,322 @@ async function saveDeviceAssignments_Click() {
  * Asignar dispositivo a playlist
  */
 async function assignDeviceToPlaylist(deviceId, playlistId) {
-    const response = await secureFetch(MODAL_API.DEVICES.ASSIGN, {
-        method: 'POST',
-        body: JSON.stringify({
-            device_id: deviceId,
-            playlist_id: parseInt(playlistId)
-        })
-    });
+    console.log(`📌 [Modal] Asignando dispositivo ${deviceId} a playlist ${playlistId}`);
     
-    console.log(`✅ [Modal] Dispositivo ${deviceId} asignado`);
-    return await response.json();
+    const payload = {
+        device_id: deviceId,
+        playlist_id: playlistId
+    };
+    
+    try {
+        await secureFetch(MODAL_API.DEVICES.ASSIGN, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        
+        console.log(`✅ [Modal] Dispositivo asignado correctamente`);
+        return true;
+    } catch (error) {
+        console.error('❌ [Modal] Error asignando dispositivo:', error);
+        throw error;
+    }
 }
 
 /**
  * Desasignar dispositivo de playlist
  */
 async function unassignDeviceFromPlaylist(deviceId, playlistId) {
-    const response = await secureFetch(MODAL_API.DEVICES.UNASSIGN(deviceId, playlistId), {
-        method: 'DELETE'
-    });
+    console.log(`🗑️ [Modal] Desasignando dispositivo ${deviceId} de playlist ${playlistId}`);
     
-    console.log(`✅ [Modal] Dispositivo ${deviceId} desasignado`);
-    return response.ok;
+    try {
+        await secureFetch(MODAL_API.DEVICES.UNASSIGN(deviceId, playlistId), {
+            method: 'DELETE'
+        });
+        
+        console.log(`✅ [Modal] Dispositivo desasignado correctamente`);
+        return true;
+    } catch (error) {
+        console.error('❌ [Modal] Error desasignando dispositivo:', error);
+        throw error;
+    }
 }
 
+// ==========================================
+// FUNCIONES DE INTERFAZ DE USUARIO
+// ==========================================
+
 /**
- * Mostrar estado de seguridad en el modal
+ * Configurar listeners para filtros
  */
-function showModalSecurityStatus() {
-    try {
-        const modalHeader = document.querySelector('#assignDeviceModal .modal-header');
-        if (!modalHeader || document.getElementById('modalSecurityIndicator')) return;
-        
-        const secureContext = isSecureContext();
-        const protocol = window.location.protocol.toUpperCase();
-        
-        const securityIndicator = document.createElement('small');
-        securityIndicator.id = 'modalSecurityIndicator';
-        securityIndicator.className = `ms-auto ${secureContext ? 'text-success' : 'text-warning'}`;
-        securityIndicator.innerHTML = secureContext ? 
-            `<i class="fas fa-lock me-1"></i>${protocol}` :
-            `<i class="fas fa-unlock me-1"></i>${protocol}`;
-        
-        modalHeader.appendChild(securityIndicator);
-        
-    } catch (error) {
-        console.warn('⚠️ [Modal] Error mostrando estado de seguridad:', error);
+function setupFilterListeners() {
+    // Búsqueda
+    const searchInput = document.getElementById('deviceSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce((e) => {
+            currentSearchTerm = e.target.value.trim();
+            filterAndDisplayDevices();
+        }, 300));
+    }
+    
+    // Limpiar búsqueda
+    const clearSearch = document.getElementById('clearDeviceSearch');
+    if (clearSearch) {
+        clearSearch.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            currentSearchTerm = '';
+            filterAndDisplayDevices();
+        });
+    }
+    
+    // Filtro de estado
+    const statusFilter = document.getElementById('deviceStatusFilter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', (e) => {
+            currentStatusFilter = e.target.value;
+            filterAndDisplayDevices();
+        });
     }
 }
 
 /**
- * Resetear modal
+ * Configurar botones de acción
  */
-function resetModal() {
-    console.log('🔄 [Modal] Reseteando modal...');
+function setupActionButtons() {
+    // Seleccionar todos
+    const selectAllBtn = document.getElementById('selectAllDevices');
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', handleSelectAllDevices);
+    }
     
-    // Limpiar datos
-    allDevicesForAssignment = [];
-    filteredDevicesForAssignment = [];
-    currentAssignedDeviceIds = [];
-    pendingDeviceChanges.clear();
+    // Deseleccionar todos
+    const deselectAllBtn = document.getElementById('deselectAllDevices');
+    if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', handleDeselectAllDevices);
+    }
+    
+    // Guardar cambios
+    const saveBtn = document.getElementById('saveDeviceAssignments');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveDeviceAssignments_Click);
+    }
+    
+    // Limpiar filtros
+    const clearFiltersBtn = document.getElementById('clearAllFilters');
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', clearAllFilters);
+    }
+}
+
+/**
+ * Manejar selección de todos los dispositivos
+ */
+function handleSelectAllDevices() {
+    console.log('🔄 [Modal] Seleccionando todos los dispositivos filtrados...');
+    
+    // Para cada dispositivo filtrado
+    filteredDevicesForAssignment.forEach(device => {
+        const deviceId = device.id || device.device_id || device.mac_address;
+        const isCurrentlyAssigned = currentAssignedDeviceIds.includes(deviceId);
+        
+        // Si no está asignado, agregarlo a pendingChanges
+        if (!isCurrentlyAssigned && !pendingDeviceChanges.has(deviceId)) {
+            pendingDeviceChanges.add(deviceId);
+        }
+        // Si está asignado y está en pendingChanges, quitarlo
+        else if (isCurrentlyAssigned && pendingDeviceChanges.has(deviceId)) {
+            pendingDeviceChanges.delete(deviceId);
+        }
+    });
+    
+    // Actualizar UI
+    updateDeviceCheckboxes();
+}
+
+/**
+ * Manejar deselección de todos los dispositivos
+ */
+function handleDeselectAllDevices() {
+    console.log('🔄 [Modal] Deseleccionando todos los dispositivos filtrados...');
+    
+    // Para cada dispositivo filtrado
+    filteredDevicesForAssignment.forEach(device => {
+        const deviceId = device.id || device.device_id || device.mac_address;
+        const isCurrentlyAssigned = currentAssignedDeviceIds.includes(deviceId);
+        
+        // Si está asignado, agregarlo a pendingChanges
+        if (isCurrentlyAssigned && !pendingDeviceChanges.has(deviceId)) {
+            pendingDeviceChanges.add(deviceId);
+        }
+        // Si no está asignado y está en pendingChanges, quitarlo
+        else if (!isCurrentlyAssigned && pendingDeviceChanges.has(deviceId)) {
+            pendingDeviceChanges.delete(deviceId);
+        }
+    });
+    
+    // Actualizar UI
+    updateDeviceCheckboxes();
+}
+
+/**
+ * Limpiar todos los filtros
+ */
+function clearAllFilters() {
+    console.log('🔄 [Modal] Limpiando todos los filtros...');
+    
+    // Limpiar búsqueda
+    const searchInput = document.getElementById('deviceSearchInput');
+    if (searchInput) searchInput.value = '';
     currentSearchTerm = '';
+    
+    // Resetear filtro de estado
+    const statusFilter = document.getElementById('deviceStatusFilter');
+    if (statusFilter) statusFilter.value = 'all';
     currentStatusFilter = 'all';
     
-    // Limpiar formulario
-    const searchInput = document.getElementById('deviceSearchInput');
-    const statusFilter = document.getElementById('deviceStatusFilter');
-    const selectAll = document.getElementById('selectAllDevices');
+    // Actualizar UI
+    filterAndDisplayDevices();
+}
+
+/**
+ * Mostrar mensaje de error en el modal
+ */
+function showModalError(title, message) {
+    console.error(`❌ [Modal] Error: ${title} - ${message}`);
     
-    if (searchInput) searchInput.value = '';
-    if (statusFilter) statusFilter.value = 'all';
-    if (selectAll) selectAll.checked = false;
-    
-    // Limpiar tabla
+    // Crear alerta dentro del modal
+    const alertsContainer = document.getElementById('deviceModalAlerts');
+    if (alertsContainer) {
+        alertsContainer.innerHTML = `
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <strong>${title}</strong> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+    } else {
+        // Fallback a alert si no existe el contenedor
+        alert(`${title}: ${message}`);
+    }
+}
+
+/**
+ * Mostrar mensaje de éxito
+ */
+function showSuccessMessage(message) {
+    const alertsContainer = document.getElementById('deviceModalAlerts');
+    if (alertsContainer) {
+        alertsContainer.innerHTML = `
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="fas fa-check-circle me-2"></i> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Mostrar mensaje de advertencia
+ */
+function showWarningMessage(message) {
+    const alertsContainer = document.getElementById('deviceModalAlerts');
+    if (alertsContainer) {
+        alertsContainer.innerHTML = `
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Mostrar error en la lista de dispositivos
+ */
+function showDevicesError(message) {
     const devicesList = document.getElementById('availableDevicesList');
     if (devicesList) {
         devicesList.innerHTML = `
             <tr>
                 <td colspan="6" class="text-center py-4">
-                    <p class="text-muted mb-0">El modal se ha reseteado</p>
+                    <div class="empty-state text-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <h6 class="mt-3">Error cargando dispositivos</h6>
+                        <p class="mb-2">${message}</p>
+                        <button class="btn btn-sm btn-outline-secondary mt-2" onclick="loadDevicesForAssignment()">
+                            <i class="fas fa-sync-alt me-1"></i> Reintentar
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
     }
+}
+
+/**
+ * Mostrar/ocultar indicador de carga
+ */
+function showLoading(show) {
+    const loadingIndicator = document.getElementById('deviceModalLoading');
+    const contentContainer = document.getElementById('deviceModalContent');
     
-    // Resetear botones
-    updateSaveButtonState();
+    if (loadingIndicator) {
+        loadingIndicator.classList.toggle('d-none', !show);
+    }
     
-    // Limpiar indicadores de seguridad
-    const securityIndicator = document.getElementById('modalSecurityIndicator');
-    if (securityIndicator) {
-        securityIndicator.remove();
+    if (contentContainer) {
+        contentContainer.classList.toggle('d-none', show);
+    }
+}
+
+/**
+ * Actualizar UI del modal
+ */
+function updateModalUI() {
+    // Actualizar checkboxes
+    updateDeviceCheckboxes();
+    
+    // Mostrar contenido
+    const loadingIndicator = document.getElementById('deviceModalLoading');
+    const contentContainer = document.getElementById('deviceModalContent');
+    
+    if (loadingIndicator) {
+        loadingIndicator.classList.add('d-none');
+    }
+    
+    if (contentContainer) {
+        contentContainer.classList.remove('d-none');
+    }
+}
+
+/**
+ * Resetear modal a estado inicial
+ */
+function resetModal() {
+    // Limpiar cambios pendientes
+    pendingDeviceChanges.clear();
+    
+    // Limpiar búsqueda
+    const searchInput = document.getElementById('deviceSearchInput');
+    if (searchInput) searchInput.value = '';
+    currentSearchTerm = '';
+    
+    // Resetear filtro de estado
+    const statusFilter = document.getElementById('deviceStatusFilter');
+    if (statusFilter) statusFilter.value = 'all';
+    currentStatusFilter = 'all';
+    
+    // Limpiar alertas
+    const alertsContainer = document.getElementById('deviceModalAlerts');
+    if (alertsContainer) {
+        alertsContainer.innerHTML = '';
     }
 }
 
 // ==========================================
-// FUNCIONES DE UTILIDAD
+// FUNCIONES AUXILIARES
 // ==========================================
 
 /**
- * Debounce para optimizar búsquedas
+ * Función debounce para evitar múltiples llamadas
  */
 function debounce(func, wait) {
     let timeout;
@@ -784,128 +950,42 @@ function debounce(func, wait) {
 }
 
 /**
- * Escapar HTML
+ * Obtener ID de la playlist actual
  */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-/**
- * Formatear fecha
- */
-function formatDate(dateString) {
-    if (!dateString) return 'N/A';
-    try {
-        return new Date(dateString).toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    } catch {
-        return 'Fecha inválida';
-    }
-}
-
-/**
- * Mostrar toast
- */
-function showToast(message, type = 'info') {
-    console.log(`📢 [Modal] Toast ${type}: ${message}`);
-    
-    // Si existe función global de toast, usarla
-    if (typeof window.showToast === 'function' && window.showToast !== showToast) {
-        window.showToast(message, type);
-        return;
+function getPlaylistId() {
+    // Método 1: Desde la variable global
+    if (window.currentPlaylistData && window.currentPlaylistData.id) {
+        return window.currentPlaylistData.id;
     }
     
-    // Toast simple como fallback
-    const alertClass = type === 'error' ? 'danger' : type;
-    const toast = document.createElement('div');
-    toast.className = `alert alert-${alertClass} position-fixed`;
-    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-    toast.innerHTML = `
-        <strong><i class="fas fa-tv me-2"></i>Dispositivos:</strong> ${message}
-        <button type="button" class="btn-close float-end" onclick="this.parentElement.remove()"></button>
-    `;
+    // Método 2: Desde función global
+    if (typeof window.getPlaylistId === 'function') {
+        return window.getPlaylistId();
+    }
     
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 5000);
-}
-
-/**
- * Mostrar error en dispositivos
- */
-function showDevicesError(message) {
-    const devicesList = document.getElementById('availableDevicesList');
-    if (devicesList) {
-        devicesList.innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center py-4">
-                    <i class="fas fa-exclamation-triangle fa-2x text-danger mb-3"></i>
-                    <p class="text-danger mb-2">Error cargando dispositivos</p>
-                    <p class="text-muted small mb-3">${escapeHtml(message)}</p>
-                    <button class="btn btn-sm btn-outline-primary" onclick="loadDevicesForAssignment()">
-                        <i class="fas fa-sync me-1"></i>Reintentar
-                    </button>
-                </td>
-            </tr>
-        `;
+    // Método 3: Desde la URL
+    const urlMatch = window.location.pathname.match(/\/playlists\/(\d+)/);
+    if (urlMatch && urlMatch[1]) {
+        return urlMatch[1];
     }
-}
-
-/**
- * Mostrar error general del modal
- */
-function showModalError(title, message) {
-    const modalBody = document.querySelector('#assignDeviceModal .modal-body');
-    if (modalBody) {
-        modalBody.innerHTML = `
-            <div class="alert alert-danger">
-                <h6><i class="fas fa-exclamation-triangle me-2"></i>${title}</h6>
-                <p class="mb-0">${escapeHtml(message)}</p>
-            </div>
-            <div class="text-center">
-                <button class="btn btn-primary" onclick="location.reload()">
-                    <i class="fas fa-sync me-2"></i>Recargar Página
-                </button>
-            </div>
-        `;
-    }
+    
+    console.error('❌ [Modal] No se pudo obtener el ID de la playlist');
+    return null;
 }
 
 // ==========================================
 // INICIALIZACIÓN
 // ==========================================
 
-/**
- * Inicializar cuando DOM esté listo
- */
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('📺 [Modal] DOM listo, inicializando...');
-    
-    // Verificar Bootstrap
-    if (typeof bootstrap === 'undefined') {
-        console.warn('⚠️ [Modal] Bootstrap no detectado');
-    }
-    
-    // Verificar getPlaylistId
-    if (typeof getPlaylistId !== 'function') {
-        console.error('❌ [Modal] Función getPlaylistId no disponible');
-        return;
-    }
-    
-    // Pequeño delay para asegurar que otros scripts se carguen
+// Inicializar automáticamente cuando se cargue el documento
+document.addEventListener('DOMContentLoaded', () => {
+    // Esperar a que otros scripts se carguen
     setTimeout(() => {
         try {
+            console.log('🚀 [Modal] Inicialización automática...');
             initializeDeviceAssignmentModal();
         } catch (error) {
             console.error('❌ [Modal] Error en inicialización automática:', error);
-            showModalError('Error de Inicialización', error.message);
         }
     }, 100);
 });
@@ -924,6 +1004,7 @@ window.assignDeviceToPlaylist = assignDeviceToPlaylist;
 window.unassignDeviceFromPlaylist = unassignDeviceFromPlaylist;
 window.clearAllFilters = clearAllFilters;
 window.handleSelectAllDevices = handleSelectAllDevices;
+window.handleDeselectAllDevices = handleDeselectAllDevices;
 
 // Funciones de seguridad
 window.isSecureContext = isSecureContext;

@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="/static/css/playlists.css">
+<link rel="stylesheet" href="/static/css/playlist_detail.css">
 <style>
 /* ==========================================
    ESTILOS ESPECÍFICOS PARA PLAYLIST DETAIL
@@ -427,7 +427,31 @@
 {% block content %}
 <!-- Datos de playlist para JavaScript -->
 {% if playlist %}
-<script type="application/json" id="playlist-data">{{ playlist | tojson | safe }}</script>
+<script type="application/json" id="playlist-data">
+{
+    "id": {{ playlist.id }},
+    "title": "{{ playlist.title | safe }}",
+    "description": "{{ playlist.description | safe if playlist.description else '' }}",
+    "creation_date": "{{ playlist.creation_date.isoformat() if playlist.creation_date else '' }}",
+    "updated_at": "{{ playlist.updated_at.isoformat() if playlist.updated_at else '' }}",
+    "start_date": "{{ playlist.start_date.isoformat() if playlist.start_date else '' }}",
+    "expiration_date": "{{ playlist.expiration_date.isoformat() if playlist.expiration_date else '' }}",
+    "is_active": {{ playlist.is_active | lower }},
+    "videos": [
+        {% for pv in playlist.playlist_videos %}
+        {
+            "id": {{ pv.video.id }},
+            "title": "{{ pv.video.title | safe }}",
+            "description": "{{ pv.video.description | safe if pv.video.description else '' }}",
+            "file_path": "{{ pv.video.file_path | safe }}",
+            "duration": {{ pv.video.duration or 0 }},
+            "position": {{ pv.position or 0 }},
+            "order": {{ pv.position or 0 }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ]
+}
+</script>
 <input type="hidden" id="playlist-id" value="{{ playlist.id }}">
 {% endif %}
 
@@ -438,7 +462,7 @@
             <div class="col-lg-8">
                 <h1 class="page-title">
                     <i class="fas fa-list-alt me-3"></i>
-                    {% if playlist %}
+                    {% if playlists %}
                         {{ playlist.title }}
                     {% else %}
                         Gestión de Videos y Listas
@@ -876,15 +900,16 @@
 // ==========================================
 
 // Verificar y configurar API_CONFIG si no existe
+// Verificar y configurar API_CONFIG si no existe
 if (typeof window.API_CONFIG === 'undefined') {
-    console.log('🔧 Configurando API_CONFIG...');
+    console.log('🔧 Configurando API_CONFIG de respaldo...');
     
-    const protocol = window.location.protocol;
-    const host = window.location.host;
-    const apiUrl = `${protocol}//${host}/api`;
+    // Usar URLs relativas que heredan el protocolo actual
+    const apiUrl = '/api';
     
     window.API_CONFIG = {
-        BASE_URL: apiUrl,
+        BASE_URL: '',
+        API_URL: apiUrl,
         VIDEOS: { 
             LIST: `${apiUrl}/videos` 
         },
@@ -896,13 +921,29 @@ if (typeof window.API_CONFIG === 'undefined') {
             REMOVE_VIDEO: (playlistId, videoId) => `${apiUrl}/playlists/${playlistId}/videos/${videoId}`,
             UPDATE_ORDER: (id) => `${apiUrl}/playlists/${id}/video-order`
         },
-        DEVICES: {
-            LIST: `${apiUrl}/devices`,
+        DEVICE_PLAYLISTS: {
             PLAYLIST_DEVICES: (playlistId) => `${apiUrl}/device-playlists/playlist/${playlistId}/devices`,
             ASSIGN: `${apiUrl}/device-playlists`,
             UNASSIGN: (deviceId, playlistId) => `${apiUrl}/device-playlists/${deviceId}/${playlistId}`
+        },
+        DEVICES: {
+            LIST: `${apiUrl}/devices`
         }
     };
+}
+
+// Usar window para evitar redeclaraciones
+if (typeof window.currentPlaylistData === 'undefined') {
+    window.currentPlaylistData = null;
+}
+if (typeof window.playlistVideos === 'undefined') {
+    window.playlistVideos = [];
+}
+if (typeof window.availableVideos === 'undefined') {
+    window.availableVideos = [];
+}
+if (typeof window.assignedDevices === 'undefined') {
+    window.assignedDevices = [];
 }
 
 // ==========================================
@@ -912,134 +953,55 @@ if (typeof window.API_CONFIG === 'undefined') {
 function getPlaylistId() {
     console.log('🔍 [getPlaylistId] Obteniendo ID de playlist...');
     
+    // 1. Intentar desde el input hidden
+    const hiddenInput = document.getElementById('playlist-id');
+    if (hiddenInput && hiddenInput.value) {
+        console.log('✅ [getPlaylistId] ID desde input hidden:', hiddenInput.value);
+        return hiddenInput.value;
+    }
+    
+    // 2. Intentar desde la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlId = urlParams.get('id');
+    if (urlId) {
+        console.log('✅ [getPlaylistId] ID de URL:', urlId);
+        return urlId;
+    }
+    
+    // 3. Intentar desde currentPlaylistData
+    if (window.currentPlaylistData && window.currentPlaylistData.id) {
+        console.log('✅ [getPlaylistId] ID desde datos actuales:', window.currentPlaylistData.id);
+        return window.currentPlaylistData.id;
+    }
+    
+    console.error('❌ [getPlaylistId] No se pudo obtener el ID de la playlist');
+    return null;
+}
+
+/**
+ * Cargar datos desde el template
+ */
+function loadDataFromTemplate() {
     try {
-        // Método 1: URL params (más confiable)
-        const urlParams = new URLSearchParams(window.location.search);
-        const idFromUrl = urlParams.get('id');
-        
-        if (idFromUrl) {
-            const parsedId = parseInt(idFromUrl);
-            if (!isNaN(parsedId) && parsedId > 0) {
-                console.log(`✅ [getPlaylistId] ID de URL: ${parsedId}`);
-                return parsedId;
-            }
-        }
-        
-        // Método 2: Path URL
-        const pathMatch = window.location.pathname.match(/\/playlists?\/(\d+)/);
-        if (pathMatch && pathMatch[1]) {
-            const parsedId = parseInt(pathMatch[1]);
-            if (!isNaN(parsedId) && parsedId > 0) {
-                console.log(`✅ [getPlaylistId] ID del path: ${parsedId}`);
-                return parsedId;
-            }
-        }
-        
-        // Método 3: Elemento hidden
-        const idElement = document.getElementById('playlist-id');
-        if (idElement && idElement.value) {
-            const parsedId = parseInt(idElement.value);
-            if (!isNaN(parsedId) && parsedId > 0) {
-                console.log(`✅ [getPlaylistId] ID de elemento hidden: ${parsedId}`);
-                return parsedId;
-            }
-        }
-        
-        // Método 4: Variables globales
-        if (window.currentPlaylistId) {
-            const parsedId = parseInt(window.currentPlaylistId);
-            if (!isNaN(parsedId) && parsedId > 0) {
-                console.log(`✅ [getPlaylistId] ID de variable global: ${parsedId}`);
-                return parsedId;
-            }
-        }
-        
-        if (window.currentPlaylistData && window.currentPlaylistData.id) {
-            const parsedId = parseInt(window.currentPlaylistData.id);
-            if (!isNaN(parsedId) && parsedId > 0) {
-                console.log(`✅ [getPlaylistId] ID de datos globales: ${parsedId}`);
-                return parsedId;
-            }
-        }
-        
-        // Método 5: JSON con corrección
         const playlistElement = document.getElementById('playlist-data');
         if (playlistElement && playlistElement.textContent) {
-            try {
-                let jsonText = playlistElement.textContent.trim();
-                
-                // Corregir JSON malformado
-                jsonText = jsonText
-                    .replace(/"([^"]+)":\s*,/g, '"$1": null,')
-                    .replace(/,\s*}/g, '}')
-                    .replace(/,\s*]/g, ']')
-                    .replace(/:\s*undefined/g, ': null');
-                
-                const templateData = JSON.parse(jsonText);
-                
-                if (templateData && templateData.id) {
-                    const parsedId = parseInt(templateData.id);
-                    if (!isNaN(parsedId) && parsedId > 0) {
-                        console.log(`✅ [getPlaylistId] ID de JSON corregido: ${parsedId}`);
-                        
-                        // Actualizar datos globales
-                        window.currentPlaylistData = templateData;
-                        window.currentPlaylistId = parsedId;
-                        if (templateData.videos) {
-                            window.playlistVideos = templateData.videos;
-                        }
-                        
-                        return parsedId;
-                    }
-                }
-                
-            } catch (jsonError) {
-                console.warn('⚠️ [getPlaylistId] Error parseando JSON:', jsonError.message);
-                
-                // Último recurso: regex
-                try {
-                    const idMatch = playlistElement.textContent.match(/"id":\s*(\d+)/);
-                    if (idMatch && idMatch[1]) {
-                        const parsedId = parseInt(idMatch[1]);
-                        if (!isNaN(parsedId) && parsedId > 0) {
-                            console.log(`✅ [getPlaylistId] ID con regex: ${parsedId}`);
-                            return parsedId;
-                        }
-                    }
-                } catch (regexError) {
-                    console.warn('⚠️ [getPlaylistId] Error con regex:', regexError.message);
-                }
-            }
+            const templateData = JSON.parse(playlistElement.textContent);
+            const playlistVideos = templateData.videos || [];
+            window.currentPlaylistData = templateData;
+            window.playlistVideos = playlistVideos;
+            
+            console.log('📋 Datos de playlist cargados desde template:', templateData.title);
         }
-        
-        console.error('❌ [getPlaylistId] No se pudo obtener ID de playlist');
-        return null;
-        
     } catch (error) {
-        console.error('❌ [getPlaylistId] Error general:', error);
-        return null;
+        console.warn('⚠️ Error cargando datos desde template:', error);
     }
 }
 
-// ==========================================
-// VARIABLES GLOBALES
-// ==========================================
+// Cargar datos inmediatamente
+loadDataFromTemplate();
 
-// Estado de la aplicación
-let currentPlaylistData = null;
-let playlistVideos = [];
-let availableVideos = [];
-let assignedDevices = [];
-
-// Estado de paginación
-let currentPage = 1;
-let pageSize = 25;
-let totalPages = 1;
-let searchTerm = '';
-
-// Estado de cambios
-let hasUnsavedChanges = false;
-let isLoading = false;
+// Hacer funciones disponibles globalmente
+window.getPlaylistId = getPlaylistId;
 
 // Cargar datos iniciales si están disponibles
 const playlistElement = document.getElementById('playlist-data');
@@ -1055,10 +1017,8 @@ if (playlistElement && playlistElement.textContent) {
         
         const templateData = JSON.parse(jsonText);
         if (templateData && templateData.id) {
-            currentPlaylistData = templateData;
-            playlistVideos = templateData.videos || [];
             window.currentPlaylistData = templateData;
-            window.playlistVideos = playlistVideos;
+            window.playlistVideos = templateData.videos || [];
             
             console.log('📋 Datos de playlist cargados desde template:', templateData.title);
         }
@@ -1066,11 +1026,6 @@ if (playlistElement && playlistElement.textContent) {
         console.warn('⚠️ Error cargando datos desde template:', error);
     }
 }
-
-// Hacer funciones disponibles globalmente
-window.getPlaylistId = getPlaylistId;
-window.currentPlaylistData = currentPlaylistData;
-window.playlistVideos = playlistVideos;
 
 console.log('✅ Configuración base de playlist_detail cargada');
 </script>
@@ -1091,6 +1046,46 @@ console.log('✅ Configuración base de playlist_detail cargada');
  */
 
 // ==========================================
+// INICIALIZACIÓN Y GESTIÓN DE DATOS
+// ==========================================
+
+/**
+ * Cargar datos de playlist desde el template JSON embebido
+ */
+function loadPlaylistDataFromTemplate() {
+    try {
+        const playlistElement = document.getElementById('playlist-data');
+        if (playlistElement && playlistElement.textContent) {
+            try {
+                // Intentar cargar el JSON
+                const data = JSON.parse(playlistElement.textContent);
+                
+                // Solo asignar a variables globales si se cargó correctamente
+                if (data && data.id) {
+                    // Definir datos de playlist y videos
+                    window.currentPlaylistData = data;
+                    window.playlistVideos = data.videos || [];
+                    
+                    console.log('📋 Datos de playlist cargados desde template:', data.title);
+                    
+                    // Actualizar estadísticas
+                    updatePlaylistStats();
+                    return true;
+                }
+            } catch (jsonError) {
+                console.warn('⚠️ Error parseando JSON:', jsonError);
+            }
+        }
+        
+        console.warn('⚠️ No se pudieron cargar datos desde template');
+        return false;
+    } catch (error) {
+        console.error('❌ Error cargando datos del template:', error);
+        return false;
+    }
+}
+
+// ==========================================
 // FUNCIONES DE INTERFAZ DE USUARIO
 // ==========================================
 
@@ -1109,20 +1104,19 @@ function updatePlaylistStats() {
     const deviceCountEl = document.getElementById('deviceCount');
     
     // Videos de la playlist
-    const videoCount = playlistVideos ? playlistVideos.length : 0;
-    const totalDuration = playlistVideos ? 
-        playlistVideos.reduce((sum, video) => sum + (video.duration || 0), 0) : 0;
+    const videoCount = window.playlistVideos ? window.playlistVideos.length : 0;
+    const totalDuration = window.playlistVideos ? 
+        window.playlistVideos.reduce((sum, video) => sum + (video.duration || 0), 0) : 0;
     
     // Disponibles
-    const availableCount = availableVideos ? availableVideos.length : 0;
+    const availableCount = window.availableVideos ? window.availableVideos.length : 0;
     
     // Dispositivos
-    const deviceCount = assignedDevices ? assignedDevices.length : 0;
+    const deviceCount = window.assignedDevices ? window.assignedDevices.length : 0;
     
     // Actualizar elementos
     if (totalVideosEl) totalVideosEl.textContent = videoCount;
     if (totalDurationEl) totalDurationEl.textContent = formatDuration(totalDuration);
-    if (activeVideosEl) activeVideosEl.textContent = videoCount;
     if (assignedDevicesEl) assignedDevicesEl.textContent = deviceCount;
     if (playlistVideoCountEl) playlistVideoCountEl.textContent = videoCount;
     if (availableVideoCountEl) availableVideoCountEl.textContent = availableCount;
@@ -1132,75 +1126,56 @@ function updatePlaylistStats() {
 }
 
 /**
- * Formatear duración en minutos y segundos
+ * Formatear duración en segundos a formato MM:SS
  */
 function formatDuration(seconds) {
-    if (!seconds || seconds <= 0) return '0m';
+    if (!seconds || isNaN(seconds)) return '00:00';
     
+    seconds = Math.round(seconds);
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     
-    if (minutes >= 60) {
-        const hours = Math.floor(minutes / 60);
-        const remainingMinutes = minutes % 60;
-        return `${hours}h ${remainingMinutes}m`;
-    }
-    
-    return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
 /**
- * Mostrar estado de carga
- */
-function showLoadingState(elementId, show = true) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        if (show) {
-            element.classList.remove('d-none');
-        } else {
-            element.classList.add('d-none');
-        }
-    }
-}
-
-/**
- * Mostrar toast notification
+ * Mostrar toast de notificación
  */
 function showToast(message, type = 'info') {
-    console.log(`📢 Toast ${type}: ${message}`);
+    console.log(`🔔 Toast: ${message} (${type})`);
     
-    // Si existe función global, usarla
-    if (typeof window.showToast === 'function' && window.showToast !== showToast) {
-        window.showToast(message, type);
-        return;
-    }
-    
-    // Toast simple
-    const alertClass = type === 'error' ? 'danger' : type;
+    // Implementación básica
     const toast = document.createElement('div');
-    toast.className = `alert alert-${alertClass} position-fixed fade-in`;
-    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.className = `alert alert-${type} alert-dismissible fade show position-fixed bottom-0 end-0 m-3`;
+    toast.setAttribute('role', 'alert');
+    toast.style.zIndex = '9999';
+    
     toast.innerHTML = `
         ${message}
-        <button type="button" class="btn-close float-end" onclick="this.parentElement.remove()"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
     
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 5000);
+    
+    // Auto cerrar después de 3 segundos
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 /**
- * Marcar como cambios sin guardar
+ * Marcar que hay cambios sin guardar
  */
 function markAsUnsaved() {
-    hasUnsavedChanges = true;
+    window.hasUnsavedChanges = true;
     
-    // Actualizar botón de guardar
-    const saveBtn = document.querySelector('[onclick="savePlaylistChanges()"]');
+    // Activar botón de guardar si existe
+    const saveBtn = document.getElementById('saveChangesBtn');
     if (saveBtn) {
-        saveBtn.classList.remove('btn-warning');
-        saveBtn.classList.add('btn-success');
-        saveBtn.innerHTML = '<i class="fas fa-save"></i> Guardar *';
+        saveBtn.disabled = false;
+        saveBtn.classList.remove('btn-outline-primary');
+        saveBtn.classList.add('btn-primary');
     }
 }
 
@@ -1208,14 +1183,9 @@ function markAsUnsaved() {
  * Confirmar eliminación de playlist
  */
 function confirmDeletePlaylist() {
-    if (!currentPlaylistData) return;
+    if (!window.currentPlaylistData) return;
     
-    const confirmed = confirm(
-        `¿Estás seguro de que deseas eliminar la lista "${currentPlaylistData.title}"?\n\n` +
-        'Esta acción no se puede deshacer.'
-    );
-    
-    if (confirmed) {
+    if (confirm(`¿Estás seguro de que deseas eliminar la playlist "${window.currentPlaylistData.title}"? Esta acción no se puede deshacer.`)) {
         deletePlaylist();
     }
 }
@@ -1224,47 +1194,59 @@ function confirmDeletePlaylist() {
  * Eliminar playlist
  */
 async function deletePlaylist() {
-    const playlistId = getPlaylistId();
-    if (!playlistId) return;
+    if (!window.currentPlaylistData || !window.currentPlaylistData.id) return;
     
     try {
-        const response = await fetch(window.API_CONFIG.PLAYLISTS.GET_BY_ID(playlistId), {
+        showToast('Eliminando playlist...', 'warning');
+        
+        const url = `/api/playlists/${window.currentPlaylistData.id}`;
+        const response = await fetch(url, {
             method: 'DELETE'
         });
         
-        if (response.ok) {
-            showToast('Lista eliminada correctamente', 'success');
-            setTimeout(() => {
-                window.location.href = '/ui/playlists';
-            }, 1500);
-        } else {
-            throw new Error('Error al eliminar la lista');
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
+        
+        showToast('Playlist eliminada correctamente', 'success');
+        
+        // Redireccionar a la lista de playlists
+        setTimeout(() => {
+            window.location.href = '/playlists';
+        }, 1000);
+        
     } catch (error) {
-        console.error('Error:', error);
-        showToast('Error al eliminar la lista', 'error');
+        console.error('❌ Error eliminando playlist:', error);
+        showToast(`Error al eliminar: ${error.message}`, 'error');
     }
 }
 
 /**
- * Alternar modo de edición
+ * Activar modo de edición de playlist
  */
 function toggleEditMode() {
-    showToast('Funcionalidad de edición en desarrollo', 'info');
+    console.log('✏️ Activando modo de edición...');
+    
+    // Implementación básica - redireccionar a página de edición
+    if (window.currentPlaylistData && window.currentPlaylistData.id) {
+        window.location.href = `/edit_playlist?id=${window.currentPlaylistData.id}`;
+    } else {
+        showToast('No se puede editar la playlist', 'error');
+    }
 }
 
 /**
- * Exportar playlist
+ * Exportar playlist como JSON
  */
 function exportPlaylist() {
-    if (!currentPlaylistData) {
-        showToast('No hay datos de playlist para exportar', 'warning');
+    if (!window.currentPlaylistData) {
+        showToast('No hay datos para exportar', 'warning');
         return;
     }
     
     const exportData = {
-        playlist: currentPlaylistData,
-        videos: playlistVideos,
+        playlist: window.currentPlaylistData,
+        videos: window.playlistVideos,
         exported_at: new Date().toISOString()
     };
     
@@ -1273,7 +1255,7 @@ function exportPlaylist() {
     
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    link.download = `playlist_${currentPlaylistData.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+    link.download = `playlist_${window.currentPlaylistData.title.replace(/[^a-z0-9]/gi, '_')}.json`;
     link.click();
     
     showToast('Playlist exportada correctamente', 'success');
@@ -1283,22 +1265,22 @@ function exportPlaylist() {
  * Mezclar orden de playlist
  */
 function shufflePlaylist() {
-    if (!playlistVideos || playlistVideos.length < 2) {
+    if (!window.playlistVideos || window.playlistVideos.length < 2) {
         showToast('Necesitas al menos 2 videos para mezclar', 'warning');
         return;
     }
     
     // Crear copia y mezclar
-    const shuffled = [...playlistVideos];
+    const shuffled = [...window.playlistVideos];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     
-    playlistVideos = shuffled;
+    window.playlistVideos = shuffled;
     
     // Actualizar orden
-    playlistVideos.forEach((video, index) => {
+    window.playlistVideos.forEach((video, index) => {
         video.order = index + 1;
         video.position = index + 1;
     });
@@ -1322,12 +1304,15 @@ function shufflePlaylist() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎬 Inicializando template playlist_detail...');
     
+    // Cargar datos desde template
+    loadPlaylistDataFromTemplate();
+    
     // Actualizar estadísticas iniciales
     updatePlaylistStats();
     
     // Configurar advertencia de salida
     window.addEventListener('beforeunload', function(e) {
-        if (hasUnsavedChanges) {
+        if (window.hasUnsavedChanges) {
             e.preventDefault();
             e.returnValue = 'Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?';
         }
@@ -1336,7 +1321,8 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ Template playlist_detail inicializado');
 });
 
-// Hacer funciones disponibles globalmente
+// Hacer funciones disponibles globalmente - CORREGIDO
+// Solo asignamos, no declaramos variables que podrían entrar en conflicto con playlist_detail.js
 window.updatePlaylistStats = updatePlaylistStats;
 window.formatDuration = formatDuration;
 window.showToast = showToast;
