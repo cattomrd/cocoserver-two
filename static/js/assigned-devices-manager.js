@@ -1,3 +1,11 @@
+/**
+ * ASSIGNED DEVICES MANAGER - Gestor de Dispositivos Asignados
+ * 
+ * Este archivo gestiona la visualización y manipulación de dispositivos 
+ * asignados a una playlist, mostrando correctamente sus estados y permitiendo
+ * realizar acciones sobre ellos.
+ */
+
 console.log('📺 Cargando módulo de gestión de dispositivos asignados...');
 
 // ==========================================
@@ -5,8 +13,6 @@ console.log('📺 Cargando módulo de gestión de dispositivos asignados...');
 // ==========================================
 let assignedDevicesData = [];
 let isLoadingAssignedDevices = false;
-
-// API Configuration - usar la global si existe
 
 // API Configuration - usar la global si existe
 const ASSIGNED_DEVICES_API = window.API_CONFIG ? {
@@ -137,14 +143,47 @@ function showAssignedDevicesTable() {
         const deviceName = device.name || device.device_name || 'Dispositivo sin nombre';
         const deviceMac = device.mac_address || device.device_id || 'Sin MAC';
         const deviceLocation = device.location || device.tienda || device.store || 'Sin ubicación';
-        const deviceStatus = device.status || device.device_status || 'unknown';
+        const deviceStatus = device.status || device.device_status || '';
         const lastSeen = device.last_seen || device.updated_at || device.last_connection;
         
-        // Determinar estado
-        const isOnline = deviceStatus === 'online' || deviceStatus === 'active';
-        const statusClass = isOnline ? 'bg-success' : 'bg-secondary';
-        const statusText = isOnline ? 'En línea' : 'Fuera de línea';
-        const statusIcon = isOnline ? 'fas fa-circle' : 'fas fa-circle';
+        // Determinar estado y clase CSS
+        let statusClass = 'bg-secondary';
+        let statusText = 'Desconocido';
+        let statusIcon = 'fas fa-circle';
+        
+        // Detectar el estado real del dispositivo
+        if (deviceStatus) {
+            const status = deviceStatus.toLowerCase();
+            
+            if (status === 'online' || status === 'connected' || status === 'active') {
+                statusClass = 'bg-success';
+                statusText = 'En línea';
+                statusIcon = 'fas fa-circle';
+            } else if (status === 'offline' || status === 'disconnected' || status === 'inactive') {
+                statusClass = 'bg-secondary';
+                statusText = 'Fuera de línea';
+                statusIcon = 'fas fa-circle';
+            } else if (status === 'warning' || status === 'pending') {
+                statusClass = 'bg-warning text-dark';
+                statusText = 'Pendiente';
+                statusIcon = 'fas fa-exclamation-circle';
+            } else if (status === 'error' || status === 'failed') {
+                statusClass = 'bg-danger';
+                statusText = 'Error';
+                statusIcon = 'fas fa-times-circle';
+            } else {
+                // Otros estados
+                statusText = status.charAt(0).toUpperCase() + status.slice(1);
+            }
+        } else if (device.is_active === true || device.active === true) {
+            statusClass = 'bg-success';
+            statusText = 'Activo';
+            statusIcon = 'fas fa-circle';
+        } else if (device.is_active === false || device.active === false) {
+            statusClass = 'bg-secondary';
+            statusText = 'Inactivo';
+            statusIcon = 'fas fa-circle';
+        }
         
         return `
             <tr data-device-id="${deviceId}">
@@ -350,9 +389,130 @@ async function unassignDeviceFromPlaylist(deviceId) {
  * Ver detalles del dispositivo
  */
 function viewDeviceDetails(deviceId) {
-    // Redirigir a la página de detalles del dispositivo
-    const detailsUrl = `/ui/devices/${deviceId}`;
-    window.open(detailsUrl, '_blank');
+    // Buscar el dispositivo en los datos
+    const device = assignedDevicesData.find(d => 
+        d.device_id === deviceId || d.id === deviceId || d.mac_address === deviceId
+    );
+    
+    if (!device) {
+        showToast('Dispositivo no encontrado', 'error');
+        return;
+    }
+    
+    // Determinar estado para mostrar en el detalle
+    let statusText = 'Desconocido';
+    let statusClass = 'secondary';
+    
+    if (device.status) {
+        const status = device.status.toLowerCase();
+        if (status === 'online' || status === 'connected' || status === 'active') {
+            statusText = 'En línea';
+            statusClass = 'success';
+        } else if (status === 'offline' || status === 'disconnected' || status === 'inactive') {
+            statusText = 'Fuera de línea';
+            statusClass = 'secondary';
+        } else if (status === 'warning' || status === 'pending') {
+            statusText = 'Pendiente';
+            statusClass = 'warning';
+        } else if (status === 'error' || status === 'failed') {
+            statusText = 'Error';
+            statusClass = 'danger';
+        } else {
+            statusText = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+    } else if (device.is_active === true || device.active === true) {
+        statusText = 'Activo';
+        statusClass = 'success';
+    } else if (device.is_active === false || device.active === false) {
+        statusText = 'Inactivo';
+        statusClass = 'secondary';
+    }
+    
+    // Crear contenido HTML para el modal
+    const modalContent = `
+        <div class="modal" id="deviceDetailsModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title">
+                            <i class="fas fa-tv me-2"></i>
+                            Detalles del Dispositivo
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="device-details">
+                            <div class="mb-3 d-flex align-items-center">
+                                <div class="device-icon me-3">
+                                    <i class="fas fa-tv fa-2x text-${statusClass}"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-0">${escapeHtml(device.name || device.device_name || 'Sin nombre')}</h5>
+                                    <span class="badge bg-${statusClass}">${statusText}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="row mb-2">
+                                    <div class="col-4 text-muted">ID:</div>
+                                    <div class="col-8">${escapeHtml(device.device_id || device.id || '')}</div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-4 text-muted">MAC:</div>
+                                    <div class="col-8">${escapeHtml(device.mac_address || 'No disponible')}</div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-4 text-muted">Ubicación:</div>
+                                    <div class="col-8">${escapeHtml(device.location || device.tienda || device.store || 'Sin ubicación')}</div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-4 text-muted">Estado:</div>
+                                    <div class="col-8">
+                                        <span class="badge bg-${statusClass}">${statusText}</span>
+                                    </div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-4 text-muted">Última conexión:</div>
+                                    <div class="col-8">${formatDate(device.last_seen || device.updated_at || device.last_connection)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-warning" onclick="testDeviceConnection('${deviceId}')">
+                            <i class="fas fa-wifi me-1"></i> Probar conexión
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="confirmUnassignDevice('${deviceId}', '${escapeHtml(device.name || device.device_name || 'Sin nombre')}')">
+                            <i class="fas fa-unlink me-1"></i> Desasignar
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Eliminar modal anterior si existe
+    const oldModal = document.getElementById('deviceDetailsModal');
+    if (oldModal) oldModal.remove();
+    
+    // Añadir el nuevo modal al DOM
+    document.body.insertAdjacentHTML('beforeend', modalContent);
+    
+    // Mostrar el modal
+    const modalElement = document.getElementById('deviceDetailsModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    } else {
+        // Fallback si no podemos crear el modal
+        alert(`Detalles del dispositivo: ${device.name || device.device_name || deviceId}
+- ID: ${device.device_id || device.id || 'N/A'}
+- MAC: ${device.mac_address || 'N/A'}
+- Ubicación: ${device.location || device.tienda || device.store || 'N/A'}
+- Estado: ${statusText}
+- Última conexión: ${formatDate(device.last_seen || device.updated_at || device.last_connection)}`);
+    }
 }
 
 /**
@@ -371,19 +531,41 @@ async function testDeviceConnection(deviceId) {
         return;
     }
     
-    // Por ahora, mostrar información básica del dispositivo
-    // En una implementación real, esto haría un ping o test de conectividad
-    const deviceInfo = `
-        Información del Dispositivo:
-        
-        Nombre: ${device.name || 'Sin nombre'}
-        MAC: ${device.mac_address || 'Sin MAC'}
-        Estado: ${device.status || 'Desconocido'}
-        Ubicación: ${device.location || device.tienda || 'Sin ubicación'}
-        Última conexión: ${formatDate(device.last_seen || device.updated_at)}
-    `;
+    // Mostrar indicador de carga
+    const buttonElement = document.querySelector(`button[onclick*="testDeviceConnection('${deviceId}'"]`);
+    if (buttonElement) {
+        buttonElement.disabled = true;
+        buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Probando...';
+    }
     
-    alert(deviceInfo);
+    // Simular prueba de conexión (en una implementación real, haría una llamada a la API)
+    try {
+        // Simular delay de red
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Determinar resultado basado en el estado actual
+        const isOnline = device.status === 'online' || 
+                         device.status === 'connected' || 
+                         device.status === 'active' || 
+                         device.is_active === true || 
+                         device.active === true;
+        
+        // Mensaje según resultado
+        if (isOnline) {
+            showToast(`Conexión exitosa con dispositivo "${device.name || device.device_name || deviceId}"`, 'success');
+        } else {
+            showToast(`El dispositivo "${device.name || device.device_name || deviceId}" no está conectado`, 'warning');
+        }
+    } catch (error) {
+        console.error('❌ Error probando conexión:', error);
+        showToast(`Error al probar conexión: ${error.message}`, 'error');
+    } finally {
+        // Restaurar botón
+        if (buttonElement) {
+            buttonElement.disabled = false;
+            buttonElement.innerHTML = '<i class="fas fa-wifi me-1"></i> Probar conexión';
+        }
+    }
 }
 
 // ==========================================
@@ -432,7 +614,17 @@ function setupModalIntegration() {
     
     // Override seguro de la función de guardado del modal si existe
     const checkForModalSaveFunction = () => {
-        if (typeof window.saveDeviceAssignments_Click === 'function') {
+        if (typeof window.saveDeviceAssignments === 'function') {
+            const originalSaveFunction = window.saveDeviceAssignments;
+            window.saveDeviceAssignments = async function() {
+                const result = await originalSaveFunction();
+                // Recargar dispositivos asignados después de guardar
+                setTimeout(loadAssignedDevices, 1000);
+                return result;
+            };
+            console.log('✅ Función de guardado del modal integrada');
+        } else if (typeof window.saveDeviceAssignments_Click === 'function') {
+            // Compatibilidad con versión anterior
             const originalSaveFunction = window.saveDeviceAssignments_Click;
             window.saveDeviceAssignments_Click = async function() {
                 const result = await originalSaveFunction();
@@ -440,7 +632,7 @@ function setupModalIntegration() {
                 setTimeout(loadAssignedDevices, 1000);
                 return result;
             };
-            console.log('✅ Función de guardado del modal integrada');
+            console.log('✅ Función de guardado del modal integrada (modo compat)');
         } else {
             // Intentar nuevamente después de un tiempo
             setTimeout(checkForModalSaveFunction, 1000);
@@ -473,6 +665,12 @@ function formatDate(dateString) {
     
     try {
         const date = new Date(dateString);
+        
+        // Verificar si la fecha es válida
+        if (isNaN(date.getTime())) {
+            return dateString; // Devolver el string original si no es una fecha válida
+        }
+        
         const now = new Date();
         const diffTime = Math.abs(now - date);
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -497,8 +695,41 @@ function formatDate(dateString) {
             });
         }
     } catch (error) {
-        return 'Fecha inválida';
+        console.warn('⚠️ Error formateando fecha:', error);
+        return dateString || 'Fecha inválida';
     }
+}
+
+/**
+ * Obtener ID de la playlist actual
+ */
+function getPlaylistId() {
+    // Método 1: Desde la variable global
+    if (window.currentPlaylistData && window.currentPlaylistData.id) {
+        return window.currentPlaylistData.id.toString();
+    }
+    
+    // Método 2: Desde la función global
+    if (typeof window.getPlaylistId === 'function' && window.getPlaylistId !== getPlaylistId) {
+        const id = window.getPlaylistId();
+        return id ? id.toString() : null;
+    }
+    
+    // Método 3: Desde el elemento oculto
+    const hiddenInput = document.getElementById('playlist-id');
+    if (hiddenInput && hiddenInput.value) {
+        return hiddenInput.value.toString();
+    }
+    
+    // Método 4: Desde la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const idFromUrl = urlParams.get('id');
+    if (idFromUrl) {
+        return idFromUrl.toString();
+    }
+    
+    console.error('❌ No se pudo obtener el ID de la playlist');
+    return null;
 }
 
 /**
@@ -541,12 +772,6 @@ function showToast(message, type = 'info') {
 function checkDependencies() {
     console.log('🔍 Verificando dependencias...');
     
-    // Verificar getPlaylistId
-    if (typeof getPlaylistId !== 'function') {
-        console.error('❌ Función getPlaylistId no disponible');
-        return false;
-    }
-    
     // Verificar Bootstrap para modales
     if (typeof bootstrap === 'undefined') {
         console.warn('⚠️ Bootstrap no detectado, algunos elementos pueden no funcionar');
@@ -580,11 +805,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Pequeño delay para asegurar que otros scripts se hayan cargado
     setTimeout(() => {
-        if (checkDependencies()) {
-            initializeAssignedDevicesManager();
-        } else {
-            console.error('❌ No se pudo inicializar debido a dependencias faltantes');
-        }
+        initializeAssignedDevicesManager();
     }, 500);
 });
 

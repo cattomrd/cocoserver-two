@@ -680,41 +680,6 @@
             }
         }, 300);
     });
-        document.addEventListener('DOMContentLoaded', function() {
-        // Manejar el formulario de subida
-        const uploadForm = document.getElementById('videoUploadForm');
-        if (uploadForm) {
-            uploadForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                // Verificar tamaño del archivo antes de subir
-                const fileInput = document.getElementById('videoFile');
-                if (fileInput.files.length > 0) {
-                    const file = fileInput.files[0];
-                    console.log('Archivo seleccionado:', file.name, 'Tamaño:', (file.size / (1024 * 1024)).toFixed(2) + ' MB');
-                    
-                    // Limitar tamaño a 100MB (ajustar según sea necesario)
-                    const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
-                    if (file.size > MAX_SIZE) {
-                        alert(`El archivo es demasiado grande (${(file.size / (1024 * 1024)).toFixed(2)} MB). El tamaño máximo permitido es ${MAX_SIZE / (1024 * 1024)} MB.`);
-                        return;
-                    }
-                }
-                
-                // Llamar a la función de subida pasando el formulario (no FormData)
-                if (typeof window.uploadVideo === 'function') {
-                    window.uploadVideo(this)
-                        .then(response => {
-                            console.log('Subida exitosa:', response);
-                        })
-                        .catch(error => {
-                            console.error('Error en subida:', error);
-                        });
-                } else {
-                    alert('La función de subida no está disponible');
-                }
-            });
-        }
-    });
+
 </script>
 {% endblock %}

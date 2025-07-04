@@ -90,7 +90,7 @@ async def create_video(
 @router.get("/", response_model=List[VideoResponse])
 def get_videos(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
+    limit: int = Query(1000, ge=1, le=1001),
     db: Session = Depends(get_db)
 ):
     try:

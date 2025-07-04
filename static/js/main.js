@@ -786,11 +786,11 @@ window.editVideo = async function(videoId) {
                 if (titleInput) titleInput.focus();
             }, 300);
         } else {
-            throw new Error('Bootstrap no estÃ¡ disponible');
+            throw new Error('Bootstrap no está disponible');
         }
         
     } catch (error) {
-        console.error('Error al preparar el video para ediciÃ³n:', error);
+        console.error('Error al preparar el video para edición:', error);
         showToast(`Error: ${error.message}`, 'error');
     }
 };
@@ -809,7 +809,7 @@ window.saveVideoChanges = async function() {
         }
         
         if (!title) {
-            throw new Error('El tÃ­tulo no puede estar vacÃ­o');
+            throw new Error('El título no puede estar vací­o');
         }
         
         const updateData = {
@@ -1225,7 +1225,7 @@ function overridePlaceholderFunctions() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('=== INICIALIZANDO APLICACIÃ“N ===');
+    console.log('=== INICIALIZANDO APLICACIÓNN ===');
     
     // Sobrescribir funciones placeholder PRIMERO
     overridePlaceholderFunctions();
@@ -1267,20 +1267,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 
-                // Validar tamaÃ±o de archivo (ej: mÃ¡ximo 500MB)
+                // Validar tamaÃ±o de archivo (ej: Maximo 500MB)
                 const maxSize = 500 * 1024 * 1024; // 500MB
                 if (file.size > maxSize) {
-                    showToast('El archivo es demasiado grande. MÃ¡ximo 500MB', 'error');
+                    showToast('El archivo es demasiado grande. Maximo 500MB', 'error');
                     return;
                 }
                 
-                uploadVideo(formData).catch(error => {
-                    console.error('Error en subida:', error);
-                });
+            uploadVideo(this).catch(error => {
+                console.error('Error en subida:', error);
             });
-        }
+        });
+    }
         
-        // Configurar botones de ediciÃ³n
+        // Configurar botones de edición
         const saveVideoBtn = document.getElementById('saveVideoChangesBtn');
         if (saveVideoBtn) {
             saveVideoBtn.addEventListener('click', saveVideoChanges);
