@@ -724,7 +724,7 @@
         }
         
         // Enviar petición a la API
-        fetch(`${CONFIG.API_BASE}/playlists/${playlistId}/videos/${videoId}`, {
+        fetch(`${CONFIG.API_BASE}/playlists/${playlistId}/videos/${videoId}/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

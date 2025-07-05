@@ -151,73 +151,73 @@ async def get_videos_page(request: Request):
 
 
 # 2. NUEVA RUTA para detalles específicos de playlist
-@router.get("/playlist_detail/{playlist_id}", response_class=HTMLResponse)
-async def get_playlist_detail_edit(
-    request: Request, 
-    playlist_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Página de edición de una playlist específica (similar a device_detail)
-    """
-    # Buscar la playlist
-    playlist = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
-    if playlist is None:
-        raise HTTPException(status_code=404, detail="Lista de reproducción no encontrada")
+# @router.get("/playlist_detail/{playlist_id}", response_class=HTMLResponse)
+# async def get_playlist_detail_edit(
+#     request: Request, 
+#     playlist_id: int,
+#     db: Session = Depends(get_db)
+# ):
+#     """
+#     Página de edición de una playlist específica (similar a device_detail)
+#     """
+#     # Buscar la playlist
+#     playlist = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
+#     if playlist is None:
+#         raise HTTPException(status_code=404, detail="Lista de reproducción no encontrada")
     
-    # Cargar videos de la playlist con información completa
-    playlist_videos = db.query(
-        models.Video, 
-        models.PlaylistVideo.order
-    ).join(
-        models.PlaylistVideo, 
-        models.Video.id == models.PlaylistVideo.video_id
-    ).filter(
-        models.PlaylistVideo.playlist_id == playlist_id
-    ).order_by(models.PlaylistVideo.order).all()
+#     # Cargar videos de la playlist con información completa
+#     playlist_videos = db.query(
+#         models.Video, 
+#         models.PlaylistVideo.order
+#     ).join(
+#         models.PlaylistVideo, 
+#         models.Video.id == models.PlaylistVideo.video_id
+#     ).filter(
+#         models.PlaylistVideo.playlist_id == playlist_id
+#     ).order_by(models.PlaylistVideo.order).all()
     
-    # Asignar videos a la playlist con información de orden
-    playlist.videos = [
-        {
-            "id": video.id,
-            "title": video.title,
-            "description": video.description,
-            "duration": video.duration,
-            "thumbnail": video.thumbnail,
-            "file_path": video.file_path,
-            "tags": video.tags,
-            "order": order,
-            "created_at": video.created_at
-        }
-        for video, order in playlist_videos
-    ]
+#     # Asignar videos a la playlist con información de orden
+#     playlist.videos = [
+#         {
+#             "id": video.id,
+#             "title": video.title,
+#             "description": video.description,
+#             "duration": video.duration,
+#             "thumbnail": video.thumbnail,
+#             "file_path": video.file_path,
+#             "tags": video.tags,
+#             "order": order,
+#             "created_at": video.created_at
+#         }
+#         for video, order in playlist_videos
+#     ]
     
-    # Obtener dispositivos asignados a esta playlist
-    assigned_devices = db.query(models.Device).join(
-        models.DevicePlaylist,
-        models.DevicePlaylist.device_id == models.Device.device_id
-    ).filter(
-        models.DevicePlaylist.playlist_id == playlist_id
-    ).all()
+#     # Obtener dispositivos asignados a esta playlist
+#     assigned_devices = db.query(models.Device).join(
+#         models.DevicePlaylist,
+#         models.DevicePlaylist.device_id == models.Device.device_id
+#     ).filter(
+#         models.DevicePlaylist.playlist_id == playlist_id
+#     ).all()
     
-    playlist.assigned_devices = assigned_devices
+#     playlist.assigned_devices = assigned_devices
     
-    # Calcular estadísticas
-    playlist.video_count = len(playlist.videos)
-    playlist.total_duration = sum(video.get("duration", 0) for video in playlist.videos)
+#     # Calcular estadísticas
+#     playlist.video_count = len(playlist.videos)
+#     playlist.total_duration = sum(video.get("duration", 0) for video in playlist.videos)
     
-    # Obtener fecha actual para comparaciones
-    now = datetime.now()
+#     # Obtener fecha actual para comparaciones
+#     now = datetime.now()
     
-    return templates.TemplateResponse(
-        "/playlists/playlist_detail.html",  # Nuevo template específico
-        {
-            "request": request, 
-            "title": f"Editar Lista: {playlist.title}",
-            "playlist": playlist,
-            "now": now
-        }
-    )
+#     return templates.TemplateResponse(
+#         "/playlists/playlist_detail.html",  # Nuevo template específico
+#         {
+#             "request": request, 
+#             "title": playlist.title,
+#             "playlist": playlist,
+#             "now": now
+#         }
+#     )
     
 @router.get("/playlist_detail", response_class=HTMLResponse)
 async def get_edit_playlists_page(
@@ -284,7 +284,12 @@ async def get_edit_playlists_page(
     # Devolver la plantilla
     return templates.TemplateResponse(
         "/playlists/playlist_detail.html", 
-        context
+        # context
+            {
+            "request": request, 
+            "title": playlist.title,
+            "playlist": playlist,
+        }
     )
 @router.get("/edit-playlists", response_class=HTMLResponse)
 async def get_playlist_edit_page(request: Request):
@@ -408,7 +413,7 @@ async def get_playlist_detail(request: Request, id: int):
         {
             "request": request, 
             "title": "Detalles de Lista de Reproducción",
-            "playlist": playlist
+            "playlist": models.Playlist(id=id, title="Demo Playlist", description="Esta es una playlist de ejemplo")
         }
     )
 

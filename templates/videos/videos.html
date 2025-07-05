@@ -77,7 +77,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                   <form id="videoUploadForm" enctype="multipart/form-data">
+                    <form id="videoUploadForm" enctype="multipart/form-data">
                         <div class="mb-3">
                             <label for="videoTitle" class="form-label">Título</label>
                             <input type="text" class="form-control" id="videoTitle" name="title" required>
@@ -639,17 +639,17 @@
         }
         
         // Formulario de subida
-        const uploadForm = document.getElementById('videoUploadForm');
-        if (uploadForm) {
-            uploadForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                if (typeof window.uploadVideo === 'function') {
-                    window.uploadVideo(this);
-                } else {
-                    alert('La función de subida no está disponible');
-                }
-            });
-        }
+        // const uploadForm = document.getElementById('videoUploadForm');
+        // if (uploadForm) {
+        //     uploadForm.addEventListener('submit', function(e) {
+        //         e.preventDefault();
+        //         if (typeof window.uploadVideo === 'function') {
+        //             window.uploadVideo(this);
+        //         } else {
+        //             alert('La función de subida no está disponible');
+        //         }
+        //     });
+        // }
         
         // Botón guardar cambios
         const saveChangesBtn = document.getElementById('saveVideoChangesBtn');
