@@ -1429,100 +1429,7 @@ function formatTimeForInput(date) {
     return `${hours}:${minutes}`;
 }
 
-/**
- * Guardar información de la playlist
- */
-async function savePlaylistInfo() {
-    console.log('💾 Guardando información de la playlist...');
-    
-    if (!window.currentPlaylistData || !window.currentPlaylistData.id) {
-        showToast('No se puede guardar: datos de playlist no disponibles', 'error');
-        return;
-    }
-    
-    try {
-        // Recopilar datos del formulario
-        const formData = {
-            title: document.getElementById('playlist_title').value.trim(),
-            description: document.getElementById('playlist_description').value.trim(),
-            is_active: document.getElementById('playlist_is_active').checked
-        };
-        
-        // Combinar fecha y hora para start_date
-        const startDate = document.getElementById('playlist_start_date').value;
-        const startTime = document.getElementById('playlist_start_time').value;
-        if (startDate) {
-            formData.start_date = startTime 
-                ? `${startDate}T${startTime}:00` 
-                : `${startDate}T00:00:00`;
-        } else {
-            formData.start_date = null;
-        }
-        
-        // Combinar fecha y hora para expiration_date
-        const expirationDate = document.getElementById('playlist_expiration_date').value;
-        const expirationTime = document.getElementById('playlist_expiration_time').value;
-        if (expirationDate) {
-            formData.expiration_date = expirationTime 
-                ? `${expirationDate}T${expirationTime}:00` 
-                : `${expirationDate}T23:59:59`; // Si no se especifica hora, se asume final del día
-        } else {
-            formData.expiration_date = null;
-        }
-        
-        // Validar campos requeridos
-        if (!formData.title) {
-            showToast('El nombre de la lista es obligatorio', 'warning');
-            return;
-        }
-        
-        // Mostrar indicador de carga
-        const saveBtn = document.getElementById('savePlaylistInfoBtn');
-        const originalBtnText = saveBtn.innerHTML;
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
-        
-        // Enviar datos al servidor
-        const url = `/api/playlists/${window.currentPlaylistData.id}`;
-        const response = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Error ${response.status}: ${await response.text()}`);
-        }
-        
-        const updatedPlaylist = await response.json();
-        
-        // Actualizar datos locales
-        window.currentPlaylistData = {
-            ...window.currentPlaylistData,
-            ...updatedPlaylist
-        };
-        
-        // Actualizar interfaz
-        document.querySelector('.page-title').innerHTML = 
-            `<i class="fas fa-list-alt me-3"></i>${updatedPlaylist.title}`;
-        
-        // Cerrar modal
-        bootstrap.Modal.getInstance(document.getElementById('editPlaylistModal')).hide();
-        
-        showToast('Información de la playlist actualizada correctamente', 'success');
-        
-    } catch (error) {
-        console.error('❌ Error guardando información:', error);
-        showToast(`Error al guardar: ${error.message}`, 'danger');
-    } finally {
-        // Restaurar botón
-        const saveBtn = document.getElementById('savePlaylistInfoBtn');
-        saveBtn.disabled = false;
-        saveBtn.innerHTML = '<i class="fas fa-save me-2"></i>Guardar Cambios';
-    }
-}
+
 
 // Hacer funciones disponibles globalmente - CORREGIDO
 // Solo asignamos, no declaramos variables que podrían entrar en conflicto con playlist_detail.js
@@ -1536,7 +1443,6 @@ window.toggleEditMode = toggleEditMode;
 window.exportPlaylist = exportPlaylist;
 window.shufflePlaylist = shufflePlaylist;
 window.formatDateForInput = formatDateForInput;
-window.savePlaylistInfo = savePlaylistInfo;
 
 console.log('✅ Script específico del template cargado');
 </script>
