@@ -551,19 +551,23 @@
         </div>
     </div>
     
-    <!-- SECCIÓN: DISPOSITIVOS ASIGNADOS (ANCHO COMPLETO) -->
-    <div class="row">
+ <div class="row">
         <div class="col-12">
             <div class="main-panel mb-4">
                 <div class="panel-header bg-warning text-dark p-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-tablet-alt me-2"></i>Dispositivos Asignados</h5>
-                    <span class="badge bg-dark text-white" id="deviceCountBadge">
-                        {% if playlist and playlist.assigned_devices %}
-                            {{ playlist.assigned_devices|length }}
-                        {% else %}
-                            0
-                        {% endif %}
-                    </span>
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-outline-info btn-sm me-2" data-bs-toggle="modal" data-bs-target="#assignDeviceModal">
+                            <i class="fas fa-plus-circle me-1"></i> Asignar Dispositivo
+                        </button>
+                        <span class="badge bg-dark text-white" id="deviceCountBadge">
+                            {% if playlist and playlist.assigned_devices %}
+                                {{ playlist.assigned_devices|length }}
+                            {% else %}
+                                0
+                            {% endif %}
+                        </span>
+                    </div>
                 </div>
                 <div class="panel-body p-3">
                     <div id="assignedDevicesLoading" style="display: none;">
@@ -630,10 +634,138 @@
                         </table>
                     </div>
                     
-                    <div class="mt-3 text-center">
-                        <button type="button" class="btn btn-outline-primary edit-action" style="display: none;"
-                                onclick="openAssignDevicesModal()">
-                            <i class="fas fa-plus me-2"></i>Asignar a Dispositivos
+                    <!-- Se eliminó el botón de esta sección ya que se movió al encabezado del panel -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PARA ASIGNAR DISPOSITIVOS -->
+<div class="modal fade" id="assignDeviceModal" tabindex="-1" aria-labelledby="assignDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="assignDeviceModalLabel">
+                    <i class="fas fa-tv me-2"></i>Asignar Dispositivos a la Lista
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Controles de búsqueda y filtros -->
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" id="deviceSearchInput" class="form-control" 
+                                   placeholder="Buscar dispositivos por nombre, ubicación o MAC...">
+                            <button class="btn btn-outline-secondary" type="button" id="clearDeviceSearch">
+                                <i class="fas fa-times"></i> Limpiar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="deviceStatusFilter">
+                            <option value="all" selected>Todos los dispositivos</option>
+                            <option value="online">Solo en línea</option>
+                            <option value="offline">Solo fuera de línea</option>
+                            <option value="assigned">Ya asignados</option>
+                            <option value="unassigned">No asignados</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Información de estado -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="alert alert-info d-flex align-items-center" role="alert">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <div>
+                                <strong>Instrucciones:</strong> 
+                                Marca o desmarca los dispositivos que deseas asignar o desasignar de esta lista de reproducción.
+                                Los cambios se aplicarán al hacer clic en "Guardar Cambios".
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estadísticas rápidas -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge bg-primary" id="totalDevicesBadge">
+                                <i class="fas fa-tv me-1"></i>0 dispositivos
+                            </span>
+                            <span class="badge bg-success" id="onlineDevicesBadge">
+                                <i class="fas fa-circle me-1"></i>0 en línea
+                            </span>
+                            <span class="badge bg-warning" id="assignedDevicesBadge">
+                                <i class="fas fa-link me-1"></i>0 asignados
+                            </span>
+                            <span class="badge bg-info" id="pendingChangesBadge">
+                                <i class="fas fa-clock me-1"></i>0 cambios pendientes
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de dispositivos disponibles -->
+                <div class="table-responsive" style="max-height: 400px;">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th style="width: 50px;">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="selectAllDevices">
+                                        <label class="form-check-label" for="selectAllDevices"></label>
+                                    </div>
+                                </th>
+                                <th>Dispositivo</th>
+                                <th style="width: 100px;">Estado</th>
+                                <th style="width: 120px;">Asignación</th>
+                                <th style="width: 150px;">Ubicación</th>
+                                <th style="width: 140px;">Última Conexión</th>
+                            </tr>
+                        </thead>
+                        <tbody id="availableDevicesList">
+                            <!-- Loading inicial -->
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Cargando...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted small mb-0">Cargando dispositivos disponibles...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Información de paginación -->
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <small class="text-muted" id="devicesPaginationInfo">
+                        Mostrando 0 dispositivos
+                    </small>
+                    <button class="btn btn-sm btn-outline-secondary" id="clearDeviceFilters">
+                        <i class="fas fa-eraser me-1"></i>Limpiar Filtros
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <div>
+                        <small class="text-muted" id="changesInfo">
+                            No hay cambios pendientes
+                        </small>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>Cancelar
+                        </button>
+                        <button type="button" class="btn btn-primary" id="saveDeviceAssignments" disabled>
+                            <i class="fas fa-save me-1"></i>Guardar Cambios
                         </button>
                     </div>
                 </div>
@@ -691,6 +823,16 @@
 
 {% block extra_scripts %}
 <!-- Script para habilitar el botón de modo edición -->
+<!-- Script para asegurar la compatibilidad entre la función JavaScript y el modal -->
+<script>
+// Esta función se mantiene para compatibilidad con código existente
+function openAssignDevicesModal() {
+    // Abrir el modal usando Bootstrap
+    var assignDeviceModal = new bootstrap.Modal(document.getElementById('assignDeviceModal'));
+    assignDeviceModal.show();
+}
+</script>
+
 <script>
 // Asegurarse de que el botón de modo edición funcione
 document.addEventListener('DOMContentLoaded', function() {
