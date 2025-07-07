@@ -339,7 +339,7 @@ async def get_playlist_for_edit(
         logger.error(f"Error al obtener playlist para edición {playlist_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
-@router.put("/{playlist_id}/video-order")
+@router.put("/{playlist_id}/reorder")
 async def update_video_order(
     playlist_id: int,
     order_data: dict,
@@ -372,6 +372,8 @@ async def update_video_order(
         db.rollback()
         logger.error(f"Error al actualizar orden en playlist {playlist_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Error al actualizar el orden")
+    
+    
 
 @router.post("/{playlist_id}/videos/{video_id}")
 async def add_video_to_playlist(
