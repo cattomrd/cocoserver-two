@@ -193,6 +193,29 @@
 .edit-mode .playlist-form-control {
     background-color: #fff;
 }
+
+/* Efecto de pulsación para botón guardar */
+.btn-pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Indicador de cambios sin guardar */
+.unsaved-changes {
+    border-left: 4px solid #ffc107 !important;
+    background-color: #fff3cd !important;
+}
 </style>
 {% endblock %}
 
@@ -346,9 +369,14 @@
     <!-- SECCIÓN: DETALLES DE LA LISTA (ANCHO COMPLETO) -->
     <div class="row">
         <div class="col-12">
-            <div class="main-panel mb-4">
+            <div class="main-panel mb-4" id="playlistDetailsPanel">
                 <div class="panel-header bg-primary text-white p-3">
-                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Detalles de la Lista</h5>
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Detalles de la Lista
+                        <span id="unsavedIndicator" class="badge bg-warning ms-2" style="display: none;">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Cambios sin guardar
+                        </span>
+                    </h5>
                 </div>
                 <div class="panel-body p-3">
                     <div id="playlistDetailsLoading" style="display: none;">
@@ -365,14 +393,12 @@
                                 <div class="mb-3">
                                     <label for="playlist_title" class="form-label text-dark fw-bold"><strong>Título *</strong></label>
                                     <input type="text" class="form-control playlist-form-control" id="playlist_title" 
-                                           value="{{ playlist.title if playlist else '' }}" required disabled
-                                           oninput="markAsUnsaved()">
+                                           value="{{ playlist.title if playlist else '' }}" required disabled>
                                 </div>
                                 
                                 <div class="mb-3 form-check">
                                     <input type="checkbox" class="form-check-input playlist-form-control" id="playlist_is_active" 
-                                           {% if playlist and playlist.is_active %}checked{% endif %} disabled
-                                           onchange="markAsUnsaved()">
+                                           {% if playlist and playlist.is_active %}checked{% endif %} disabled>
                                     <label class="form-check-label text-dark fw-bold" for="playlist_is_active"><strong>Lista activa</strong></label>
                                 </div>
                             </div>
@@ -381,7 +407,7 @@
                                 <div class="mb-3">
                                     <label for="playlist_description" class="form-label text-dark fw-bold"><strong>Descripción</strong></label>
                                     <textarea class="form-control playlist-form-control" id="playlist_description" 
-                                              rows="3" disabled oninput="markAsUnsaved()">{{ playlist.description if playlist and playlist.description else '' }}</textarea>
+                                              rows="3" disabled>{{ playlist.description if playlist and playlist.description else '' }}</textarea>
                                 </div>
                             </div>
                         </div>
@@ -394,12 +420,12 @@
                                         <div class="col-7">
                                             <input type="date" class="form-control playlist-form-control" id="playlist_start_date" 
                                                    value="{{ playlist.start_date.strftime('%Y-%m-%d') if playlist and playlist.start_date else '' }}" 
-                                                   disabled onchange="markAsUnsaved()">
+                                                   disabled>
                                         </div>
                                         <div class="col-5">
                                             <input type="time" class="form-control playlist-form-control" id="playlist_start_time" 
                                                    value="{{ playlist.start_date.strftime('%H:%M') if playlist and playlist.start_date else '' }}" 
-                                                   disabled onchange="markAsUnsaved()">
+                                                   disabled>
                                         </div>
                                     </div>
                                 </div>
@@ -411,12 +437,12 @@
                                         <div class="col-7">
                                             <input type="date" class="form-control playlist-form-control" id="playlist_expiration_date" 
                                                    value="{{ playlist.expiration_date.strftime('%Y-%m-%d') if playlist and playlist.expiration_date else '' }}" 
-                                                   disabled onchange="markAsUnsaved()">
+                                                   disabled>
                                         </div>
                                         <div class="col-5">
                                             <input type="time" class="form-control playlist-form-control" id="playlist_expiration_time" 
                                                    value="{{ playlist.expiration_date.strftime('%H:%M') if playlist and playlist.expiration_date else '' }}" 
-                                                   disabled onchange="markAsUnsaved()">
+                                                   disabled>
                                         </div>
                                     </div>
                                 </div>
@@ -551,7 +577,7 @@
         </div>
     </div>
     
- <div class="row">
+    <div class="row">
         <div class="col-12">
             <div class="main-panel mb-4">
                 <div class="panel-header bg-warning text-dark p-3 d-flex justify-content-between align-items-center">
@@ -633,8 +659,6 @@
                             </tbody>
                         </table>
                     </div>
-                    
-                    <!-- Se eliminó el botón de esta sección ya que se movió al encabezado del panel -->
                 </div>
             </div>
         </div>
@@ -834,18 +858,33 @@ function openAssignDevicesModal() {
 </script>
 
 <script>
-// Asegurarse de que el botón de modo edición funcione
+// Script corregido para el manejo del botón guardar
 document.addEventListener('DOMContentLoaded', function() {
-    // Obtener ID de playlist
+    console.log('🚀 Inicializando playlist detail...');
+    
+    // Variables de estado
+    let isEditMode = false;
+    let hasUnsavedChanges = false;
+    let originalFormData = {};
+    
+    // Elementos del DOM
+    const toggleBtn = document.getElementById('toggleEditModeBtn');
+    const saveBtn = document.getElementById('savePlaylistBtn');
+    const formInputs = document.querySelectorAll('.playlist-form-control');
+    const editActions = document.querySelectorAll('.edit-action');
+    const unsavedIndicator = document.getElementById('unsavedIndicator');
+    const detailsPanel = document.getElementById('playlistDetailsPanel');
+    
+    /**
+     * Obtener ID de playlist
+     */
     function getPlaylistId() {
-        // 1. Intentar desde el input hidden
         const hiddenInput = document.getElementById('playlist-id');
         if (hiddenInput && hiddenInput.value) {
             console.log('✅ ID desde input hidden:', hiddenInput.value);
             return hiddenInput.value;
         }
         
-        // 2. Intentar desde la URL
         const urlParams = new URLSearchParams(window.location.search);
         const urlId = urlParams.get('id');
         if (urlId) {
@@ -853,7 +892,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return urlId;
         }
         
-        // 3. Intentar desde currentPlaylistData
         if (window.currentPlaylistData && window.currentPlaylistData.id) {
             console.log('✅ ID desde datos actuales:', window.currentPlaylistData.id);
             return window.currentPlaylistData.id;
@@ -884,6 +922,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.playlistVideos = templateData.videos || [];
                     
                     console.log('📋 Datos de playlist cargados desde template:', templateData.title);
+                    
+                    // Guardar datos originales para comparación
+                    originalFormData = getFormData();
                 }
             }
         } catch (error) {
@@ -891,52 +932,161 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    /**
+     * Obtener datos actuales del formulario
+     */
+    function getFormData() {
+        return {
+            title: document.getElementById('playlist_title')?.value || '',
+            description: document.getElementById('playlist_description')?.value || '',
+            is_active: document.getElementById('playlist_is_active')?.checked || false,
+            start_date: document.getElementById('playlist_start_date')?.value || '',
+            start_time: document.getElementById('playlist_start_time')?.value || '',
+            expiration_date: document.getElementById('playlist_expiration_date')?.value || '',
+            expiration_time: document.getElementById('playlist_expiration_time')?.value || ''
+        };
+    }
+    
+    /**
+     * Verificar si hay cambios sin guardar
+     */
+    function checkForChanges() {
+        const currentData = getFormData();
+        const hasChanges = JSON.stringify(currentData) !== JSON.stringify(originalFormData);
+        updateSaveButtonState(hasChanges);
+        return hasChanges;
+    }
+    
+    /**
+     * Actualizar estado del botón de guardar
+     */
+    function updateSaveButtonState(hasChanges) {
+        hasUnsavedChanges = hasChanges;
+        
+        if (saveBtn) {
+            // El botón se habilita si estamos en modo edición Y hay cambios
+            const shouldEnable = isEditMode && hasChanges;
+            saveBtn.disabled = !shouldEnable;
+            
+            if (shouldEnable) {
+                saveBtn.classList.add('btn-pulse');
+            } else {
+                saveBtn.classList.remove('btn-pulse');
+            }
+        }
+        
+        // Mostrar/ocultar indicador de cambios sin guardar
+        if (unsavedIndicator) {
+            unsavedIndicator.style.display = hasChanges ? 'inline' : 'none';
+        }
+        
+        // Agregar clase visual al panel
+        if (detailsPanel) {
+            if (hasChanges) {
+                detailsPanel.classList.add('unsaved-changes');
+            } else {
+                detailsPanel.classList.remove('unsaved-changes');
+            }
+        }
+    }
+    
+    /**
+     * Alternar modo edición
+     */
+    function toggleEditMode() {
+        isEditMode = !isEditMode;
+        
+        console.log(`🔄 Alternando modo edición: ${isEditMode ? 'ON' : 'OFF'}`);
+        
+        // Cambiar clase del body
+        document.body.classList.toggle('edit-mode', isEditMode);
+        
+        // Cambiar texto del botón
+        if (toggleBtn) {
+            toggleBtn.innerHTML = isEditMode ? 
+                '<i class="fas fa-eye me-2"></i>Modo Visualización' : 
+                '<i class="fas fa-edit me-2"></i>Modo Edición';
+        }
+        
+        // Habilitar/deshabilitar campos
+        formInputs.forEach(input => {
+            input.disabled = !isEditMode;
+        });
+        
+        // Mostrar/ocultar botones de acción
+        editActions.forEach(btn => {
+            btn.style.display = isEditMode ? 'inline-flex' : 'none';
+        });
+        
+        // Actualizar estado del botón guardar
+        updateSaveButtonState(hasUnsavedChanges);
+        
+        console.log(`✅ Modo edición ${isEditMode ? 'activado' : 'desactivado'}`);
+    }
+    
+    /**
+     * Configurar event listeners para los campos del formulario
+     */
+    function setupFormListeners() {
+        formInputs.forEach(input => {
+            // Remover listeners existentes para evitar duplicados
+            input.removeEventListener('input', checkForChanges);
+            input.removeEventListener('change', checkForChanges);
+            
+            // Agregar nuevos listeners
+            input.addEventListener('input', checkForChanges);
+            input.addEventListener('change', checkForChanges);
+        });
+        
+        console.log('📝 Event listeners configurados para', formInputs.length, 'campos');
+    }
+    
     // Cargar datos inmediatamente
     loadDataFromTemplate();
     
-    // Asegurar que el botón de modo edición funcione
-    const toggleBtn = document.getElementById('toggleEditModeBtn');
+    // Configurar event listeners
+    setupFormListeners();
+    
+    // Botón de modo edición
     if (toggleBtn) {
-        toggleBtn.addEventListener('click', function() {
-            const isEditMode = document.body.classList.toggle('edit-mode');
-            
-            // Cambiar texto del botón
-            this.innerHTML = isEditMode ? 
-                '<i class="fas fa-eye me-2"></i>Modo Visualización' : 
-                '<i class="fas fa-edit me-2"></i>Modo Edición';
-            
-            // Habilitar/deshabilitar campos
-            const inputs = document.querySelectorAll('.playlist-form-control');
-            inputs.forEach(input => {
-                input.disabled = !isEditMode;
-            });
-            
-            // Mostrar/ocultar botones de acción
-            const actionBtns = document.querySelectorAll('.edit-action');
-            actionBtns.forEach(btn => {
-                btn.style.display = isEditMode ? 'inline-flex' : 'none';
-            });
-            
-            console.log(`✅ Modo edición ${isEditMode ? 'activado' : 'desactivado'}`);
-        });
+        toggleBtn.addEventListener('click', toggleEditMode);
     }
     
     // Botón de guardar
-    const saveBtn = document.getElementById('savePlaylistBtn');
     if (saveBtn) {
         saveBtn.addEventListener('click', function() {
-            // Este evento sería manejado por el archivo JS principal
+            if (!hasUnsavedChanges || !isEditMode) {
+                console.warn('⚠️ No hay cambios para guardar o no estamos en modo edición');
+                return;
+            }
+            
             console.log('💾 Guardando cambios...');
+            
+            // Aquí se llamaría a la función de guardar del archivo JS principal
+            if (window.savePlaylist && typeof window.savePlaylist === 'function') {
+                window.savePlaylist();
+            } else {
+                console.warn('⚠️ Función savePlaylist no encontrada');
+                // Simulación temporal
+                setTimeout(() => {
+                    originalFormData = getFormData();
+                    updateSaveButtonState(false);
+                    console.log('✅ Cambios guardados (simulación)');
+                }, 1000);
+            }
         });
     }
     
-    // Función para marcar cambios sin guardar
+    // Función global para marcar cambios sin guardar (para compatibilidad)
     window.markAsUnsaved = function() {
-        const saveBtn = document.getElementById('savePlaylistBtn');
-        if (saveBtn) {
-            saveBtn.disabled = false;
-        }
+        console.log('📝 Marcando cambios sin guardar...');
+        checkForChanges();
     };
+    
+    // Verificar cambios al cargar
+    setTimeout(checkForChanges, 100);
+    
+    console.log('✅ Playlist detail inicializado correctamente');
 });
 </script>
 
