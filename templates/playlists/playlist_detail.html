@@ -279,6 +279,14 @@
                     <button type="button" class="btn btn-success" id="savePlaylistBtn" disabled>
                         <i class="fas fa-save me-2"></i>Guardar
                     </button>
+                    <button type="button" class="btn btn-primary" onclick="window.location.href='/ui/playlists'">
+                        <i class="fas fa-arrow-left me-2"></i>Volver a Listas
+                    </button>
+                    {% if playlist %}
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deletePlaylistModal">
+                            <i class="fas fa-trash-alt me-2"></i>Eliminar Lista
+                        </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -335,37 +343,6 @@
             </div>
         </div>
     </div>
-    
-    <!-- SECCIÓN: BOTONES DE ACCIÓN -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-md-start">
-                <button type="button" class="btn btn-primary" onclick="window.location.href='/ui/playlists'">
-                    <i class="fas fa-arrow-left me-2"></i>Volver a Listas
-                </button>
-                
-                {% if playlist %}
-                <button type="button" class="btn btn-info" onclick="exportPlaylist({{ playlist.id }})">
-                    <i class="fas fa-download me-2"></i>Exportar
-                </button>
-                
-                <button type="button" class="btn btn-warning" onclick="shufflePlaylist()">
-                    <i class="fas fa-random me-2"></i>Aleatorizar
-                </button>
-                
-                <button type="button" class="btn btn-success" onclick="previewFullPlaylist()">
-                    <i class="fas fa-play me-2"></i>Previsualizar
-                </button>
-                
-                <button type="button" class="btn btn-danger edit-action" style="display: none;" 
-                        onclick="confirmDeletePlaylist({{ playlist.id }})">
-                    <i class="fas fa-trash-alt me-2"></i>Eliminar
-                </button>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    
     <!-- SECCIÓN: DETALLES DE LA LISTA (ANCHO COMPLETO) -->
     <div class="row">
         <div class="col-12">
