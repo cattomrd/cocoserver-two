@@ -69,13 +69,16 @@ class DeviceBase(BaseModel):
     ip_address_wifi: Optional[str] = None
     mac_address: str
     wlan0_mac: Optional[str] = None
+    model: Optional[str] = None
     location: Optional[str] = None
     tienda: Optional[str] = None
 
 class DeviceCreate(BaseModel):
     device_id: str
     name: Optional[str] = None
+    model: Optional[str] = None
     mac_address: Optional[str] = None
+    wlan0_mac: Optional[str] = None    
     ip_address_lan: Optional[str] = None
     ip_address_wifi: Optional[str] = None
     location: Optional[str] = None

@@ -18,6 +18,7 @@ from models.database import engine
 
 # Importar los routers
 from router import videos, playlists, raspberry, ui, devices, device_playlists, services_enhanced as services, device_service_api,playlists_api
+from router.client_api import router as client_api_router
 from router.auth import router as auth_router
 from router.users import router as users_router
 from router.playlist_checker_api import router as playlist_checker_router
@@ -175,6 +176,7 @@ app.include_router(device_playlists.router)
 app.include_router(services.router)
 app.include_router(device_service_api.router)
 app.include_router(playlist_checker_router)
+app.include_router(client_api_router)
 
 # ==========================================
 # MIDDLEWARE DE AUTENTICACIÓN UNIFICADO
@@ -204,7 +206,8 @@ async def auth_middleware(request: Request, call_next):
         "/debug/sessions",
         # Rutas existentes
         "/api/devices",
-        "/api/raspberry/"
+        "/api/raspberry/",
+        "/api/videos"
     ]
     
     try:
@@ -251,8 +254,8 @@ async def auth_middleware(request: Request, call_next):
                 status_code=500
             )
 
-# start_playlist_checker(app)
-# start_background_ping_checker(app)
+start_playlist_checker(app)
+start_background_ping_checker(app)
 
 # ==========================================
 # EVENTOS DE APLICACIÓN

@@ -61,96 +61,127 @@ def require_authenticated_user():
 async def get_playlists(
     search: Optional[str] = None,
     status: Optional[str] = None,
-    sort: Optional[str] = "creation_date_desc",  # ← CORREGIDO: usar creation_date
+    sort: Optional[str] = "creation_date_desc",
     page: int = 1,
     page_size: int = 24,
-    limit: Optional[int] = None,  # ← AÑADIR para compatibilidad
+    limit: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
     """
     Obtener todas las listas de reproducción con filtros y paginación
+    Versión corregida para evitar el error 500
     """
     try:
+        # Asegurarnos de que limit no sea demasiado grande para evitar problemas de memoria
+        if limit and limit > 10000:
+            logger.warning(f"Límite demasiado grande ({limit}), restringiendo a 10000")
+            limit = 10000
+
+        # Iniciar la consulta base
         query = db.query(Playlist)
         
-        # Filtro de búsqueda
+        # Aplicar filtros
         if search:
+            search_term = f"%{search}%"
             query = query.filter(
-                (Playlist.title.ilike(f"%{search}%")) |
-                (Playlist.description.ilike(f"%{search}%"))
+                or_(
+                    Playlist.title.ilike(search_term),
+                    Playlist.description.ilike(search_term)
+                )
             )
         
-        # Filtro de estado
         if status and status != "all":
             if status == "active":
-                query = query.filter(Playlist.is_active == True)
+                now = datetime.now()
+                query = query.filter(
+                    Playlist.is_active == True,
+                    or_(
+                        Playlist.expiration_date.is_(None),
+                        Playlist.expiration_date > now
+                    )
+                )
             elif status == "inactive":
                 query = query.filter(Playlist.is_active == False)
+            elif status == "expired":
+                now = datetime.now()
+                query = query.filter(
+                    Playlist.expiration_date.isnot(None),
+                    Playlist.expiration_date <= now
+                )
         
-        # Ordenamiento
+        # Aplicar ordenamiento
         if sort:
-            try:
-                if "_" in sort:
-                    field, direction = sort.split("_", 1)
+            # Extraer campo y dirección de ordenamiento
+            sort_parts = sort.split('_')
+            if len(sort_parts) >= 2:
+                sort_field = '_'.join(sort_parts[:-1])  # Todo excepto la última parte
+                sort_direction = sort_parts[-1]  # La última parte (asc/desc)
+                
+                # Determinar columna para ordenar
+                if sort_field == "title":
+                    order_col = Playlist.title
+                elif sort_field == "creation":
+                    order_col = Playlist.creation_date
+                elif sort_field == "creation_date":
+                    order_col = Playlist.creation_date
+                elif sort_field == "expiration":
+                    order_col = Playlist.expiration_date
+                elif sort_field == "expiration_date":
+                    order_col = Playlist.expiration_date
                 else:
-                    field, direction = sort, "desc"
+                    # Por defecto ordenar por fecha de creación
+                    order_col = Playlist.creation_date
                 
-                # Mapear campos a nombres reales de la base de datos
-                field_mapping = {
-                    "created_at": "creation_date",
-                    "title": "title",
-                    "updated_at": "updated_at"
-                }
-                
-                db_field = field_mapping.get(field, "creation_date")
-                
-                if hasattr(Playlist, db_field):
-                    order_field = getattr(Playlist, db_field)
-                    if direction == "desc":
-                        query = query.order_by(order_field.desc())
-                    else:
-                        query = query.order_by(order_field.asc())
+                # Aplicar dirección
+                if sort_direction == "desc":
+                    query = query.order_by(order_col.desc())
                 else:
-                    # Orden por defecto
-                    query = query.order_by(Playlist.creation_date.desc())
-            except ValueError:
-                # Si no se puede dividir, usar orden por defecto
+                    query = query.order_by(order_col.asc())
+            else:
+                # Si el formato no es correcto, ordenar por fecha de creación descendente
                 query = query.order_by(Playlist.creation_date.desc())
-        else:
-            query = query.order_by(Playlist.creation_date.desc())
         
-        # Aplicar límite simple si se proporciona (para compatibilidad)
-        if limit:
-            playlists = query.limit(limit).all()
-        elif page_size and page_size != "all":
-            # Paginación
+        # Contar total de resultados para paginación (solo si se solicita paginación)
+        total = None
+        if page and page_size and not limit:
+            total = query.count()
+        
+        # Aplicar paginación si no se especifica límite
+        if page and page_size and not limit:
             offset = (page - 1) * page_size
-            playlists = query.offset(offset).limit(page_size).all()
-        else:
-            playlists = query.all()
+            query = query.offset(offset).limit(page_size)
+        elif limit:
+            # Si se especifica límite, usarlo directamente
+            query = query.limit(limit)
         
-        # Agregar conteo de videos a cada playlist
-        for playlist in playlists:
-            playlist.video_count = db.query(PlaylistVideo).filter(
-                PlaylistVideo.playlist_id == playlist.id
-            ).count()
-            
-            # Calcular duración total usando func correctamente importado
-            total_duration = db.query(
-                func.sum(Video.duration)  # ← CORREGIDO
-            ).join(
-                PlaylistVideo, Video.id == PlaylistVideo.video_id
-            ).filter(
-                PlaylistVideo.playlist_id == playlist.id
-            ).scalar() or 0
-            
-            playlist.total_duration = total_duration
+        # Ejecutar la consulta
+        playlists = query.all()
         
+        # Si se solicitó paginación, devolver información adicional
+        if page and page_size and not limit and total is not None:
+            total_pages = (total + page_size - 1) // page_size
+            
+            return {
+                "items": playlists,
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+                "total_pages": total_pages
+            }
+        
+        # Si no se solicitó paginación o se especificó límite, devolver solo la lista
         return playlists
         
     except Exception as e:
         logger.error(f"Error al obtener playlists: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error interno del servidor")
+        # Agregar más detalles al log para diagnóstico
+        import traceback
+        logger.error(traceback.format_exc())
+        # Devolver un error más descriptivo
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error al obtener las listas de reproducción: {str(e)}"
+        )
 
 @router.get("/{playlist_id}")
 async def get_playlist_detail(

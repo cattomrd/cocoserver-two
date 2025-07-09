@@ -219,14 +219,14 @@ function showAssignedDevicesTable() {
                 <td class="text-end">
                     <div class="btn-group btn-group-sm" role="group">
                         <button class="btn btn-outline-info" 
-                                onclick="viewDeviceDetails('${deviceId}')" 
+                                onclick="window.location.href='/ui/devices/${deviceId}'" 
                                 title="Ver detalles del dispositivo">
                             <i class="fas fa-eye"></i>
                         </button>
                         <button class="btn btn-outline-warning" 
-                                onclick="testDeviceConnection('${deviceId}')" 
-                                title="Probar conexión">
-                            <i class="fas fa-wifi"></i>
+                                onclick="viewDeviceDetails('${deviceId}')" 
+                                title="Ver detalles del dispositivo">
+                            <i class="fas fa-info-circle"></i>
                         </button>
                         <button class="btn btn-outline-danger" 
                                 onclick="confirmUnassignDevice('${deviceId}', '${escapeHtml(deviceName)}')" 
@@ -384,6 +384,12 @@ async function unassignDeviceFromPlaylist(deviceId) {
         }
     }
 }
+
+// function viewDeviceDetails(deviceId) {
+//     // Redirigir a la página de detalles del dispositivo
+//     const detailsUrl = `/ui/devices/${deviceId}`;
+//     window.open(detailsUrl, '_blank');
+// }
 
 /**
  * Ver detalles del dispositivo

@@ -7,6 +7,8 @@ from datetime import datetime
 from enum import Enum
 from .database import Base
 from passlib.context import CryptContext
+import uuid
+
 
 # Tabla de relación entre Playlist y Video (modelo asociativo)
 class PlaylistVideo(Base):
@@ -161,17 +163,44 @@ class Device(Base):
     last_seen = Column(DateTime, default=func.now(), onupdate=func.now())
     registered_at = Column(DateTime, default=func.now())
     service_logs = Column(String, nullable=True)
-    
     # Relación con DevicePlaylist
     device_playlists = relationship("DevicePlaylist", back_populates="device", cascade="all, delete-orphan")
-    
+    # api_key = Column(String, nullable=True)
+
     # Relación con Playlist a través de DevicePlaylist
     playlists = relationship(
         "Playlist", 
         secondary="device_playlists",
         viewonly=True
     )
+# def generate_api_key():
+#     """Genera una API Key aleatoria para dispositivos"""
+#     return str(uuid.uuid4())
 
+# Campos a añadir al modelo Device
+# api_key_field = Column(String, nullable=True)  # API Key para autenticación de dispositivos
+
+# Función para asignar API Keys a dispositivos existentes
+# def assign_api_keys(db_session):
+#     """
+#     Asigna API Keys a todos los dispositivos que no tengan una.
+    
+#     Args:
+#         db_session: Sesión de SQLAlchemy para acceder a la base de datos
+#     """
+#     from models.models import Device
+    
+#     # Obtener dispositivos sin API Key
+#     devices_without_key = db_session.query(Device).filter(Device.api_key.is_(None)).all()
+    
+#     # Asignar API Keys
+#     for device in devices_without_key:
+#         device.api_key = generate_api_key()
+    
+#     # Guardar cambios
+#     db_session.commit()
+    
+#     return len(devices_without_key)
 # Scripts de migración para añadir nuevos campos
 migration_scripts = {
     'sqlite': '''

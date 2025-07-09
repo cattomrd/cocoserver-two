@@ -2,7 +2,7 @@
 
 {% block title %}
     {% if playlist %}
-        Editar Lista: {{ playlist.title }}
+        Lista: {{ playlist.title }}
     {% else %}
         Nueva Lista de Reproducción
     {% endif %}
@@ -21,17 +21,9 @@
     -webkit-box-orient: vertical;
 }
 
-.cursor-pointer {
-    cursor: pointer;
-}
-
-.cursor-grab {
-    cursor: grab;
-}
-
-.user-select-none {
-    user-select: none;
-}
+.cursor-pointer { cursor: pointer; }
+.cursor-grab { cursor: grab; }
+.user-select-none { user-select: none; }
 
 /* Estilos para los paneles principales */
 .main-panel {
@@ -66,12 +58,6 @@
 .playlist-video-item:hover {
     border-color: #0d6efd;
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-}
-
-.playlist-video-item.dragging {
-    opacity: 0.7;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    border: 1px dashed #0d6efd;
 }
 
 .video-handle {
@@ -115,45 +101,6 @@
     background-color: #241264;
 }
 
-/* Dispositivos asignados */
-#assignedDevicesList {
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.assigned-device-item {
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 0.5rem;
-    padding: 0.75rem;
-    margin-bottom: 0.5rem;
-    transition: all 0.2s ease;
-}
-
-.assigned-device-item:hover {
-    background-color: #e9ecef;
-}
-
-/* Scrollbars personalizados */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
 /* Tarjetas de estadísticas */
 .stat-card {
     background: white;
@@ -194,27 +141,56 @@
     background-color: #fff;
 }
 
+/* Indicador de cambios sin guardar */
+.unsaved-changes {
+    border-left: 4px solid #ffc107 !important;
+    background-color: #fff3cd !important;
+}
+
 /* Efecto de pulsación para botón guardar */
 .btn-pulse {
     animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
-    0% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.05);
-    }
-    100% {
-        transform: scale(1);
-    }
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 
-/* Indicador de cambios sin guardar */
-.unsaved-changes {
-    border-left: 4px solid #ffc107 !important;
-    background-color: #fff3cd !important;
+/* Scrollbars personalizados */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Mejoras para reproductor de video */
+.video-preview-container {
+    position: relative;
+    width: 100%;
+    background-color: #000;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#previewVideoPlayer {
+    width: 100%;
+    max-height: 70vh;
+    border-radius: 8px;
 }
 </style>
 {% endblock %}
@@ -265,7 +241,7 @@
                 </h1>
                 <p class="page-subtitle mb-0">
                     {% if playlist %}
-                        Edita y gestiona tu lista de reproducción
+                        Vista y gestión de la lista de reproducción
                     {% else %}
                         Crea y organiza tus listas de reproducción
                     {% endif %}
@@ -343,6 +319,7 @@
             </div>
         </div>
     </div>
+
     <!-- SECCIÓN: DETALLES DE LA LISTA (ANCHO COMPLETO) -->
     <div class="row">
         <div class="col-12">
@@ -355,6 +332,7 @@
                         </span>
                     </h5>
                 </div>
+                
                 <div class="panel-body p-3">
                     <div id="playlistDetailsLoading" style="display: none;">
                         <div class="d-flex justify-content-center py-4">
@@ -366,65 +344,103 @@
                     
                     <form id="playlistForm">
                         <div class="row">
+                            <!-- Columna izquierda -->
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="playlist_title" class="form-label text-dark fw-bold"><strong>Título *</strong></label>
-                                    <input type="text" class="form-control playlist-form-control" id="playlist_title" 
-                                           value="{{ playlist.title if playlist else '' }}" required disabled>
+                                    <label for="playlist_title" class="form-label text-dark fw-bold">
+                                        <strong>Título *</strong>
+                                    </label>
+                                    <input type="text" 
+                                        class="form-control playlist-form-control" 
+                                        id="playlist_title" 
+                                        value="{{ playlist.title if playlist else '' }}" 
+                                        required 
+                                        disabled>
                                 </div>
                                 
                                 <div class="mb-3 form-check">
-                                    <input type="checkbox" class="form-check playlist-form-control" id="playlist_is_active" 
-                                           {% if playlist and playlist.is_active %}checked{% endif %} disabled>
-                                    <label class="form-check-label text-dark fw-bold" for="playlist_is_active"><strong>Lista activa</strong></label>
+                                    <input type="checkbox" 
+                                        class="form-check playlist-form-control" 
+                                        id="playlist_is_active" 
+                                        {% if playlist and playlist.is_active %}checked{% endif %} 
+                                        disabled>
+                                    <label class="form-check-label text-dark fw-bold" for="playlist_is_active">
+                                        <strong>Lista activa</strong>
+                                    </label>
                                 </div>
                             </div>
                             
+                            <!-- Columna derecha -->
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="playlist_description" class="form-label text-dark fw-bold"><strong>Descripción</strong></label>
-                                    <textarea class="form-control playlist-form-control" id="playlist_description" 
-                                              rows="3" disabled>{{ playlist.description if playlist and playlist.description else '' }}</textarea>
+                                    <label for="playlist_description" class="form-label text-dark fw-bold">
+                                        <strong>Descripción</strong>
+                                    </label>
+                                    <textarea class="form-control playlist-form-control" 
+                                            id="playlist_description" 
+                                            rows="3" 
+                                            disabled>{{ playlist.description if playlist and playlist.description else '' }}</textarea>
                                 </div>
                             </div>
                         </div>
                         
                         <div class="row">
+                            <!-- Fechas - Columna izquierda -->
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="playlist_start_date" class="form-label text-dark fw-bold"><strong>Fecha y hora de inicio</strong></label>
-                                    <div class="row g-2">
-                                        <div class="col-7">
-                                            <input type="date" class="form-control playlist-form-control" id="playlist_start_date" 
-                                                   value="{{ playlist.start_date.strftime('%Y-%m-%d') if playlist and playlist.start_date else '' }}" 
-                                                   disabled>
-                                        </div>
-                                        <div class="col-5">
-                                            <input type="time" class="form-control playlist-form-control" id="playlist_start_time" 
-                                                   value="{{ playlist.start_date.strftime('%H:%M') if playlist and playlist.start_date else '' }}" 
-                                                   disabled>
-                                        </div>
+                                    <label for="playlist_start_datetime" class="form-label text-dark fw-bold">
+                                        <strong>Inicio</strong>
+                                    </label>
+                                    <input type="datetime-local" 
+                                        class="form-control playlist-form-control" 
+                                        id="playlist_start_datetime"
+                                        value="{% if playlist and playlist.start_date %}{{ playlist.start_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}" 
+                                        disabled>
+                                    <small class="form-text text-muted">Dejar vacío para activar inmediatamente</small>
+                                </div>
+                            </div>
+                            
+                            <!-- Fechas - Columna derecha -->
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="playlist_expiration_datetime" class="form-label text-dark fw-bold">
+                                        <strong>Expiración</strong>
+                                    </label>
+                                    <input type="datetime-local" 
+                                        class="form-control playlist-form-control" 
+                                        id="playlist_expiration_datetime"
+                                        value="{% if playlist and playlist.expiration_date %}{{ playlist.expiration_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}" 
+                                        disabled>
+                                    <small class="form-text text-muted">Dejar vacío para que no expire nunca</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Información de fechas en solo lectura -->
+                        {% if playlist %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label text-dark fw-bold">
+                                        <strong>Fecha de creación</strong>
+                                    </label>
+                                    <div class="form-control-plaintext">
+                                        {{ playlist.creation_date.strftime('%d/%m/%Y %H:%M') if playlist.creation_date else 'No disponible' }}
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="playlist_expiration_date" class="form-label text-dark fw-bold"><strong>Fecha y hora de expiración</strong></label>
-                                    <div class="row g-2">
-                                        <div class="col-7">
-                                            <input type="date" class="form-control playlist-form-control" id="playlist_expiration_date" 
-                                                   value="{{ playlist.expiration_date.strftime('%Y-%m-%d') if playlist and playlist.expiration_date else '' }}" 
-                                                   disabled>
-                                        </div>
-                                        <div class="col-5">
-                                            <input type="time" class="form-control playlist-form-control" id="playlist_expiration_time" 
-                                                   value="{{ playlist.expiration_date.strftime('%H:%M') if playlist and playlist.expiration_date else '' }}" 
-                                                   disabled>
-                                        </div>
+                                    <label class="form-label text-dark fw-bold">
+                                        <strong>Última modificación</strong>
+                                    </label>
+                                    <div class="form-control-plaintext">
+                                        {{ playlist.updated_at.strftime('%d/%m/%Y %H:%M') if playlist.updated_at else 'No disponible' }}
                                     </div>
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
                     </form>
                 </div>
             </div>
@@ -554,6 +570,7 @@
         </div>
     </div>
     
+    <!-- SECCIÓN: DISPOSITIVOS ASIGNADOS -->
     <div class="row">
         <div class="col-12">
             <div class="main-panel mb-4">
@@ -653,7 +670,7 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <!-- Controles de búsqueda y filtros -->
+                <!-- Buscador de dispositivos -->
                 <div class="row mb-3">
                     <div class="col-md-8">
                         <div class="input-group">
@@ -678,40 +695,6 @@
                     </div>
                 </div>
 
-                <!-- Información de estado -->
-                <div class="row mb-3">
-                    <div class="col-12">
-                        <div class="alert alert-info d-flex align-items-center" role="alert">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <div>
-                                <strong>Instrucciones:</strong> 
-                                Marca o desmarca los dispositivos que deseas asignar o desasignar de esta lista de reproducción.
-                                Los cambios se aplicarán al hacer clic en "Guardar Cambios".
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Estadísticas rápidas -->
-                <div class="row mb-3">
-                    <div class="col-12">
-                        <div class="d-flex flex-wrap gap-2">
-                            <span class="badge bg-primary" id="totalDevicesBadge">
-                                <i class="fas fa-tv me-1"></i>0 dispositivos
-                            </span>
-                            <span class="badge bg-success" id="onlineDevicesBadge">
-                                <i class="fas fa-circle me-1"></i>0 en línea
-                            </span>
-                            <span class="badge bg-warning" id="assignedDevicesBadge">
-                                <i class="fas fa-link me-1"></i>0 asignados
-                            </span>
-                            <span class="badge bg-info" id="pendingChangesBadge">
-                                <i class="fas fa-clock me-1"></i>0 cambios pendientes
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Tabla de dispositivos disponibles -->
                 <div class="table-responsive" style="max-height: 400px;">
                     <table class="table table-hover table-sm">
@@ -731,7 +714,6 @@
                             </tr>
                         </thead>
                         <tbody id="availableDevicesList">
-                            <!-- Loading inicial -->
                             <tr>
                                 <td colspan="6" class="text-center py-4">
                                     <div class="spinner-border spinner-border-sm text-primary" role="status">
@@ -742,16 +724,6 @@
                             </tr>
                         </tbody>
                     </table>
-                </div>
-
-                <!-- Información de paginación -->
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <small class="text-muted" id="devicesPaginationInfo">
-                        Mostrando 0 dispositivos
-                    </small>
-                    <button class="btn btn-sm btn-outline-secondary" id="clearDeviceFilters">
-                        <i class="fas fa-eraser me-1"></i>Limpiar Filtros
-                    </button>
                 </div>
             </div>
             <div class="modal-footer">
@@ -776,24 +748,32 @@
 </div>
 
 <!-- Modal de previsualización -->
+<!-- Modal de previsualización mejorado -->
 <div class="modal fade" id="videoPreviewModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Vista Previa</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-play-circle me-2"></i>
+                    <span id="previewVideoTitle">Vista Previa</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body text-center">
+            <div class="modal-body p-0 bg-dark">
                 <div class="video-preview-container">
-                    <video id="previewVideoPlayer" class="w-100" controls>
+                    <!-- Reproductor de video -->
+                    <video id="previewVideoPlayer" class="w-100" controls preload="auto" poster="/static/img/video-loading.jpg">
                         <source src="" type="video/mp4">
                         Tu navegador no soporta la reproducción de videos.
                     </video>
                 </div>
-                <div class="mt-3">
-                    <h6 id="previewVideoTitle"></h6>
-                    <p id="previewVideoDescription" class="text-muted"></p>
+                <div class="p-3 bg-light">
+                    <h6 id="previewVideoTitle" class="mb-2"></h6>
+                    <p id="previewVideoDescription" class="text-muted mb-0 small"></p>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -823,251 +803,16 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<!-- Script para habilitar el botón de modo edición -->
-<!-- Script para asegurar la compatibilidad entre la función JavaScript y el modal -->
+<!-- Función de compatibilidad para modales -->
 <script>
-// Esta función se mantiene para compatibilidad con código existente
 function openAssignDevicesModal() {
-    // Abrir el modal usando Bootstrap
     var assignDeviceModal = new bootstrap.Modal(document.getElementById('assignDeviceModal'));
     assignDeviceModal.show();
 }
 </script>
 
-<script>
-// Script corregido para el manejo del botón guardar
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Inicializando playlist detail...');
-    
-    // Variables de estado
-    let isEditMode = false;
-    let hasUnsavedChanges = false;
-    let originalFormData = {};
-    
-    // Elementos del DOM
-    const toggleBtn = document.getElementById('toggleEditModeBtn');
-    const saveBtn = document.getElementById('savePlaylistBtn');
-    const formInputs = document.querySelectorAll('.playlist-form-control');
-    const editActions = document.querySelectorAll('.edit-action');
-    const unsavedIndicator = document.getElementById('unsavedIndicator');
-    const detailsPanel = document.getElementById('playlistDetailsPanel');
-    
-    /**
-     * Obtener ID de playlist
-     */
-    function getPlaylistId() {
-        const hiddenInput = document.getElementById('playlist-id');
-        if (hiddenInput && hiddenInput.value) {
-            console.log('✅ ID desde input hidden:', hiddenInput.value);
-            return hiddenInput.value;
-        }
-        
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlId = urlParams.get('id');
-        if (urlId) {
-            console.log('✅ ID de URL:', urlId);
-            return urlId;
-        }
-        
-        if (window.currentPlaylistData && window.currentPlaylistData.id) {
-            console.log('✅ ID desde datos actuales:', window.currentPlaylistData.id);
-            return window.currentPlaylistData.id;
-        }
-        
-        console.error('❌ No se pudo obtener el ID de la playlist');
-        return null;
-    }
-
-    /**
-     * Cargar datos desde el template
-     */
-    function loadDataFromTemplate() {
-        try {
-            const playlistElement = document.getElementById('playlist-data');
-            if (playlistElement && playlistElement.textContent) {
-                let jsonText = playlistElement.textContent.trim();
-                
-                // Corregir JSON malformado
-                jsonText = jsonText
-                    .replace(/"([^"]+)":\s*,/g, '"$1": null,')
-                    .replace(/,\s*}/g, '}')
-                    .replace(/,\s*]/g, ']');
-                
-                const templateData = JSON.parse(jsonText);
-                if (templateData && templateData.id) {
-                    window.currentPlaylistData = templateData;
-                    window.playlistVideos = templateData.videos || [];
-                    
-                    console.log('📋 Datos de playlist cargados desde template:', templateData.title);
-                    
-                    // Guardar datos originales para comparación
-                    originalFormData = getFormData();
-                }
-            }
-        } catch (error) {
-            console.warn('⚠️ Error cargando datos desde template:', error);
-        }
-    }
-    
-    /**
-     * Obtener datos actuales del formulario
-     */
-    function getFormData() {
-        return {
-            title: document.getElementById('playlist_title')?.value || '',
-            description: document.getElementById('playlist_description')?.value || '',
-            is_active: document.getElementById('playlist_is_active')?.checked || false,
-            start_date: document.getElementById('playlist_start_date')?.value || '',
-            start_time: document.getElementById('playlist_start_time')?.value || '',
-            expiration_date: document.getElementById('playlist_expiration_date')?.value || '',
-            expiration_time: document.getElementById('playlist_expiration_time')?.value || ''
-        };
-    }
-    
-    /**
-     * Verificar si hay cambios sin guardar
-     */
-    function checkForChanges() {
-        const currentData = getFormData();
-        const hasChanges = JSON.stringify(currentData) !== JSON.stringify(originalFormData);
-        updateSaveButtonState(hasChanges);
-        return hasChanges;
-    }
-    
-    /**
-     * Actualizar estado del botón de guardar
-     */
-    function updateSaveButtonState(hasChanges) {
-        hasUnsavedChanges = hasChanges;
-        
-        if (saveBtn) {
-            // El botón se habilita si estamos en modo edición Y hay cambios
-            const shouldEnable = isEditMode && hasChanges;
-            saveBtn.disabled = !shouldEnable;
-            
-            if (shouldEnable) {
-                saveBtn.classList.add('btn-pulse');
-            } else {
-                saveBtn.classList.remove('btn-pulse');
-            }
-        }
-        
-        // Mostrar/ocultar indicador de cambios sin guardar
-        if (unsavedIndicator) {
-            unsavedIndicator.style.display = hasChanges ? 'inline' : 'none';
-        }
-        
-        // Agregar clase visual al panel
-        if (detailsPanel) {
-            if (hasChanges) {
-                detailsPanel.classList.add('unsaved-changes');
-            } else {
-                detailsPanel.classList.remove('unsaved-changes');
-            }
-        }
-    }
-    
-    /**
-     * Alternar modo edición
-     */
-    function toggleEditMode() {
-        isEditMode = !isEditMode;
-        
-        console.log(`🔄 Alternando modo edición: ${isEditMode ? 'ON' : 'OFF'}`);
-        
-        // Cambiar clase del body
-        document.body.classList.toggle('edit-mode', isEditMode);
-        
-        // Cambiar texto del botón
-        if (toggleBtn) {
-            toggleBtn.innerHTML = isEditMode ? 
-                '<i class="fas fa-eye me-2"></i>Modo Visualización' : 
-                '<i class="fas fa-edit me-2"></i>Modo Edición';
-        }
-        
-        // Habilitar/deshabilitar campos
-        formInputs.forEach(input => {
-            input.disabled = !isEditMode;
-        });
-        
-        // Mostrar/ocultar botones de acción
-        editActions.forEach(btn => {
-            btn.style.display = isEditMode ? 'inline-flex' : 'none';
-        });
-        
-        // Actualizar estado del botón guardar
-        updateSaveButtonState(hasUnsavedChanges);
-        
-        console.log(`✅ Modo edición ${isEditMode ? 'activado' : 'desactivado'}`);
-    }
-    
-    /**
-     * Configurar event listeners para los campos del formulario
-     */
-    function setupFormListeners() {
-        formInputs.forEach(input => {
-            // Remover listeners existentes para evitar duplicados
-            input.removeEventListener('input', checkForChanges);
-            input.removeEventListener('change', checkForChanges);
-            
-            // Agregar nuevos listeners
-            input.addEventListener('input', checkForChanges);
-            input.addEventListener('change', checkForChanges);
-        });
-        
-        console.log('📝 Event listeners configurados para', formInputs.length, 'campos');
-    }
-    
-    // Cargar datos inmediatamente
-    loadDataFromTemplate();
-    
-    // Configurar event listeners
-    setupFormListeners();
-    
-    // Botón de modo edición
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', toggleEditMode);
-    }
-    
-    // Botón de guardar
-    if (saveBtn) {
-        saveBtn.addEventListener('click', function() {
-            if (!hasUnsavedChanges || !isEditMode) {
-                console.warn('⚠️ No hay cambios para guardar o no estamos en modo edición');
-                return;
-            }
-            
-            console.log('💾 Guardando cambios...');
-            
-            // Aquí se llamaría a la función de guardar del archivo JS principal
-            if (window.savePlaylist && typeof window.savePlaylist === 'function') {
-                window.savePlaylist();
-            } else {
-                console.warn('⚠️ Función savePlaylist no encontrada');
-                // Simulación temporal
-                setTimeout(() => {
-                    originalFormData = getFormData();
-                    updateSaveButtonState(false);
-                    console.log('✅ Cambios guardados (simulación)');
-                }, 1000);
-            }
-        });
-    }
-    
-    // Función global para marcar cambios sin guardar (para compatibilidad)
-    window.markAsUnsaved = function() {
-        console.log('📝 Marcando cambios sin guardar...');
-        checkForChanges();
-    };
-    
-    // Verificar cambios al cargar
-    setTimeout(checkForChanges, 100);
-    
-    console.log('✅ Playlist detail inicializado correctamente');
-});
-</script>
-
-<!-- Script principal de funcionalidad -->
+<!-- Scripts principales del sistema -->
+ <script src="/static/js/video_player_handler.js"></script>
 <script src="/static/js/playlist_detail.js"></script>
 <script src="/static/js/device-assignment-modal.js"></script>
 <script src="/static/js/assigned-devices-manager.js"></script>

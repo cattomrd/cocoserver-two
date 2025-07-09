@@ -1,7 +1,7 @@
 /**
  * PLAYLIST DETAIL JS
  * Funcionalidad para la página de detalle de playlist
- * Versión optimizada y corregida
+ * Versión optimizada y corregida - FINAL
  */
 
 (function() {
@@ -31,7 +31,8 @@
             videos: false,
             devices: false
         },
-        hasUnsavedChanges: false
+        hasUnsavedChanges: false,
+        isEditMode: false
     };
     
     // Variables globales de datos (inicializadas si no existen)
@@ -82,12 +83,16 @@
         
         // Actualizar estadísticas
         updatePlaylistStats();
+        
+        console.log('✅ Inicialización completada');
     }
     
     /**
-     * Configurar event listeners
+     * Configurar event listeners principales de la página
      */
     function setupEventListeners() {
+        console.log('🔧 Configurando event listeners...');
+        
         // Formulario principal de playlist
         const playlistForm = document.getElementById('playlistForm');
         if (playlistForm) {
@@ -105,6 +110,28 @@
         if (editToggle) {
             editToggle.addEventListener('click', toggleEditMode);
         }
+        
+        // ✅ CRÍTICO: Event listeners para detectar cambios en el formulario
+        const formFields = [
+            'playlist_title',
+            'playlist_description', 
+            'playlist_is_active',
+            'playlist_start_datetime',
+            'playlist_expiration_datetime'
+        ];
+        
+        formFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                // Agregar listeners para diferentes tipos de eventos
+                field.addEventListener('input', markAsUnsaved);
+                field.addEventListener('change', markAsUnsaved);
+                field.addEventListener('keyup', markAsUnsaved);
+                console.log('✅ Event listener agregado a:', fieldId);
+            } else {
+                console.warn('⚠️ Campo no encontrado:', fieldId);
+            }
+        });
         
         // Agregar video a playlist
         const addVideoBtn = document.getElementById('addVideoToPlaylistBtn');
@@ -125,7 +152,41 @@
             });
         }
         
+        // Configurar modal de video
+        setupVideoModalListeners();
+        
         console.log('✅ Event listeners configurados');
+    }
+    
+    /**
+     * Configurar event listeners para el modal de video
+     */
+    function setupVideoModalListeners() {
+        const videoModal = document.getElementById('videoPreviewModal');
+        const videoPlayer = document.getElementById('previewVideoPlayer');
+        
+        if (videoModal && videoPlayer) {
+            // Limpiar video cuando se cierre el modal
+            videoModal.addEventListener('hidden.bs.modal', function() {
+                console.log('🎬 Cerrando modal de video - limpiando recursos');
+                videoPlayer.pause();
+                videoPlayer.src = '';
+                const source = videoPlayer.querySelector('source');
+                if (source) {
+                    source.src = '';
+                }
+                videoPlayer.load(); // Limpiar completamente
+            });
+            
+            // Opcional: Pausar video cuando se oculte el modal
+            videoModal.addEventListener('hide.bs.modal', function() {
+                if (!videoPlayer.paused) {
+                    videoPlayer.pause();
+                }
+            });
+            
+            console.log('✅ Event listeners del modal de video configurados');
+        }
     }
     
     // ==========================================
@@ -272,16 +333,25 @@
         const activeCheckbox = document.getElementById('playlist_is_active');
         if (activeCheckbox) activeCheckbox.checked = !!data.is_active;
         
-        // Fechas
-        const startDateInput = document.getElementById('playlist_start_date');
-        const expirationDateInput = document.getElementById('playlist_expiration_date');
+        // Fechas - USAR LOS IDs CORRECTOS DEL TEMPLATE
+        const startDateInput = document.getElementById('playlist_start_datetime');
+        const expirationDateInput = document.getElementById('playlist_expiration_datetime');
+        
+        // 🔍 DEBUGGING: Mostrar datos que llegan del servidor
+        console.log('📅 Datos del servidor:');
+        console.log('  Start Date (raw):', data.start_date);
+        console.log('  Expiration Date (raw):', data.expiration_date);
         
         if (startDateInput && data.start_date) {
-            startDateInput.value = formatDateForInput(new Date(data.start_date));
+            const formattedStart = formatDateForInput(data.start_date);
+            console.log('  Start Date (formatted):', formattedStart);
+            startDateInput.value = formattedStart;
         }
         
         if (expirationDateInput && data.expiration_date) {
-            expirationDateInput.value = formatDateForInput(new Date(data.expiration_date));
+            const formattedExpiration = formatDateForInput(data.expiration_date);
+            console.log('  Expiration Date (formatted):', formattedExpiration);
+            expirationDateInput.value = formattedExpiration;
         }
         
         console.log('✅ Detalles de playlist renderizados');
@@ -331,7 +401,8 @@
                                     onclick="previewVideo(${video.id})" title="Vista previa">
                                 <i class="fas fa-play"></i>
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                            <button type="button" class="btn btn-sm btn-outline-danger edit-action" 
+                                    style="display: none;"
                                     onclick="removeVideoFromPlaylist(${video.id})" title="Quitar de la lista">
                                 <i class="fas fa-times"></i>
                             </button>
@@ -445,12 +516,17 @@
             return;
         }
         
-        // Obtener datos del formulario
+        // Obtener datos del formulario - USAR LOS IDs CORRECTOS
         const title = document.getElementById('playlist_title')?.value || '';
         const description = document.getElementById('playlist_description')?.value || '';
         const isActive = document.getElementById('playlist_is_active')?.checked || false;
-        const startDate = document.getElementById('playlist_start_date')?.value || null;
-        const expirationDate = document.getElementById('playlist_expiration_date')?.value || null;
+        const startDate = document.getElementById('playlist_start_datetime')?.value || null;
+        const expirationDate = document.getElementById('playlist_expiration_datetime')?.value || null;
+        
+        // 🔍 DEBUGGING: Mostrar valores originales
+        console.log('📅 Valores del formulario:');
+        console.log('  Start Date (input):', startDate);
+        console.log('  Expiration Date (input):', expirationDate);
         
         // Validar título
         if (!title.trim()) {
@@ -458,17 +534,35 @@
             return;
         }
         
-        // Preparar datos para enviar
+        // Preparar datos para enviar - USAR CONVERSIÓN CORRECTA DE FECHAS
+        const startDateFormatted = formatDateForServer(startDate);
+        const expirationDateFormatted = formatDateForServer(expirationDate);
+        
+        // 🔍 DEBUGGING: Mostrar valores convertidos
+        console.log('📅 Valores para enviar al servidor:');
+        console.log('  Start Date (converted):', startDateFormatted);
+        console.log('  Expiration Date (converted):', expirationDateFormatted);
+        
         const playlistData = {
             title: title,
             description: description,
             is_active: isActive,
-            start_date: startDate,
-            expiration_date: expirationDate
+            start_date: startDateFormatted,
+            expiration_date: expirationDateFormatted
         };
+        
+        // 🔍 DEBUGGING: Mostrar objeto completo
+        console.log('📤 Enviando al servidor:', playlistData);
         
         try {
             showToast('Guardando cambios...', 'info');
+            
+            // Deshabilitar botón mientras se guarda
+            const saveBtn = document.getElementById('savePlaylistBtn');
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
+            }
             
             // Enviar datos a la API
             const response = await fetch(`${CONFIG.API_BASE}/playlists/${playlistId}`, {
@@ -505,6 +599,13 @@
         } catch (error) {
             console.error('❌ Error guardando playlist:', error);
             showToast(`Error al guardar: ${error.message}`, 'error');
+        } finally {
+            // Restaurar botón
+            const saveBtn = document.getElementById('savePlaylistBtn');
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i class="fas fa-save me-2"></i>Guardar';
+                updateSaveButtonState(state.hasUnsavedChanges);
+            }
         }
     }
     
@@ -523,9 +624,9 @@
         }));
         
         try {
-            // Enviar nuevo orden a la API usando PUT en lugar de POST
+            // Enviar nuevo orden a la API
             const response = await fetch(`${CONFIG.API_BASE}/playlists/${playlistId}/reorder`, {
-                method: 'PUT',  // Cambio de POST a PUT para coincidir con el endpoint
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -637,40 +738,104 @@
     }
     
     // ==========================================
-    // FUNCIONES DE UTILIDAD
+    // FUNCIONES DE UTILIDAD - CORREGIDAS
     // ==========================================
     
     /**
-     * Formatear duración en segundos a formato mm:ss
+     * Formatear duración en segundos a formato legible
      */
     function formatDuration(seconds) {
-        if (!seconds || isNaN(seconds)) return '00:00';
+        if (!seconds || seconds === 0) return '0m';
         
-        const mins = Math.floor(seconds / 60);
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
         const secs = Math.floor(seconds % 60);
         
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        } else if (minutes > 0) {
+            return `${minutes}m`;
+        } else {
+            return `${secs}s`;
+        }
     }
     
     /**
-     * Formatear fecha para input type="date"
+     * Formatear fecha para input type="datetime-local" (sin conversión de zona horaria)
      */
-    function formatDateForInput(date) {
-        if (!date || !(date instanceof Date) || isNaN(date)) return '';
+    function formatDateForInput(dateString) {
+        if (!dateString) return '';
         
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
+        try {
+            console.log('🔍 formatDateForInput - Input:', dateString);
+            
+            // Si la fecha ya viene en formato YYYY-MM-DDTHH:MM, usarla directamente
+            if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/)) {
+                const result = dateString.slice(0, 16); // Tomar solo YYYY-MM-DDTHH:MM
+                console.log('🔍 formatDateForInput - Output (direct):', result);
+                return result;
+            }
+            
+            // Si viene en formato ISO, crear Date pero mantener hora local
+            const dateObj = new Date(dateString);
+            
+            // Verificar que es una fecha válida
+            if (isNaN(dateObj.getTime())) return '';
+            
+            // Obtener componentes en hora local (no UTC)
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const hours = String(dateObj.getHours()).padStart(2, '0');
+            const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+            
+            // Formato YYYY-MM-DDTHH:MM (requerido por datetime-local)
+            const result = `${year}-${month}-${day}T${hours}:${minutes}`;
+            console.log('🔍 formatDateForInput - Output (converted):', result);
+            return result;
+            
+        } catch (error) {
+            console.warn('Error formateando fecha:', error);
+            return '';
+        }
+    }
+    
+    /**
+     * Formatear fecha para envío al servidor (sin conversión de zona horaria)
+     */
+    function formatDateForServer(dateTimeLocalValue) {
+        if (!dateTimeLocalValue) return null;
         
-        return `${year}-${month}-${day}`;
+        try {
+            console.log('🔍 formatDateForServer - Input:', dateTimeLocalValue);
+            
+            // datetime-local viene en formato YYYY-MM-DDTHH:MM
+            // Lo enviamos tal como está para que el servidor lo interprete como hora local
+            // Agregar segundos si no los tiene
+            let result;
+            if (dateTimeLocalValue.length === 16) {
+                result = dateTimeLocalValue + ':00';  // Agregar :00 para segundos
+            } else {
+                result = dateTimeLocalValue;
+            }
+            
+            console.log('🔍 formatDateForServer - Output:', result);
+            return result;
+            
+        } catch (error) {
+            console.warn('Error convirtiendo fecha para servidor:', error);
+            return null;
+        }
     }
     
     /**
      * Mostrar notificación toast
      */
     function showToast(message, type = 'info') {
+        console.log(`🍞 Toast [${type}]: ${message}`);
+        
         // Si hay una función global de toast, usarla
-        if (window.showToast) {
+        if (window.showToast && typeof window.showToast === 'function') {
             window.showToast(message, type);
             return;
         }
@@ -687,7 +852,8 @@
         }
         
         const toast = document.createElement('div');
-        toast.className = `toast bg-${type} text-white`;
+        toast.className = `toast show bg-${type} text-white`;
+        toast.style.minWidth = '300px';
         toast.innerHTML = `
             <div class="toast-body">
                 ${message}
@@ -700,7 +866,9 @@
         setTimeout(() => {
             toast.style.opacity = '0';
             setTimeout(() => {
-                toastContainer.removeChild(toast);
+                if (toast.parentNode) {
+                    toastContainer.removeChild(toast);
+                }
             }, 500);
         }, CONFIG.TOAST_DURATION);
     }
@@ -846,9 +1014,14 @@
         // Actualizar UI
         const videoCountEl = document.getElementById('statVideoCount');
         const durationEl = document.getElementById('statTotalDuration');
+        const videoCountBadge = document.getElementById('videoCountBadge');
         
         if (videoCountEl) {
             videoCountEl.textContent = videoCount;
+        }
+        
+        if (videoCountBadge) {
+            videoCountBadge.textContent = videoCount;
         }
         
         if (durationEl) {
@@ -872,7 +1045,13 @@
      * Cambiar entre modo edición y visualización
      */
     function toggleEditMode() {
-        const isEditMode = document.body.classList.toggle('edit-mode');
+        state.isEditMode = !state.isEditMode;
+        const isEditMode = state.isEditMode;
+        
+        console.log(`🔄 Alternando modo edición: ${isEditMode ? 'ON' : 'OFF'}`);
+        
+        // Cambiar clase del body
+        document.body.classList.toggle('edit-mode', isEditMode);
         
         // Cambiar texto del botón
         const editBtn = document.getElementById('toggleEditModeBtn');
@@ -893,6 +1072,11 @@
         actionBtns.forEach(btn => {
             btn.style.display = isEditMode ? 'inline-flex' : 'none';
         });
+        
+        // Actualizar estado del botón guardar
+        updateSaveButtonState(state.hasUnsavedChanges && isEditMode);
+        
+        console.log(`✅ Modo edición ${isEditMode ? 'activado' : 'desactivado'}`);
     }
     
     /**
@@ -902,13 +1086,36 @@
         state.hasUnsavedChanges = hasChanges;
         
         const saveBtn = document.getElementById('savePlaylistBtn');
+        const unsavedIndicator = document.getElementById('unsavedIndicator');
+        const detailsPanel = document.getElementById('playlistDetailsPanel');
+        
         if (saveBtn) {
-            saveBtn.disabled = !hasChanges;
+            // El botón se habilita si estamos en modo edición Y hay cambios
+            const shouldEnable = state.isEditMode && hasChanges;
+            saveBtn.disabled = !shouldEnable;
             
-            if (hasChanges) {
+            if (shouldEnable) {
                 saveBtn.classList.add('btn-pulse');
+                console.log('✅ Botón guardar ACTIVADO');
             } else {
                 saveBtn.classList.remove('btn-pulse');
+                console.log('✅ Botón guardar DESACTIVADO');
+            }
+        } else {
+            console.error('❌ Botón guardar no encontrado');
+        }
+        
+        // Mostrar/ocultar indicador de cambios sin guardar
+        if (unsavedIndicator) {
+            unsavedIndicator.style.display = hasChanges ? 'inline' : 'none';
+        }
+        
+        // Agregar clase visual al panel
+        if (detailsPanel) {
+            if (hasChanges) {
+                detailsPanel.classList.add('unsaved-changes');
+            } else {
+                detailsPanel.classList.remove('unsaved-changes');
             }
         }
     }
@@ -917,6 +1124,7 @@
      * Marcar formulario como con cambios sin guardar
      */
     function markAsUnsaved() {
+        console.log('📝 Detectado cambio en formulario - activando botón guardar');
         updateSaveButtonState(true);
     }
     
@@ -933,19 +1141,178 @@
     window.markAsUnsaved = markAsUnsaved;
     window.formatDuration = formatDuration;
     window.formatDateForInput = formatDateForInput;
+    window.formatDateForServer = formatDateForServer;
     window.updatePlaylistStats = updatePlaylistStats;
     window.showToast = showToast;
-    window.previewVideo = function(videoId) {
-        console.log('Reproduciendo video:', videoId);
-        // Implementar lógica de previsualización
-    };
+    /**
+     * Construir URL del video para reproducción
+     */
+    function buildVideoUrl(videoData) {
+        if (!videoData) return null;
+        
+        // Opción 1: Si ya es una URL completa
+        if (videoData.file_path && videoData.file_path.startsWith('http')) {
+            return videoData.file_path;
+        }
+        
+        // Opción 2: Endpoint de streaming de la API
+        if (videoData.id) {
+            return `${CONFIG.API_BASE}/videos/${videoData.id}/stream`;
+        }
+        
+        // Opción 3: Ruta directa al archivo (si está en carpeta pública)
+        if (videoData.file_path) {
+            // Limpiar la ruta y construir URL
+            const cleanPath = videoData.file_path.replace(/^.*[\\\/]/, ''); // Solo nombre del archivo
+            return `${window.location.origin}/uploads/${cleanPath}`;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Mostrar vista previa de un video
+     */
+    async function previewVideo(videoId) {
+        console.log('🎬 Reproduciendo video:', videoId);
+        
+        try {
+            // Mostrar loading en el modal
+            const modal = document.getElementById('videoPreviewModal');
+            const modalTitle = document.getElementById('previewVideoTitle');
+            const modalDescription = document.getElementById('previewVideoDescription');
+            const videoPlayer = document.getElementById('previewVideoPlayer');
+            
+            if (!modal || !videoPlayer) {
+                showToast('Error: Modal de previsualización no encontrado', 'error');
+                return;
+            }
+            
+            // Limpiar contenido anterior
+            modalTitle.textContent = 'Cargando...';
+            modalDescription.textContent = '';
+            videoPlayer.src = '';
+            
+            // Mostrar el modal
+            const bootstrapModal = new bootstrap.Modal(modal);
+            bootstrapModal.show();
+            
+            // Buscar datos del video en los datos locales primero
+            let videoData = null;
+            
+            // Buscar en videos de la playlist
+            if (window.playlistVideos) {
+                videoData = window.playlistVideos.find(v => v.id == videoId);
+                console.log('📹 Video encontrado en playlist:', videoData);
+            }
+            
+            // Si no está en la playlist, buscar en la API
+            if (!videoData) {
+                console.log('📹 Video no encontrado en playlist, consultando API...');
+                showToast('Obteniendo información del video...', 'info');
+                
+                const response = await fetch(`${CONFIG.API_BASE}/videos/${videoId}`);
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                
+                videoData = await response.json();
+                console.log('📹 Video obtenido de API:', videoData);
+            }
+            
+            if (!videoData) {
+                throw new Error('No se pudo obtener la información del video');
+            }
+            
+            // Actualizar información del modal
+            modalTitle.textContent = videoData.title || 'Video sin título';
+            modalDescription.textContent = videoData.description || 'Sin descripción';
+            
+            // Construir URL del video
+            const videoUrl = buildVideoUrl(videoData);
+            
+            if (!videoUrl) {
+                throw new Error('No se pudo construir la URL del video');
+            }
+            
+            console.log('📹 Intentando cargar video desde:', videoUrl);
+            
+            // Configurar el source del video
+            const videoSource = videoPlayer.querySelector('source');
+            if (videoSource) {
+                videoSource.src = videoUrl;
+                videoSource.type = 'video/mp4'; // Asegurar tipo MIME
+            } else {
+                videoPlayer.src = videoUrl;
+            }
+            
+            // Agregar event listeners para debugging
+            const handleLoadStart = () => {
+                console.log('📹 Iniciando carga del video...');
+                modalTitle.textContent = (videoData.title || 'Video sin título') + ' (Cargando...)';
+            };
+            
+            const handleLoadedData = () => {
+                console.log('📹 Video cargado correctamente');
+                modalTitle.textContent = videoData.title || 'Video sin título';
+                showToast('Video cargado correctamente', 'success');
+            };
+            
+            const handleError = (e) => {
+                console.error('❌ Error cargando video:', e);
+                console.error('❌ URL que falló:', videoUrl);
+                
+                // Intentar URL alternativa
+                const alternativeUrl = `${window.location.origin}/static/videos/${videoData.id}.mp4`;
+                console.log('📹 Intentando URL alternativa:', alternativeUrl);
+                
+                if (videoSource) {
+                    videoSource.src = alternativeUrl;
+                } else {
+                    videoPlayer.src = alternativeUrl;
+                }
+                
+                videoPlayer.load();
+                modalTitle.textContent = (videoData.title || 'Video sin título') + ' (Reintentando...)';
+            };
+            
+            // Limpiar listeners anteriores
+            videoPlayer.removeEventListener('loadstart', handleLoadStart);
+            videoPlayer.removeEventListener('loadeddata', handleLoadedData);
+            videoPlayer.removeEventListener('error', handleError);
+            
+            // Agregar nuevos listeners
+            videoPlayer.addEventListener('loadstart', handleLoadStart);
+            videoPlayer.addEventListener('loadeddata', handleLoadedData);
+            videoPlayer.addEventListener('error', handleError);
+            
+            // Recargar el video para aplicar el nuevo source
+            videoPlayer.load();
+            
+        } catch (error) {
+            console.error('❌ Error en vista previa:', error);
+            showToast(`Error: ${error.message}`, 'error');
+            
+            // Actualizar modal con error
+            const modalTitle = document.getElementById('previewVideoTitle');
+            const modalDescription = document.getElementById('previewVideoDescription');
+            
+            if (modalTitle) modalTitle.textContent = 'Error al cargar video';
+            if (modalDescription) modalDescription.textContent = error.message;
+        }
+    }
     
     // ==========================================
     // INICIALIZACIÓN AUTOMÁTICA
     // ==========================================
     
     // Inicializar cuando el DOM esté listo
-    document.addEventListener('DOMContentLoaded', init);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        // DOM ya está listo
+        init();
+    }
     
     console.log('✅ playlist_detail.js cargado correctamente');
 })();

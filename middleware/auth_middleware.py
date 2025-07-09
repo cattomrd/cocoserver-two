@@ -41,6 +41,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             # API para dispositivos (sin auth)
             "/api/devices",
             "/api/raspberry/",
+            "/api/videos/",
             
             # Documentación
             "/docs",

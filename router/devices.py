@@ -25,7 +25,7 @@ router = APIRouter(
 templates = Jinja2Templates(directory="templates")
 
 
-@router.post("/", response_model=schemas.Device, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=schemas.Device, status_code=status.HTTP_201_CREATED)
 def register_device(device: schemas.DeviceCreate, db: Session = Depends(get_db)):
     try:
         # Debug: Imprimir datos recibidos
