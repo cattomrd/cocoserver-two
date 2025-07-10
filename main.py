@@ -21,9 +21,9 @@ from router import videos, playlists, raspberry, ui, devices, device_playlists, 
 from router.client_api import router as client_api_router
 from router.auth import router as auth_router
 from router.users import router as users_router
+from router.tiendas import router as tiendas_router
 from router.playlist_checker_api import router as playlist_checker_router
 from router.ui_auth import router as ui_auth_router
-from router.tiendas import router as tiendas_router
 from utils.list_checker import start_playlist_checker
 from utils.ping_checker import start_background_ping_checker
 
