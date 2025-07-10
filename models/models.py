@@ -391,3 +391,9 @@ class ADSyncLog(Base):
         db.commit()
         db.refresh(log)
         return log
+
+class Tienda(Base):
+    __tablename__ = "tiendas"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    location = Column(String(100), nullable=False)
+    tienda = Column(String(255), nullable=True)

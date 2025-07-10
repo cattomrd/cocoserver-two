@@ -122,7 +122,7 @@ def register_device(device: schemas.DeviceCreate, db: Session = Depends(get_db))
 @router.get("/", response_model=List[schemas.Device])
 def get_devices(
     skip: int = 0, 
-    limit: int = 100, 
+    limit: int = 1000, 
     active_only: bool = False,
     db: Session = Depends(get_db)
 ):

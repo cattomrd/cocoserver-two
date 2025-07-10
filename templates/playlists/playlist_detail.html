@@ -659,7 +659,8 @@
     </div>
 </div>
 
-<!-- MODAL PARA ASIGNAR DISPOSITIVOS -->
+<!-- MODAL PARA ASIGNAR DISPOSITIVOS - VERSIÓN CORREGIDA -->
+<!-- MODAL PARA ASIGNAR DISPOSITIVOS - VERSIÓN CORREGIDA -->
 <div class="modal fade" id="assignDeviceModal" tabindex="-1" aria-labelledby="assignDeviceModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
@@ -670,85 +671,119 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <!-- Buscador de dispositivos -->
+                <!-- Controles de búsqueda y filtros -->
                 <div class="row mb-3">
-                    <div class="col-md-8">
+                    <div class="col-md-6">
                         <div class="input-group">
                             <span class="input-group-text">
                                 <i class="fas fa-search"></i>
                             </span>
                             <input type="text" id="deviceSearchInput" class="form-control" 
-                                   placeholder="Buscar dispositivos por nombre, ubicación o MAC...">
+                                   placeholder="Buscar por ID, nombre, tienda, ubicación o IP...">
                             <button class="btn btn-outline-secondary" type="button" id="clearDeviceSearch">
                                 <i class="fas fa-times"></i> Limpiar
                             </button>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <select class="form-select" id="deviceStatusFilter">
-                            <option value="all" selected>Todos los dispositivos</option>
+                            <option value="all" selected>Todos los estados</option>
                             <option value="online">Solo en línea</option>
                             <option value="offline">Solo fuera de línea</option>
                             <option value="assigned">Ya asignados</option>
                             <option value="unassigned">No asignados</option>
                         </select>
                     </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="deviceStoreFilter">
+                            <option value="all" selected>Todas las tiendas</option>
+                            <!-- Las opciones se cargan dinámicamente -->
+                        </select>
+                    </div>
                 </div>
 
-                <!-- Tabla de dispositivos disponibles -->
-                <div class="table-responsive" style="max-height: 400px;">
-                    <table class="table table-hover table-sm">
-                        <thead class="table-light sticky-top">
-                            <tr>
-                                <th style="width: 50px;">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="selectAllDevices">
-                                        <label class="form-check-label" for="selectAllDevices"></label>
-                                    </div>
-                                </th>
-                                <th>Dispositivo</th>
-                                <th style="width: 100px;">Estado</th>
-                                <th style="width: 120px;">Asignación</th>
-                                <th style="width: 150px;">Ubicación</th>
-                                <th style="width: 140px;">Última Conexión</th>
-                            </tr>
-                        </thead>
-                        <tbody id="availableDevicesList">
-                            <tr>
-                                <td colspan="6" class="text-center py-4">
-                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                        <span class="visually-hidden">Cargando...</span>
-                                    </div>
-                                    <p class="mt-2 text-muted small mb-0">Cargando dispositivos disponibles...</p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <!-- Alertas del modal -->
+                <div id="deviceModalAlerts"></div>
+
+                <!-- Indicador de carga -->
+                <div id="deviceModalLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Cargando dispositivos...</p>
+                </div>
+
+                <!-- Contenido principal -->
+                <div id="deviceModalContent" style="display: none;">
+                    <!-- Controles de selección masiva -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary" id="selectAllDevices">
+                                    <i class="fas fa-check-square me-1"></i>Seleccionar Todos
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="deselectAllDevices">
+                                    <i class="fas fa-square me-1"></i>Deseleccionar Todos
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted" id="deviceCounter">0 dispositivos encontrados</small>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de dispositivos -->
+                    <div class="table-responsive" style="max-height: 500px; border: 1px solid #dee2e6; border-radius: 0.375rem;">
+                        <table class="table table-hover table-striped mb-0">
+                            <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
+                                <tr>
+                                    <th style="width: 60px;">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+                                            <label class="form-check-label" for="selectAllCheckbox"></label>
+                                        </div>
+                                    </th>
+                                    <th style="width: 120px;">ID</th>
+                                    <th>Nombre</th>
+                                    <th style="width: 100px;">Estado</th>
+                                    <th>Tienda</th>
+                                    <th>Ubicación</th>
+                                    <th style="width: 100px;">IP LAN</th>
+                                    <th style="width: 100px;">IP WLAN</th>
+                                    <th style="width: 150px;">Última Conexión</th>
+                                    <th style="width: 80px;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="availableDevicesList">
+                                <!-- El contenido se carga dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Información de paginación -->
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <small class="text-muted" id="devicesPaginationInfo">
+                            Mostrando 0 dispositivos
+                        </small>
+                        <button class="btn btn-sm btn-outline-secondary" id="clearAllDeviceFilters">
+                            <i class="fas fa-eraser me-1"></i>Limpiar Filtros
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <div class="d-flex justify-content-between align-items-center w-100">
-                    <div>
-                        <small class="text-muted" id="changesInfo">
-                            No hay cambios pendientes
-                        </small>
-                    </div>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                            <i class="fas fa-times me-1"></i>Cancelar
-                        </button>
-                        <button type="button" class="btn btn-primary" id="saveDeviceAssignments" disabled>
-                            <i class="fas fa-save me-1"></i>Guardar Cambios
-                        </button>
-                    </div>
-                </div>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-success" id="saveDeviceAssignments" disabled>
+                    <i class="fas fa-save me-1"></i>Guardar Cambios
+                </button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Modal de previsualización -->
-<!-- Modal de previsualización mejorado -->
 <div class="modal fade" id="videoPreviewModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -762,7 +797,7 @@
             <div class="modal-body p-0 bg-dark">
                 <div class="video-preview-container">
                     <!-- Reproductor de video -->
-                    <video id="previewVideoPlayer" class="w-100" controls preload="auto" poster="/static/img/video-loading.jpg">
+                    <video id="previewVideoPlayer" class="w-100" controls autoplay controlsList="nodownload">
                         <source src="" type="video/mp4">
                         Tu navegador no soporta la reproducción de videos.
                     </video>

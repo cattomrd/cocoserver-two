@@ -23,6 +23,7 @@ from router.auth import router as auth_router
 from router.users import router as users_router
 from router.playlist_checker_api import router as playlist_checker_router
 from router.ui_auth import router as ui_auth_router
+from router.tiendas import router as tiendas_router
 from utils.list_checker import start_playlist_checker
 from utils.ping_checker import start_background_ping_checker
 
@@ -177,6 +178,7 @@ app.include_router(services.router)
 app.include_router(device_service_api.router)
 app.include_router(playlist_checker_router)
 app.include_router(client_api_router)
+app.include_router(tiendas_router)
 
 # ==========================================
 # MIDDLEWARE DE AUTENTICACIÓN UNIFICADO
@@ -208,6 +210,7 @@ async def auth_middleware(request: Request, call_next):
         "/api/devices",
         "/api/raspberry/",
         "/api/videos"
+        "api/tiendas/"
     ]
     
     try:

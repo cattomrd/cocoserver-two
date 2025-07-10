@@ -307,3 +307,114 @@ class TokenResponse(BaseModel):
     user: UserResponse
 
 
+class TiendaBase(BaseModel):
+    """Esquema base para Tienda"""
+    tienda: str = Field(..., description="Nombre de la tienda", min_length=1, max_length=100)
+    location: Optional[str] = Field(None, description="Ubicación de la tienda", max_length=200)
+
+    @validator('tienda')
+    def validate_tienda_name(cls, v):
+        """Validar que el nombre de la tienda no esté vacío"""
+        if not v or not v.strip():
+            raise ValueError('El nombre de la tienda no puede estar vacío')
+        return v.strip()
+
+    @validator('location')
+    def validate_location(cls, v):
+        """Limpiar y validar ubicación"""
+        if v:
+            return v.strip()
+        return v
+
+class TiendaCreate(TiendaBase):
+    """Esquema para crear una nueva tienda"""
+    pass
+
+class TiendaUpdate(BaseModel):
+    """Esquema para actualizar una tienda existente"""
+    tienda: Optional[str] = Field(None, description="Nombre de la tienda", min_length=1, max_length=100)
+    location: Optional[str] = Field(None, description="Ubicación de la tienda", max_length=200)
+
+    @validator('tienda')
+    def validate_tienda_name(cls, v):
+        """Validar que el nombre de la tienda no esté vacío"""
+        if v is not None and (not v or not v.strip()):
+            raise ValueError('El nombre de la tienda no puede estar vacío')
+        return v.strip() if v else v
+
+    @validator('location')
+    def validate_location(cls, v):
+        """Limpiar y validar ubicación"""
+        if v:
+            return v.strip()
+        return v
+
+class TiendaResponse(TiendaBase):
+    """Esquema de respuesta para Tienda"""
+    id: int = Field(..., description="ID único de la tienda")
+    
+    class Config:
+        orm_mode = True
+        schema_extra = {
+            "example": {
+                "id": 1,
+                "tienda": "Tienda Centro",
+                "location": "Centro Comercial Plaza Norte"
+            }
+        }
+
+class TiendaWithDevices(TiendaResponse):
+    """Esquema de tienda con información de dispositivos"""
+    device_count: int = Field(0, description="Número total de dispositivos en esta tienda")
+    active_device_count: int = Field(0, description="Número de dispositivos activos en esta tienda")
+    
+    class Config:
+        orm_mode = True
+        schema_extra = {
+            "example": {
+                "id": 1,
+                "tienda": "Tienda Centro",
+                "location": "Centro Comercial Plaza Norte",
+                "device_count": 5,
+                "active_device_count": 3
+            }
+        }
+
+class TiendaInfo(BaseModel):
+    """Esquema simplificado para información de tienda"""
+    id: int
+    tienda: str
+    
+    class Config:
+        orm_mode = True
+
+# ==========================================
+# ESQUEMAS PARA FILTROS Y BÚSQUEDA
+# ==========================================
+
+class TiendaFilter(BaseModel):
+    """Esquema para filtrar tiendas"""
+    search: Optional[str] = Field(None, description="Término de búsqueda")
+    active_only: Optional[bool] = Field(False, description="Solo tiendas con dispositivos activos")
+    with_devices: Optional[bool] = Field(False, description="Incluir conteo de dispositivos")
+
+class TiendaSearchResponse(BaseModel):
+    """Esquema de respuesta para búsqueda de tiendas"""
+    tiendas: List[TiendaResponse]
+    total: int
+    search_term: Optional[str] = None
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "tiendas": [
+                    {
+                        "id": 1,
+                        "tienda": "Tienda Centro",
+                        "location": "Centro Comercial Plaza Norte"
+                    }
+                ],
+                "total": 1,
+                "search_term": "centro"
+            }
+        }
