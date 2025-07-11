@@ -1,783 +1,916 @@
 {% extends "base.html" %}
 
-{% block content %}
-    <!-- Main content -->
-    <main class="main-content" id="mainContent">
-        <!-- Header -->
-        <div class="card">
-                <div class="card-body">
-                    <h1 class="h2">
-                        <i class="fas fa-users"></i> Gestión de Usuarios</h1>
-                        <p class="mb-0 text-muted">Crea, edita y gestiona tus listas de reproducción</p>
-                </div>
-                <!-- Action Buttons -->
-                    <div class="card">
-                        <div class="card-body">
-                            <a href="/ui/users/create" class="btn btn-primary">
-                                <i class="fas fa-user-plus"></i> Nuevo Usuario
-                            </a>
-                            <button type="button" class="btn btn-outline-info" id="syncAdBtn">
-                                <i class="fas fa-sync"></i> Sincronizar AD
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="exportUsers()">
-                                <i class="fas fa-download"></i> Exportar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <!-- Estadísticas -->
-                <div class="row mb-4" id="userStats">
-                    <!-- Se llenan dinámicamente -->
-                </div>
-                <!-- Mensajes -->
-                {% if request.query_params.get('success') %}
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="fas fa-check-circle"></i> {{ request.query_params.get('success') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                {% endif %}
+{% block title %}{{ title }}{% endblock %}
 
-                {% if request.query_params.get('error') %}
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="fas fa-exclamation-triangle"></i> {{ request.query_params.get('error') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                {% endif %}
+{% block extra_css %}
+<style>
+.user-management {
+    padding: 2rem 0;
+}
 
-                <!-- Filtros -->
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <form method="GET" action="/ui/users/" class="row g-3" id="searchForm">
-                            <div class="col-md-4">
-                                <label for="search" class="form-label">
-                                    <i class="fas fa-search"></i> Buscar Usuario
-                                </label>
-                                <input type="text" class="form-control" id="search" name="search" 
-                                    value="{{ search or '' }}" placeholder="Nombre, email o usuario...">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="is_active" class="form-label">
-                                    <i class="fas fa-filter"></i> Estado
-                                </label>
-                                <select class="form-select" id="is_active" name="is_active">
-                                    <option value="">Todos</option>
-                                    <option value="true" {{ 'selected' if is_active == True else '' }}>Activos</option>
-                                    <option value="false" {{ 'selected' if is_active == False else '' }}>Inactivos</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="auth_provider" class="form-label">
-                                    <i class="fas fa-key"></i> Tipo
-                                </label>
-                                <select class="form-select" id="auth_provider" name="auth_provider">
-                                    <option value="">Todos</option>
-                                    <option value="local" {{ 'selected' if auth_provider == "local" else '' }}>Usuarios Locales</option>
-                                    <option value="ad" {{ 'selected' if auth_provider == "ad" else '' }}>Active Directory</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2 d-flex align-items-end">
-                                <button type="submit" class="btn btn-primary w-100" id="filterButton">
-                                    <i class="fas fa-search"></i> Filtrar
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+.search-filters {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid #dee2e6;
+    position: sticky;
+    top: 20px;
+    z-index: 100;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
 
-                <!-- Lista de Usuarios -->
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="fas fa-list"></i> Lista de Usuarios ({{ users|length }})
-                        </h5>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <input type="radio" class="btn-check" name="viewMode" id="cardView" checked>
-                            <label class="btn btn-outline-secondary" for="cardView">
-                                <i class="fas fa-th-large"></i>
-                            </label>
-                            <input type="radio" class="btn-check" name="viewMode" id="tableView">
-                            <label class="btn btn-outline-secondary" for="tableView">
-                                <i class="fas fa-list"></i>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <!-- Card View -->
-                        <div id="cardViewContent">
-                            {% if users %}
-                            <div class="row">
-                                {% for user in users %}
-                                <div class="col-lg-4 col-md-6 mb-3">
-                                    <div class="card {{ 'ad-user' if user.password_hash == None else 'local-user' }}">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-center mb-2">
-                                                <div class="user-avatar me-3">
-                                                    {{ user.username[0].upper() }}
-                                                </div>
-                                                <div class="flex-grow-1">
-                                                    <h6 class="card-title mb-1">
-                                                        {{ user.fullname or user.username }}
-                                                        {% if user.is_admin %}
-                                                        <span class="badge bg-warning text-dark ms-1">
-                                                            <i class="fas fa-crown"></i> Admin
-                                                        </span>
-                                                        {% endif %}
-                                                    </h6>
-                                                    <small class="text-muted">@{{ user.username }}</small>
-                                                </div>
-                                                <div class="dropdown">
-                                                    <button class="btn btn-sm btn-outline-secondary" type="button" 
-                                                            data-bs-toggle="dropdown">
-                                                        <i class="fas fa-ellipsis-v"></i>
-                                                    </button>
-                                                    <ul class="dropdown-menu">
-                                                        <li>
-                                                            <a class="dropdown-item" href="/ui/users/{{ user.id }}">
-                                                                <i class="fas fa-eye"></i> Ver Detalles
-                                                            </a>
-                                                        </li>
-                                                        <li>
-                                                            <a class="dropdown-item" href="#" onclick="toggleUserStatus({{ user.id }}, {{ user.is_active|lower }})">
-                                                                {% if user.is_active %}
-                                                                <i class="fas fa-ban text-warning"></i> Desactivar
-                                                                {% else %}
-                                                                <i class="fas fa-check text-success"></i> Activar
-                                                                {% endif %}
-                                                            </a>
-                                                        </li>
-                                                        {% if user.password_hash == None %}
-                                                        <li><hr class="dropdown-divider"></li>
-                                                        <li>
-                                                            <a class="dropdown-item text-info" href="#" onclick="syncSingleUser('{{ user.username }}')">
-                                                                <i class="fas fa-sync"></i> Sincronizar desde AD
-                                                            </a>
-                                                        </li>
-                                                        {% endif %}
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                            
-                                            {% if user.email %}
-                                            <p class="card-text mb-1">
-                                                <i class="fas fa-envelope text-muted"></i> {{ user.email }}
-                                            </p>
-                                            {% endif %}
-                                            
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    {% if user.password_hash == None %}
-                                                    <span class="badge bg-info">
-                                                        <i class="fas fa-server"></i> AD
-                                                    </span>
-                                                    {% else %}
-                                                    <span class="badge bg-success">
-                                                        <i class="fas fa-user"></i> Local
-                                                    </span>
-                                                    {% endif %}
-                                                    
-                                                    {% if user.is_active %}
-                                                    <span class="badge bg-success">Activo</span>
-                                                    {% else %}
-                                                    <span class="badge bg-secondary">Inactivo</span>
-                                                    {% endif %}
-                                                </div>
-                                                
-                                                <small class="text-muted">
-                                                    {% if user.last_login %}
-                                                    <i class="fas fa-clock"></i> {{ user.last_login.strftime('%d/%m/%Y') }}
-                                                    {% else %}
-                                                    <i class="fas fa-clock"></i> Nunca
-                                                    {% endif %}
-                                                </small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            {% else %}
-                            <div class="text-center py-5">
-                                <i class="fas fa-users fa-3x text-muted mb-3"></i>
-                                <h5 class="text-muted">No hay usuarios para mostrar</h5>
-                                <p class="text-muted">Cree un nuevo usuario o ajuste los filtros de búsqueda</p>
-                                <a href="/ui/users/create" class="btn btn-primary">
-                                    <i class="fas fa-user-plus"></i> Crear Primer Usuario
-                                </a>
-                            </div>
-                            {% endif %}
-                        </div>
+.user-card {
+    transition: all 0.3s ease;
+    border: 1px solid #dee2e6;
+}
 
-                        <!-- Table View -->
-                        <div id="tableViewContent" style="display: none;">
-                            {% if users %}
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Usuario</th>
-                                            <th>Email</th>
-                                            <th>Tipo</th>
-                                            <th>Estado</th>
-                                            <th>Último Login</th>
-                                            <th>Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for user in users %}
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="user-avatar me-2">
-                                                        {{ user.username[0].upper() }}
-                                                    </div>
-                                                    <div>
-                                                        <strong>{{ user.fullname or user.username }}</strong>
-                                                        <br><small class="text-muted">@{{ user.username }}</small>
-                                                        {% if user.is_admin %}
-                                                        <span class="badge bg-warning text-dark ms-1">Admin</span>
-                                                        {% endif %}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>{{ user.email or '-' }}</td>
-                                            <td>
-                                                {% if user.password_hash == None %}
-                                                <span class="badge bg-info">Active Directory</span>
-                                                {% else %}
-                                                <span class="badge bg-success">Local</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% if user.is_active %}
-                                                <span class="badge bg-success">Activo</span>
-                                                {% else %}
-                                                <span class="badge bg-secondary">Inactivo</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% if user.last_login %}
-                                                {{ user.last_login.strftime('%d/%m/%Y %H:%M') }}
-                                                {% else %}
-                                                <span class="text-muted">Nunca</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                <div class="btn-group btn-group-sm">
-                                                    <a href="/ui/users/{{ user.id }}" class="btn btn-outline-primary">
-                                                        <i class="fas fa-eye"></i>
-                                                    </a>
-                                                    <button class="btn btn-outline-warning" 
-                                                            onclick="toggleUserStatus({{ user.id }}, {{ user.is_active|lower }})">
-                                                        {% if user.is_active %}
-                                                        <i class="fas fa-ban"></i>
-                                                        {% else %}
-                                                        <i class="fas fa-check"></i>
-                                                        {% endif %}
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </main>
-        </div>
-    </div>
+.user-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    transition: all 0.3s ease;
+}
+
+.filter-button {
+    min-width: 100px;
+}
+
+.search-loading {
+    position: relative;
+}
+
+.search-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 30px;
+    width: 20px;
+    height: 20px;
+    margin-top: -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.table-loading {
+    position: relative;
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.table-loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 10;
+}
+
+.table-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    margin-top: -20px;
+    margin-left: -20px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    z-index: 11;
+}
+
+.results-info {
+    background: #e9ecef;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    color: #495057;
+}
+
+@media (max-width: 768px) {
+    .search-filters .row > div {
+        margin-bottom: 1rem;
+    }
+    
+    .search-filters {
+        position: static;
+    }
+}
+</style>
 {% endblock %}
 
-{% block scripts %}
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Función para asegurar que los elementos del DOM están cargados
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM completamente cargado');
-            
-            // Toggle between card and table view
-            const cardViewBtn = document.getElementById('cardView');
-            if (cardViewBtn) {
-                cardViewBtn.addEventListener('change', function() {
-                    if (this.checked) {
-                        document.getElementById('cardViewContent').style.display = 'block';
-                        document.getElementById('tableViewContent').style.display = 'none';
-                    }
-                });
-            }
+{% block content %}
+<div class="container-fluid user-management">
+    
+    <!-- Encabezado -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-2 text-primary">
+                        <i class="fas fa-users me-2"></i>{{ title }}
+                    </h1>
+                    <p class="text-muted mb-0">
+                        Gestiona usuarios del sistema con búsqueda en tiempo real
+                        {% if source == "ad" %}(Active Directory){% else %}(Locales){% endif %}
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="/ui/users/create" class="btn btn-success">
+                        <i class="fas fa-plus me-1"></i>Nuevo Usuario
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            const tableViewBtn = document.getElementById('tableView');
-            if (tableViewBtn) {
-                tableViewBtn.addEventListener('change', function() {
-                    if (this.checked) {
-                        document.getElementById('cardViewContent').style.display = 'none';
-                        document.getElementById('tableViewContent').style.display = 'block';
-                    }
-                });
-            }
+    <!-- Estadísticas dinámicas -->
+    <div class="stats-card" id="userStats">
+        <div class="row text-center">
+            <div class="col-6 col-md-3">
+                <div class="h4 mb-1">{{ users|length if users else 0 }}</div>
+                <small>Usuarios mostrados</small>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="h4 mb-1">{{ users|selectattr("is_active")|list|length if users else 0 }}</div>
+                <small>Activos</small>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="h4 mb-1">{{ users|selectattr("is_admin")|list|length if users else 0 }}</div>
+                <small>Administradores</small>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="h4 mb-1">{{ (users|length) - (users|selectattr("is_active")|list|length) if users else 0 }}</div>
+                <small>Inactivos</small>
+            </div>
+        </div>
+    </div>
 
-            // Inicializar el buscador
-            initializeSearch();
+    <!-- Filtros de búsqueda con indicadores dinámicos -->
+    <div class="search-filters">
+        <form id="searchForm" method="get">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="search" class="form-label">
+                        <i class="fas fa-search me-1"></i>Buscar Usuario
+                        <small class="text-muted">(búsqueda en tiempo real)</small>
+                    </label>
+                    <input type="text" class="form-control" id="search" name="search" 
+                           value="{{ search or '' }}" 
+                           placeholder="Nombre, email o usuario..."
+                           autocomplete="off">
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="is_active" class="form-label">
+                        <i class="fas fa-filter me-1"></i>Estado
+                    </label>
+                    <select class="form-select" id="is_active" name="is_active">
+                        <option value="">Todos los estados</option>
+                        <option value="true" {{ 'selected' if is_active == True else '' }}>
+                            Activos únicamente
+                        </option>
+                        <option value="false" {{ 'selected' if is_active == False else '' }}>
+                            Inactivos únicamente
+                        </option>
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="auth_provider" class="form-label">
+                        <i class="fas fa-key me-1"></i>Tipo de Usuario
+                    </label>
+                    <select class="form-select" id="auth_provider" name="auth_provider">
+                        <option value="">Todos los tipos</option>
+                        <option value="local" {{ 'selected' if auth_provider == "local" else '' }}>
+                            Usuarios Locales
+                        </option>
+                        {% if ad_available %}
+                        <option value="ad" {{ 'selected' if auth_provider == "ad" else '' }}>
+                            Active Directory
+                        </option>
+                        {% endif %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <div class="d-flex gap-1">
+                        <button type="submit" class="btn btn-primary filter-button" id="filterButton">
+                            <i class="fas fa-search"></i> Filtrar
+                        </button>
+                        <!-- El botón de limpiar se agrega dinámicamente -->
+                    </div>
+                </div>
+            </div>
             
-            // Cargar estadísticas
-            loadUserStats();
-            
-            // Añadir manejadores de eventos para checkboxes de usuarios si existen
-            document.querySelectorAll('.user-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('change', updateBulkActions);
-            });
-            
-            // Inicializar tooltips
-            try {
-                const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-                if (window.bootstrap && window.bootstrap.Tooltip) {
-                    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                        return new bootstrap.Tooltip(tooltipTriggerEl);
-                    });
-                } else {
-                    console.warn('Bootstrap Tooltip no está disponible');
-                }
-            } catch (error) {
-                console.error('Error inicializando tooltips:', error);
-            }
-            
-            // Actualizar estado de conexión
-            updateConnectionStatus();
-            
-            // Configurar el botón de sincronización
-            setupSyncAdButton();
-        });
+            <!-- Información de búsqueda activa -->
+            <div class="mt-3">
+                <div class="results-info d-flex justify-content-between align-items-center">
+                    <span id="resultsCounter">
+                        {% if users %}
+                            {{ users|length }} usuario{{ 's' if users|length != 1 else '' }}
+                        {% else %}
+                            Sin usuarios
+                        {% endif %}
+                    </span>
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        <span id="lastSearchTime">Inicial</span>
+                    </small>
+                </div>
+            </div>
+        </form>
+    </div>
 
-        // Función para inicializar la búsqueda
-        function initializeSearch() {
-            // Referencia al formulario de búsqueda
-            const searchForm = document.getElementById('searchForm');
-            if (!searchForm) {
-                console.error('No se encontró el formulario de búsqueda');
-                return;
-            }
-            
-            console.log('Inicializando búsqueda...');
-            
-            // Reemplazar el comportamiento normal del formulario para manejar parámetros vacíos
-            searchForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                console.log('Formulario enviado');
-                
-                // Construir la URL manualmente sin incluir parámetros vacíos
-                const baseUrl = '/ui/users/';
-                const params = new URLSearchParams();
-                
-                // Solo añadir parámetros si tienen valor
-                const search = document.getElementById('search');
-                if (search && search.value.trim()) {
-                    params.append('search', search.value.trim());
-                    console.log('Añadiendo búsqueda:', search.value.trim());
-                }
-                
-                // Para el parámetro is_active, asegurar que sea un booleano válido o no incluirlo
-                const isActive = document.getElementById('is_active');
-                if (isActive) {
-                    console.log('Valor de is_active:', isActive.value);
-                    if (isActive.value === 'true') {
-                        params.append('is_active', 'true');
-                    } else if (isActive.value === 'false') {
-                        params.append('is_active', 'false');
-                    }
-                }
-                
-                // Solo incluir auth_provider si tiene un valor específico
-                const authProvider = document.getElementById('auth_provider');
-                if (authProvider) {
-                    console.log('Valor de auth_provider:', authProvider.value);
-                    if (authProvider.value && authProvider.value !== '') {
-                        params.append('auth_provider', authProvider.value);
-                    }
-                }
-                
-                // Construir la URL final
-                let url = baseUrl;
-                const paramString = params.toString();
-                if (paramString) {
-                    url += '?' + paramString;
-                }
-                
-                console.log('Redirigiendo a:', url);
-                
-                // Navegar a la URL
-                window.location.href = url;
-            });
-            
-            // Manejar el campo de búsqueda con debounce
-            const searchInput = document.getElementById('search');
-            if (searchInput) {
-                let searchTimeout;
-                searchInput.addEventListener('input', function() {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => {
-                        // Solo enviar si hay algo escrito
-                        if (this.value.trim().length > 0) {
-                            console.log('Enviando formulario por input de búsqueda');
-                            searchForm.dispatchEvent(new Event('submit'));
-                        }
-                    }, 500);
-                });
-            } else {
-                console.error('No se encontró el campo de búsqueda');
-            }
-            
-            // Actualización en tiempo real de filtros
-            const isActiveSelect = document.getElementById('is_active');
-            if (isActiveSelect) {
-                isActiveSelect.addEventListener('change', function() {
-                    console.log('Cambio en is_active:', this.value);
-                    searchForm.dispatchEvent(new Event('submit'));
-                });
-            } else {
-                console.error('No se encontró el selector is_active');
-            }
-            
-            const authProviderSelect = document.getElementById('auth_provider');
-            if (authProviderSelect) {
-                authProviderSelect.addEventListener('change', function() {
-                    console.log('Cambio en auth_provider:', this.value);
-                    searchForm.dispatchEvent(new Event('submit'));
-                });
-            } else {
-                console.error('No se encontró el selector auth_provider');
-            }
-            
-            // Asegurar que el botón de filtrar funcione
-            const filterButton = document.getElementById('filterButton');
-            if (filterButton) {
-                filterButton.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    console.log('Botón de filtrar clickeado');
-                    searchForm.dispatchEvent(new Event('submit'));
-                });
-            } else {
-                console.error('No se encontró el botón de filtrar');
-            }
-            
-            console.log('Inicialización de búsqueda completa');
-        }
+    <!-- Mensajes de error -->
+    {% if error %}
+    <div class="alert alert-danger alert-dismissible fade show">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Error:</strong> {{ error }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
 
-        // Load user statistics
-        async function loadUserStats() {
-            try {
-                const response = await fetch('/ui/users/api/stats');
-                const result = await response.json();
-                
-                if (result.success) {
-                    const stats = result.stats;
-                    const statsContainer = document.getElementById('userStats');
-                    
-                    if (statsContainer) {
-                        statsContainer.innerHTML = `
-                            <div class="col-xl-3 col-md-6 mb-3">
-                                <div class="card stats-card border-left-primary">
-                                    <div class="card-body">
-                                        <div class="row no-gutters align-items-center">
-                                            <div class="col mr-2">
-                                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                                    Total Usuarios</div>
-                                                <div class="h5 mb-0 font-weight-bold text-gray-800">${stats.total_users}</div>
-                                            </div>
-                                            <div class="col-auto">
-                                                <i class="fas fa-users fa-2x text-gray-300"></i>
-                                            </div>
+    <!-- Acciones en lote (oculto por defecto) -->
+    <div id="bulkActions" class="alert alert-info" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center">
+            <span>
+                <i class="fas fa-check-square me-2"></i>
+                <span id="selectedCount">0</span> usuario(s) seleccionado(s)
+            </span>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary" onclick="exportUsers('csv')">
+                    <i class="fas fa-download me-1"></i>Exportar CSV
+                </button>
+                <button class="btn btn-outline-success" onclick="exportUsers('json')">
+                    <i class="fas fa-download me-1"></i>Exportar JSON
+                </button>
+                <button class="btn btn-outline-secondary" onclick="deselectAllUsers()">
+                    <i class="fas fa-times me-1"></i>Deseleccionar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor principal de usuarios -->
+    <div id="usersContainer">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Lista de Usuarios
+                    <span class="badge bg-primary ms-2" id="userCount">
+                        {{ users|length if users else 0 }}
+                    </span>
+                </h5>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" onclick="selectAllUsers()">
+                        <i class="fas fa-check-double me-1"></i>Seleccionar Todos
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="exportUsers('csv')">
+                        <i class="fas fa-file-csv me-1"></i>CSV
+                    </button>
+                    <button class="btn btn-outline-success" onclick="exportUsers('json')">
+                        <i class="fas fa-file-code me-1"></i>JSON
+                    </button>
+                </div>
+            </div>
+            
+            <div class="table-responsive" id="tableContainer">
+                <table class="table table-hover align-middle mb-0" id="usersTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" class="form-check-input" onchange="toggleAllUsers(this)">
+                            </th>
+                            <th>Usuario</th>
+                            <th>Email</th>
+                            <th>Nombre Completo</th>
+                            <th>Estado</th>
+                            <th>Tipo</th>
+                            <th>Último Login</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Los usuarios se cargan dinámicamente aquí -->
+                        {% if users %}
+                            {% for user in users %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="form-check-input user-checkbox" value="{{ user.id }}">
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 14px;">
+                                            {{ user.username[0].upper() }}
+                                        </div>
+                                        <div>
+                                            <strong>{{ user.username }}</strong>
+                                            {% if user.is_admin %}
+                                                <span class="badge bg-warning text-dark ms-1" title="Administrador">
+                                                    <i class="fas fa-crown"></i>
+                                                </span>
+                                            {% endif %}
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                            <div class="col-xl-3 col-md-6 mb-3">
-                                <div class="card stats-card border-left-success">
-                                    <div class="card-body">
-                                        <div class="row no-gutters align-items-center">
-                                            <div class="col mr-2">
-                                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                                    Usuarios Activos</div>
-                                                <div class="h5 mb-0 font-weight-bold text-gray-800">${stats.active_users}</div>
-                                            </div>
-                                            <div class="col-auto">
-                                                <i class="fas fa-user-check fa-2x text-gray-300"></i>
-                                            </div>
-                                        </div>
+                                </td>
+                                <td>{{ user.email or '-' }}</td>
+                                <td>{{ user.fullname or '-' }}</td>
+                                <td>
+                                    {% if user.is_active %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check me-1"></i>Activo
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-times me-1"></i>Inactivo
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.auth_provider == 'ad' %}
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-building me-1"></i>AD
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-primary">
+                                            <i class="fas fa-user me-1"></i>Local
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ user.last_login.strftime('%d/%m/%Y') if user.last_login else 'Nunca' }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="/ui/users/{{ user.id }}/edit" class="btn btn-outline-primary" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button class="btn btn-outline-info" onclick="viewUserDetails({{ user.id }})" title="Ver detalles">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if not user.is_admin or current_user.id != user.id %}
+                                        <button class="btn btn-outline-danger" onclick="confirmDeleteUser({{ user.id }}, '{{ user.username }}')" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
                                     </div>
-                                </div>
-                            </div>
-                            <div class="col-xl-3 col-md-6 mb-3">
-                                <div class="card stats-card border-left-info">
-                                    <div class="card-body">
-                                        <div class="row no-gutters align-items-center">
-                                            <div class="col mr-2">
-                                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                                    Active Directory</div>
-                                                <div class="h5 mb-0 font-weight-bold text-gray-800">${stats.ad_users}</div>
-                                            </div>
-                                            <div class="col-auto">
-                                                <i class="fas fa-server fa-2x text-gray-300"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-xl-3 col-md-6 mb-3">
-                                <div class="card stats-card border-left-warning">
-                                    <div class="card-body">
-                                        <div class="row no-gutters align-items-center">
-                                            <div class="col mr-2">
-                                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                                    Administradores</div>
-                                                <div class="h5 mb-0 font-weight-bold text-gray-800">${stats.admin_users}</div>
-                                            </div>
-                                            <div class="col-auto">
-                                                <i class="fas fa-crown fa-2x text-gray-300"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading user stats:', error);
-            }
-        }
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
-        // Toggle user status (activate/deactivate)
-        async function toggleUserStatus(userId, currentStatus) {
-            const action = currentStatus ? 'desactivar' : 'activar';
-            
-            if (!confirm(`¿Está seguro de ${action} este usuario?`)) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/ui/users/api/${userId}/toggle-status`, {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    location.reload(); // Reload page to show updated status
-                } else {
-                    alert('Error: ' + result.message);
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        }
+    <!-- Contenedor para "sin resultados" (se muestra dinámicamente) -->
+    <div id="noResultsContainer" style="display: none;">
+        <!-- El contenido se genera dinámicamente -->
+    </div>
 
-        // Sync single user from AD
-        async function syncSingleUser(username) {
-            if (!confirm(`¿Sincronizar usuario ${username} desde Active Directory?`)) {
-                return;
-            }
-            
-            try {
-                const response = await fetch('/ui/users/api/sync-single-user', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username: username })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert('Usuario sincronizado exitosamente');
-                    location.reload();
-                } else {
-                    alert('Error sincronizando usuario: ' + result.message);
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        }
+    <!-- Indicador de carga flotante -->
+    <div id="loadingIndicator" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;">
+        <div class="card shadow-lg">
+            <div class="card-body text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <div class="mt-2">Buscando usuarios...</div>
+            </div>
+        </div>
+    </div>
 
-        // Sync all AD users
-        function setupSyncAdButton() {
-            const syncAdBtn = document.getElementById('syncAdBtn');
-            if (syncAdBtn) {
-                syncAdBtn.addEventListener('click', async function() {
-                    if (!confirm('¿Realizar sincronización completa con Active Directory? Esto puede tomar varios minutos.')) {
-                        return;
-                    }
-                    
-                    const btn = this;
-                    btn.disabled = true;
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
-                    
-                    try {
-                        const response = await fetch('/ui/users/api/sync-all-ad', {
-                            method: 'POST'
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            alert(`Sincronización completada: ${result.message}`);
-                            location.reload();
-                        } else {
-                            alert('Error en sincronización: ' + result.message);
-                        }
-                    } catch (error) {
-                        alert('Error: ' + error.message);
-                    } finally {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="fas fa-sync"></i> Sincronizar AD';
-                    }
-                });
+</div>
+
+<!-- Modal para detalles de usuario -->
+<div class="modal fade" id="userDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user me-2"></i>Detalles del Usuario
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="userDetailsContent">
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p class="mt-2">Cargando información...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast container para notificaciones -->
+<div id="toast-container"></div>
+
+<!-- Debug panel (solo en desarrollo) -->
+{% if request.app.debug %}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning">
+        <h6 class="mb-0">🐛 Panel de Debug</h6>
+    </div>
+    <div class="card-body">
+        <small>
+            <strong>Parámetros actuales:</strong><br>
+            Search: "{{ search or 'None' }}"<br>
+            Is Active: {{ is_active if is_active is not none else 'None' }}<br>
+            Auth Provider: "{{ auth_provider or 'None' }}"<br>
+            Source: "{{ source or 'local' }}"<br>
+            Users Found: {{ users|length if users else 0 }}<br>
+            Query String: "{{ request.url.query }}"
+        </small>
+        <div class="mt-2">
+            <button class="btn btn-sm btn-outline-info" onclick="performDynamicSearch()">
+                🔄 Refrescar Búsqueda
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="console.log('Current state:', getCurrentSearchParams())">
+                📊 Ver Estado Actual
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Funciones base requeridas -->
+<script>
+// Funciones de compatibilidad con el sistema existente
+function toggleAllUsers(masterCheckbox) {
+    const userCheckboxes = document.querySelectorAll('.user-checkbox');
+    userCheckboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+    updateBulkActions();
+}
+
+function updateBulkActions() {
+    const selectedUsers = document.querySelectorAll('.user-checkbox:checked');
+    const bulkActionsDiv = document.getElementById('bulkActions');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    if (bulkActionsDiv) {
+        if (selectedUsers.length > 0) {
+            bulkActionsDiv.style.display = 'block';
+            if (selectedCount) {
+                selectedCount.textContent = selectedUsers.length;
             }
+        } else {
+            bulkActionsDiv.style.display = 'none';
         }
+    }
+}
+
+// Escuchar cambios en checkboxes
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('user-checkbox')) {
+        updateBulkActions();
+    }
+});
+
+// Funciones de exportación existentes
+function exportUsers(format) {
+    const params = new URLSearchParams();
+    params.append('format', format.toLowerCase());
+    
+    const searchParams = getCurrentSearchParams();
+    Object.keys(searchParams).forEach(key => {
+        if (searchParams[key] && searchParams[key] !== '' && key !== 'limit') {
+            params.append(key, searchParams[key]);
+        }
+    });
+    
+    window.location.href = `/ui/users/api/export?${params.toString()}`;
+}
+
+// Funciones de usuarios (ver detalles, eliminar, etc.)
+async function viewUserDetails(userId) {
+    const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+    const content = document.getElementById('userDetailsContent');
+    
+    modal.show();
+    
+    try {
+        const response = await fetch(`/ui/users/api/${userId}`);
+        const user = await response.json();
         
-        // Inicializar el botón de sincronización
-        setupSyncAdButton();
+        content.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Información Básica</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>ID:</strong></td><td>${user.id}</td></tr>
+                        <tr><td><strong>Usuario:</strong></td><td>${user.username}</td></tr>
+                        <tr><td><strong>Email:</strong></td><td>${user.email || '-'}</td></tr>
+                        <tr><td><strong>Nombre:</strong></td><td>${user.fullname || '-'}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Estado y Permisos</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Activo:</strong></td><td>${user.is_active ? 'Sí' : 'No'}</td></tr>
+                        <tr><td><strong>Admin:</strong></td><td>${user.is_admin ? 'Sí' : 'No'}</td></tr>
+                        <tr><td><strong>Tipo:</strong></td><td>${user.auth_provider || 'Local'}</td></tr>
+                        <tr><td><strong>Creado:</strong></td><td>${user.created_at ? new Date(user.created_at).toLocaleString() : '-'}</td></tr>
+                    </table>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        content.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Error cargando información del usuario: ${error.message}
+            </div>
+        `;
+    }
+}
 
-        // Export users
-        function exportUsers() {
-            const format = prompt('Formato de exportación (csv/json):', 'csv');
-            if (!format || !['csv', 'json'].includes(format.toLowerCase())) {
-                return;
+function confirmDeleteUser(userId, username) {
+    if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${username}"?\n\nEsta acción no se puede deshacer.`)) {
+        deleteUser(userId);
+    }
+}
+
+async function deleteUser(userId) {
+    try {
+        const response = await fetch(`/ui/users/api/${userId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
             }
+        });
+        
+        if (response.ok) {
+            showToast('Usuario eliminado correctamente', 'success');
+            // Refrescar búsqueda en lugar de recargar página
+            setTimeout(() => performDynamicSearch(), 1000);
+        } else {
+            const error = await response.json();
+            showToast(`Error eliminando usuario: ${error.detail}`, 'danger');
+        }
+    } catch (error) {
+        showToast(`Error: ${error.message}`, 'danger');
+    }
+}
+
+// Función de debug existente
+function debugParams() {
+    console.group('🐛 Debug de parámetros');
+    console.log('Parámetros actuales:', getCurrentSearchParams());
+    console.log('URL actual:', window.location.href);
+    console.log('Last search params:', lastSearchParams);
+    console.groupEnd();
+    
+    alert('Ver consola (F12) para información de debug');
+}
+
+// Marcar tiempo de última búsqueda
+function updateLastSearchTime() {
+    const timeElement = document.getElementById('lastSearchTime');
+    if (timeElement) {
+        timeElement.textContent = new Date().toLocaleTimeString();
+    }
+}
+
+// Actualizar tiempo después de cada búsqueda
+if (typeof performDynamicSearch === 'function') {
+    const originalPerformSearch = performDynamicSearch;
+    performDynamicSearch = async function() {
+        await originalPerformSearch();
+        updateLastSearchTime();
+    };
+}
+</script>
+
+<script>
+    // SOLUCIÓN RÁPIDA - Reemplazar todo el JavaScript en users.html con esto
+// Para volver a la funcionalidad tradicional mientras implementas los endpoints API
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 Modo tradicional activado - sin búsqueda dinámica');
+    
+    // Funciones básicas necesarias para el template
+    
+    // =================== FUNCIONES DE COMPATIBILIDAD ===================
+    
+    function toggleAllUsers(masterCheckbox) {
+        const userCheckboxes = document.querySelectorAll('.user-checkbox');
+        userCheckboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+        updateBulkActions();
+    }
+    
+    function updateBulkActions() {
+        const selectedUsers = document.querySelectorAll('.user-checkbox:checked');
+        const bulkActionsDiv = document.getElementById('bulkActions');
+        const selectedCount = document.getElementById('selectedCount');
+        
+        if (bulkActionsDiv) {
+            if (selectedUsers.length > 0) {
+                bulkActionsDiv.style.display = 'block';
+                if (selectedCount) {
+                    selectedCount.textContent = selectedUsers.length;
+                }
+            } else {
+                bulkActionsDiv.style.display = 'none';
+            }
+        }
+    }
+    
+    // =================== BÚSQUEDA TRADICIONAL (SIN AJAX) ===================
+    
+    const searchForm = document.getElementById('searchForm');
+    if (searchForm) {
+        searchForm.addEventListener('submit', function(e) {
+            // No prevenir - dejar que funcione normalmente
+            console.log('📝 Enviando formulario de forma tradicional');
             
-            // Get current filters
+            // Opcional: Limpiar parámetros vacíos antes de enviar
+            const formData = new FormData(searchForm);
             const params = new URLSearchParams();
-            params.append('format', format.toLowerCase());
             
-            // Solo añadir parámetros si tienen valor
-            const search = document.getElementById('search');
-            if (search && search.value.trim()) {
-                params.append('search', search.value.trim());
-            }
-            
-            // Para el parámetro is_active, asegurar que sea un booleano válido o no incluirlo
-            const isActive = document.getElementById('is_active');
-            if (isActive && isActive.value === 'true') {
-                params.append('is_active', 'true');
-            } else if (isActive && isActive.value === 'false') {
-                params.append('is_active', 'false');
-            }
-            
-            // Solo incluir auth_provider si tiene un valor específico
-            const authProvider = document.getElementById('auth_provider');
-            if (authProvider && authProvider.value && authProvider.value !== '') {
-                params.append('auth_provider', authProvider.value);
-            }
-            
-            // Download file
-            window.location.href = `/ui/users/api/export?${params.toString()}`;
-        }
-
-        // Bulk operations
-        function selectAllUsers() {
-            const checkboxes = document.querySelectorAll('.user-checkbox');
-            checkboxes.forEach(cb => cb.checked = true);
-            updateBulkActions();
-        }
-
-        function deselectAllUsers() {
-            const checkboxes = document.querySelectorAll('.user-checkbox');
-            checkboxes.forEach(cb => cb.checked = false);
-            updateBulkActions();
-        }
-
-        function updateBulkActions() {
-            const checkedBoxes = document.querySelectorAll('.user-checkbox:checked');
-            const bulkActions = document.getElementById('bulkActions');
-            
-            if (bulkActions) {
-                if (checkedBoxes.length > 0) {
-                    bulkActions.style.display = 'block';
-                    const bulkCount = document.getElementById('bulkCount');
-                    if (bulkCount) {
-                        bulkCount.textContent = checkedBoxes.length;
-                    }
-                } else {
-                    bulkActions.style.display = 'none';
-                }
-            }
-        }
-
-        // Auto-refresh stats every 30 seconds
-        setInterval(loadUserStats, 30000);
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            // Ctrl+N: New user
-            if (e.ctrlKey && e.key === 'n') {
-                e.preventDefault();
-                window.location.href = '/ui/users/create';
-            }
-            
-            // Ctrl+F: Focus search
-            if (e.ctrlKey && e.key === 'f') {
-                e.preventDefault();
-                const searchInput = document.getElementById('search');
-                if (searchInput) {
-                    searchInput.focus();
+            for (const [key, value] of formData.entries()) {
+                if (value && value.trim() !== '') {
+                    params.append(key, value);
                 }
             }
             
-            // Ctrl+Shift+S: Sync AD
-            if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+            // Si hay parámetros, construir URL limpia
+            if (params.toString()) {
                 e.preventDefault();
-                const syncAdBtn = document.getElementById('syncAdBtn');
-                if (syncAdBtn) {
-                    syncAdBtn.click();
-                }
+                window.location.href = `/ui/users/?${params.toString()}`;
+            }
+            // Si no hay parámetros, ir a la página base
+            else if (window.location.search) {
+                e.preventDefault();
+                window.location.href = '/ui/users/';
             }
         });
-
-        // Status indicators with real-time updates
-        function updateConnectionStatus() {
-            fetch('/ui/users/api/test-ad')
-                .then(response => response.json())
-                .then(result => {
-                    const statusIndicator = document.getElementById('adStatus');
-                    if (statusIndicator) {
-                        if (result.success) {
-                            statusIndicator.className = 'badge bg-success';
-                            statusIndicator.innerHTML = '<i class="fas fa-check"></i> AD Conectado';
-                        } else {
-                            statusIndicator.className = 'badge bg-danger';
-                            statusIndicator.innerHTML = '<i class="fas fa-times"></i> AD Desconectado';
-                        }
-                    }
-                })
-                .catch(error => {
-                    const statusIndicator = document.getElementById('adStatus');
-                    if (statusIndicator) {
-                        statusIndicator.className = 'badge bg-warning';
-                        statusIndicator.innerHTML = '<i class="fas fa-exclamation"></i> AD Estado Desconocido';
-                    }
-                });
-        }
-
-        // Update AD status every 60 seconds
-        setInterval(updateConnectionStatus, 60000);
+    }
+    
+    // =================== BÚSQUEDA CON DEBOUNCE TRADICIONAL ===================
+    
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+        let searchTimeout;
         
-        // Show loading states for better UX
-        function showLoading(element, text = 'Cargando...') {
-            if (element) {
-                element.disabled = true;
-                element.dataset.originalText = element.innerHTML;
-                element.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${text}`;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            
+            // Búsqueda automática después de 1 segundo de inactividad
+            searchTimeout = setTimeout(() => {
+                if (searchForm) {
+                    searchForm.submit();
+                }
+            }, 1000);
+        });
+    }
+    
+    // =================== FILTROS AUTOMÁTICOS ===================
+    
+    const isActiveSelect = document.getElementById('is_active');
+    if (isActiveSelect) {
+        isActiveSelect.addEventListener('change', function() {
+            console.log('📊 Filtro is_active cambiado, enviando formulario');
+            if (searchForm) {
+                searchForm.submit();
             }
+        });
+    }
+    
+    const authProviderSelect = document.getElementById('auth_provider');
+    if (authProviderSelect) {
+        authProviderSelect.addEventListener('change', function() {
+            console.log('🔑 Filtro auth_provider cambiado, enviando formulario');
+            if (searchForm) {
+                searchForm.submit();
+            }
+        });
+    }
+    
+    // =================== BOTÓN LIMPIAR FILTROS ===================
+    
+    function addClearButton() {
+        const filterButton = document.getElementById('filterButton');
+        if (filterButton && !document.getElementById('clearFiltersBtn')) {
+            const clearButton = document.createElement('button');
+            clearButton.id = 'clearFiltersBtn';
+            clearButton.type = 'button';
+            clearButton.className = 'btn btn-outline-secondary ms-1';
+            clearButton.innerHTML = '<i class="fas fa-times"></i>';
+            clearButton.title = 'Limpiar filtros';
+            
+            clearButton.addEventListener('click', function() {
+                window.location.href = '/ui/users/';
+            });
+            
+            filterButton.parentElement.appendChild(clearButton);
         }
+    }
+    
+    addClearButton();
+    
+    // =================== FUNCIONES DE USUARIO ===================
+    
+    window.viewUserDetails = async function(userId) {
+        const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+        const content = document.getElementById('userDetailsContent');
+        
+        modal.show();
+        
+        try {
+            const response = await fetch(`/ui/users/api/${userId}`);
+            const user = await response.json();
+            
+            content.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Información Básica</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>ID:</strong></td><td>${user.id}</td></tr>
+                            <tr><td><strong>Usuario:</strong></td><td>${user.username}</td></tr>
+                            <tr><td><strong>Email:</strong></td><td>${user.email || '-'}</td></tr>
+                            <tr><td><strong>Nombre:</strong></td><td>${user.fullname || '-'}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Estado y Permisos</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Activo:</strong></td><td>${user.is_active ? 'Sí' : 'No'}</td></tr>
+                            <tr><td><strong>Admin:</strong></td><td>${user.is_admin ? 'Sí' : 'No'}</td></tr>
+                            <tr><td><strong>Tipo:</strong></td><td>${user.auth_provider || 'Local'}</td></tr>
+                            <tr><td><strong>Creado:</strong></td><td>${user.created_at ? new Date(user.created_at).toLocaleString() : '-'}</td></tr>
+                        </table>
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error cargando información del usuario: ${error.message}
+                </div>
+            `;
+        }
+    };
+    
+    window.confirmDeleteUser = function(userId, username) {
+        if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${username}"?\n\nEsta acción no se puede deshacer.`)) {
+            deleteUser(userId);
+        }
+    };
+    
+    window.deleteUser = async function(userId) {
+        try {
+            const response = await fetch(`/ui/users/api/${userId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (response.ok) {
+                showToast('Usuario eliminado correctamente', 'success');
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                const error = await response.json();
+                showToast(`Error eliminando usuario: ${error.detail}`, 'danger');
+            }
+        } catch (error) {
+            showToast(`Error: ${error.message}`, 'danger');
+        }
+    };
+    
+    // =================== FUNCIONES DE EXPORTACIÓN ===================
+    
+    window.exportUsers = function(format) {
+        const params = new URLSearchParams(window.location.search);
+        params.set('format', format.toLowerCase());
+        window.location.href = `/ui/users/api/export?${params.toString()}`;
+    };
+    
+    window.selectAllUsers = function() {
+        const checkboxes = document.querySelectorAll('.user-checkbox');
+        checkboxes.forEach(cb => cb.checked = true);
+        updateBulkActions();
+    };
+    
+    window.deselectAllUsers = function() {
+        const checkboxes = document.querySelectorAll('.user-checkbox');
+        checkboxes.forEach(cb => cb.checked = false);
+        updateBulkActions();
+    };
+    
+    window.toggleAllUsers = toggleAllUsers;
+    
+    // =================== FUNCIÓN DE TOAST ===================
+    
+    window.showToast = function(message, type = 'info', duration = 3000) {
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                max-width: 350px;
+            `;
+            document.body.appendChild(toastContainer);
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} alert-dismissible fade show shadow-sm`;
+        toast.style.marginBottom = '10px';
+        toast.innerHTML = `
+            <i class="fas fa-${type === 'danger' ? 'exclamation-triangle' : type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, duration);
+    };
+    
+    // =================== FUNCIONES DE DEBUG ===================
+    
+    window.debugParams = function() {
+        console.group('🐛 Debug de parámetros');
+        console.log('URL actual:', window.location.href);
+        console.log('Query string:', window.location.search);
+        console.log('Formulario:', searchForm);
+        console.groupEnd();
+        
+        alert('Modo tradicional activo. Ver consola (F12) para información de debug');
+    };
+    
+    // =================== ESCUCHADORES DE EVENTOS ===================
+    
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('user-checkbox')) {
+            updateBulkActions();
+        }
+    });
+    
+    // =================== MOSTRAR NOTIFICACIÓN ===================
+    
+    setTimeout(() => {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #17a2b8;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 300px;
+            z-index: 9999;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }, 1000);
+    
+    console.log('✅ Modo tradicional cargado completamente');
+});
+</script>
+    
 
-        function hideLoading(element) {
-            if (element) {
-                element.disabled = false;
-                element.innerHTML = element.dataset.originalText;
-            }
-        }
-    </script>
 {% endblock %}

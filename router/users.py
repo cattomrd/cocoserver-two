@@ -90,16 +90,44 @@ def require_admin(request: Request, db: Session):
     )
 
 # =================== PÁGINAS WEB ===================
-
+def parse_bool_param(value: Optional[str]) -> Optional[bool]:
+    """
+    Convierte parámetro string a booleano de forma robusta
+    Retorna None para valores vacíos o inválidos
+    """
+    if value is None:
+        return None
+    
+    # Limpiar el valor
+    value = str(value).strip()
+    
+    if value == "":
+        return None
+    
+    value_lower = value.lower()
+    
+    if value_lower in ("true", "1", "yes", "on"):
+        return True
+    elif value_lower in ("false", "0", "no", "off"):
+        return False
+    else:
+        # Para valores inválidos, retornar None en lugar de error
+        logger.warning(f"Valor booleano inválido recibido: '{value}', usando None")
+        return None
+    
 @router.get("/", response_class=HTMLResponse)
 async def list_users(
     request: Request, 
     search: Optional[str] = Query(None),
     source: Optional[str] = Query("local"),
-    is_active: Optional[bool] = Query(None),
+    is_active: Optional[str] = Query(None),  # CAMBIAR A str para manejar cadenas vacías
+    auth_provider: Optional[str] = Query(None),  # Agregar este parámetro si no existe
     db: Session = Depends(get_db)
 ):
     """Lista usuarios desde base local o Active Directory con manejo robusto de errores"""
+    
+    # Log para debugging (integrado en la función)
+    logger.info(f"🔍 Request a /ui/users/ - Parámetros raw: search='{search}', is_active='{is_active}', auth_provider='{auth_provider}'")
     
     # Verificar admin
     try:
@@ -107,10 +135,25 @@ async def list_users(
     except HTTPException:
         return RedirectResponse(url="/ui/login?error=Permisos de administrador requeridos", status_code=302)
     
+    # CONVERSIÓN ROBUSTA DE PARÁMETROS
+    is_active_bool = parse_bool_param(is_active)
+    
+    # Limpiar search y auth_provider también
+    search_clean = search.strip() if search else None
+    auth_provider_clean = auth_provider.strip() if auth_provider else None
+    
+    # Log después de la conversión
+    logger.info(f"✅ Parámetros procesados: search='{search_clean}', is_active={is_active_bool}, auth_provider='{auth_provider_clean}'")
+    
+    # Detectar parámetros problemáticos para logging
+    if is_active == "":
+        logger.warning("⚠️ PARÁMETRO PROBLEMÁTICO: is_active='' detectado y corregido a None")
+    
     if source == "ad":
-        return await handle_ad_user_listing(request, search, admin_user, db)
+        return await handle_ad_user_listing(request, search_clean, admin_user, db)
     else:
-        return await handle_local_user_listing(request, search, is_active, admin_user, db)
+        return await handle_local_user_listing(request, search_clean, is_active_bool, auth_provider_clean, admin_user, db)
+
 
 async def handle_ad_user_listing(request: Request, search: Optional[str], admin_user: dict, db: Session):
     """Maneja la listado de usuarios de Active Directory con verificaciones robustas"""
@@ -213,45 +256,111 @@ async def handle_ad_user_listing(request: Request, search: Optional[str], admin_
             }
         )
 
+
+    
 async def handle_local_user_listing(
     request: Request, 
     search: Optional[str], 
-    is_active: Optional[bool],
+    is_active: Optional[bool],  # YA es bool o None
+    auth_provider: Optional[str],
     admin_user: dict,
     db: Session
 ):
-    """Maneja el listado de usuarios locales con filtros"""
+    """Maneja el listado de usuarios locales con filtros robustos"""
     
-    # Construir query con filtros
-    query = db.query(User)
-    
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            (User.username.ilike(search_term)) | 
-            (User.email.ilike(search_term)) |
-            (User.fullname.ilike(search_term))
+    try:
+        # Log detallado para debugging SQL
+        logger.info(f"🗄️ Construyendo query SQL con filtros:")
+        logger.info(f"   - search: '{search}' (aplicar: {search is not None and len(search) > 0})")
+        logger.info(f"   - is_active: {is_active} (aplicar: {is_active is not None})")
+        logger.info(f"   - auth_provider: '{auth_provider}' (aplicar: {auth_provider is not None and len(auth_provider) > 0})")
+        
+        # Construir query base
+        query = db.query(User)
+        filters_applied = []
+        
+        # APLICAR FILTROS SOLO SI TIENEN VALORES VÁLIDOS
+        if search and len(search) > 0:
+            search_term = f"%{search}%"
+            query = query.filter(
+                (User.username.ilike(search_term)) | 
+                (User.email.ilike(search_term)) |
+                (User.fullname.ilike(search_term))
+            )
+            filters_applied.append(f"search LIKE '%{search}%'")
+        
+        # CRÍTICO: Solo filtrar por is_active si es explícitamente True o False
+        if is_active is not None:
+            query = query.filter(User.is_active == is_active)
+            filters_applied.append(f"is_active = {is_active}")
+        else:
+            logger.info("   ✅ is_active filter SKIPPED (None value)")
+        
+        # Filtro de auth_provider si existe el campo
+        if auth_provider and len(auth_provider) > 0:
+            if hasattr(User, 'auth_provider'):
+                query = query.filter(User.auth_provider == auth_provider)
+                filters_applied.append(f"auth_provider = '{auth_provider}'")
+            else:
+                logger.warning("⚠️ Campo auth_provider no existe en el modelo User")
+        
+        # Log de la query que se va a ejecutar
+        if filters_applied:
+            logger.info(f"🔍 Filtros SQL aplicados: {', '.join(filters_applied)}")
+        else:
+            logger.info("🔍 Sin filtros SQL aplicados - query base")
+        
+        # Ejecutar query
+        users = query.order_by(User.username).all()
+        
+        logger.info(f"✅ Query ejecutada exitosamente. Usuarios encontrados: {len(users)}")
+        
+        # Verificar si tenemos la variable AD_AVAILABLE
+        try:
+            ad_available = AD_AVAILABLE
+        except NameError:
+            ad_available = False
+            logger.warning("Variable AD_AVAILABLE no definida, usando False")
+        
+        return templates.TemplateResponse(
+            "/users/users.html",
+            {
+                "request": request, 
+                "title": "Gestión de Usuarios",
+                "users": users,
+                "search": search,  # Valor original para el template
+                "source": "local",
+                "is_active": is_active,  # Valor procesado para el template
+                "auth_provider": auth_provider,  # Valor original para el template
+                "current_user": admin_user,
+                "ad_available": ad_available
+            }
         )
-    
-    if is_active is not None:
-        query = query.filter(User.is_active == is_active)
-    
-    users = query.order_by(User.username).all()
-    
-    return templates.TemplateResponse(
-        "/users/users.html",
-        {
-            "request": request, 
-            "title": "Gestión de Usuarios",
-            "users": users,
-            "search": search,
-            "source": "local",
-            "is_active": is_active,
-            "current_user": admin_user,
-            "ad_available": AD_AVAILABLE
-        }
-    )
-
+        
+    except Exception as e:
+        logger.error(f"❌ Error en handle_local_user_listing: {str(e)}")
+        logger.error(f"💥 Parámetros que causaron el error:")
+        logger.error(f"   - search: '{search}' (type: {type(search)})")
+        logger.error(f"   - is_active: {is_active} (type: {type(is_active)})")
+        logger.error(f"   - auth_provider: '{auth_provider}' (type: {type(auth_provider)})")
+        
+        # Retornar template con error pero sin romper la aplicación
+        return templates.TemplateResponse(
+            "/users/users.html",
+            {
+                "request": request, 
+                "title": "Gestión de Usuarios - Error",
+                "users": [],
+                "search": search,
+                "source": "local",
+                "is_active": is_active,
+                "auth_provider": auth_provider,
+                "current_user": admin_user,
+                "error": f"Error al cargar usuarios: {str(e)}",
+                "ad_available": False
+            }
+        )
+        
 @router.get("/ad-debug", response_class=HTMLResponse)
 async def ad_debug_page(request: Request, db: Session = Depends(get_db)):
     """Página de diagnóstico de Active Directory"""
@@ -982,3 +1091,687 @@ async def view_user(request: Request, user_id: int, db: Session = Depends(get_db
             "current_user": admin_user
         }
     )
+
+@router.get("/api/debug-query")
+async def debug_query_params(
+    request: Request,
+    search: Optional[str] = Query(None),
+    is_active: Optional[str] = Query(None),
+    auth_provider: Optional[str] = Query(None)
+):
+    """Endpoint para debugging de parámetros y query SQL"""
+    
+    # Procesar parámetros igual que en list_users
+    is_active_bool = parse_bool_param(is_active)
+    search_clean = search.strip() if search else None
+    auth_provider_clean = auth_provider.strip() if auth_provider else None
+    
+    return {
+        "success": True,
+        "endpoint": "/ui/users/api/debug-query",
+        "timestamp": datetime.now().isoformat(),
+        "raw_params": {
+            "search": search,
+            "is_active": is_active,
+            "auth_provider": auth_provider
+        },
+        "processed_params": {
+            "search_clean": search_clean,
+            "is_active_bool": is_active_bool,
+            "auth_provider_clean": auth_provider_clean
+        },
+        "query_string": str(request.url.query),
+        "sql_safe": {
+            "search": search_clean is not None and len(search_clean) > 0,
+            "is_active": is_active_bool is not None,
+            "auth_provider": auth_provider_clean is not None and len(auth_provider_clean) > 0
+        },
+        "potential_sql": {
+            "base": "SELECT * FROM users",
+            "where_clauses": [
+                f"username ILIKE '%{search_clean}%'" if search_clean else None,
+                f"is_active = {is_active_bool}" if is_active_bool is not None else None,
+                f"auth_provider = '{auth_provider_clean}'" if auth_provider_clean else None
+            ]
+        }
+    }
+
+# =================== MIDDLEWARE PARA LOG DE PARÁMETROS ===================
+
+@router.get("/api/test-boolean-conversion")
+async def test_boolean_conversion():
+    """Endpoint para probar la conversión de booleanos"""
+    
+    test_cases = [
+        "",           # Cadena vacía (problemática)
+        "true",       # Válido
+        "false",      # Válido  
+        "1",          # Válido
+        "0",          # Válido
+        "invalid",    # Inválido
+        None,         # None
+        "  ",         # Solo espacios
+        "TRUE",       # Mayúsculas
+        "False"       # Mixto
+    ]
+    
+    results = {}
+    for test_value in test_cases:
+        try:
+            converted = parse_bool_param(test_value)
+            results[f"'{test_value}'"] = {
+                "converted_to": converted,
+                "type": str(type(converted).__name__),
+                "sql_safe": converted is not None
+            }
+        except Exception as e:
+            results[f"'{test_value}'"] = {
+                "error": str(e),
+                "sql_safe": False
+            }
+    
+    return {
+        "success": True,
+        "test_results": results,
+        "summary": {
+            "safe_conversions": len([r for r in results.values() if r.get("sql_safe", False)]),
+            "total_tests": len(test_cases)
+        }
+    }
+
+@router.get("/api/search")
+async def dynamic_search_users(
+    request: Request,
+    search: Optional[str] = Query(None, description="Término de búsqueda"),
+    is_active: Optional[str] = Query(None, description="Estado activo"),
+    auth_provider: Optional[str] = Query(None, description="Proveedor de autenticación"),
+    source: Optional[str] = Query("local", description="Fuente: local o ad"),
+    limit: int = Query(50, description="Máximo número de resultados"),
+    db: Session = Depends(get_db)
+):
+    """
+    API endpoint para búsqueda dinámica de usuarios
+    Retorna resultados en JSON para actualización en tiempo real
+    """
+    
+    try:
+        # Verificar autenticación
+        try:
+            admin_user = require_admin(request, db)
+        except HTTPException:
+            return JSONResponse({
+                "success": False,
+                "error": "Acceso denegado",
+                "users": [],
+                "total": 0
+            }, status_code=401)
+        
+        # Log para debugging
+        logger.info(f"🔍 Búsqueda dinámica - search: '{search}', is_active: '{is_active}', auth_provider: '{auth_provider}', source: '{source}'")
+        
+        # Procesar parámetros (usar la función helper que ya tenemos)
+        is_active_bool = parse_bool_param(is_active)
+        search_clean = search.strip() if search else None
+        auth_provider_clean = auth_provider.strip() if auth_provider else None
+        
+        # Determinar fuente de búsqueda
+        if source == "ad":
+            # Búsqueda en Active Directory
+            users_data = await search_ad_users_dynamic(search_clean, limit)
+        else:
+            # Búsqueda en usuarios locales
+            users_data = await search_local_users_dynamic(
+                db, search_clean, is_active_bool, auth_provider_clean, limit
+            )
+        
+        return JSONResponse({
+            "success": True,
+            "users": users_data["users"],
+            "total": users_data["total"],
+            "filters": {
+                "search": search_clean,
+                "is_active": is_active_bool,
+                "auth_provider": auth_provider_clean,
+                "source": source
+            },
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Error en búsqueda dinámica: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": f"Error en búsqueda: {str(e)}",
+            "users": [],
+            "total": 0
+        }, status_code=500)
+
+# =================== FUNCIÓN PARA BÚSQUEDA LOCAL DINÁMICA ===================
+
+async def search_local_users_dynamic(
+    db: Session,
+    search: Optional[str],
+    is_active: Optional[bool],
+    auth_provider: Optional[str],
+    limit: int = 50
+):
+    """
+    Función para búsqueda dinámica en usuarios locales
+    Retorna datos serializables para JSON
+    """
+    
+    try:
+        # Construir query
+        query = db.query(User)
+        
+        # Aplicar filtros
+        if search and len(search) > 0:
+            search_term = f"%{search}%"
+            query = query.filter(
+                (User.username.ilike(search_term)) | 
+                (User.email.ilike(search_term)) |
+                (User.fullname.ilike(search_term))
+            )
+        
+        if is_active is not None:
+            query = query.filter(User.is_active == is_active)
+        
+        if auth_provider and len(auth_provider) > 0:
+            if hasattr(User, 'auth_provider'):
+                query = query.filter(User.auth_provider == auth_provider)
+        
+        # Obtener total para paginación
+        total = query.count()
+        
+        # Aplicar límite y obtener resultados
+        users = query.order_by(User.username).limit(limit).all()
+        
+        # Serializar usuarios para JSON
+        users_data = []
+        for user in users:
+            user_dict = {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email or "",
+                "fullname": user.fullname or "",
+                "department": getattr(user, 'department', '') or "",
+                "is_active": user.is_active,
+                "is_admin": user.is_admin,
+                "auth_provider": getattr(user, 'auth_provider', 'local') or 'local',
+                "created_at": user.created_at.isoformat() if hasattr(user, 'created_at') and user.created_at else None,
+                "last_login": user.last_login.isoformat() if hasattr(user, 'last_login') and user.last_login else None,
+                "last_ad_sync": getattr(user, 'last_ad_sync', None)
+            }
+            users_data.append(user_dict)
+        
+        logger.info(f"✅ Búsqueda local dinámica: {len(users_data)} usuarios de {total} total")
+        
+        return {
+            "users": users_data,
+            "total": total,
+            "limit": limit
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error en búsqueda local dinámica: {str(e)}")
+        return {
+            "users": [],
+            "total": 0,
+            "limit": limit
+        }
+
+# =================== FUNCIÓN PARA BÚSQUEDA AD DINÁMICA ===================
+
+async def search_ad_users_dynamic(search: Optional[str], limit: int = 50):
+    """
+    Función para búsqueda dinámica en Active Directory
+    """
+    
+    try:
+        # Verificar si AD está disponible
+        if not AD_AVAILABLE or not ad_service:
+            return {
+                "users": [],
+                "total": 0,
+                "error": "Active Directory no disponible"
+            }
+        
+        # Realizar búsqueda en AD
+        if search and len(search) > 0:
+            if hasattr(ad_service, 'search_users'):
+                ad_users = ad_service.search_users(search, max_results=limit)
+            else:
+                # Fallback
+                all_users = ad_service.get_all_users(limit=500)
+                ad_users = [
+                    user for user in all_users 
+                    if search.lower() in user.get('username', '').lower() or
+                        search.lower() in user.get('fullname', '').lower() or
+                        search.lower() in user.get('email', '').lower()
+                ][:limit]
+        else:
+            ad_users = ad_service.get_all_users(limit=limit)
+        
+        logger.info(f"✅ Búsqueda AD dinámica: {len(ad_users)} usuarios encontrados")
+        
+        return {
+            "users": ad_users,
+            "total": len(ad_users),
+            "limit": limit
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error en búsqueda AD dinámica: {str(e)}")
+        return {
+            "users": [],
+            "total": 0,
+            "error": str(e)
+        }
+
+# =================== ENDPOINT PARA ESTADÍSTICAS DINÁMICAS ===================
+
+@router.get("/api/stats-dynamic")
+async def get_dynamic_user_stats(
+    request: Request,
+    search: Optional[str] = Query(None),
+    is_active: Optional[str] = Query(None),
+    auth_provider: Optional[str] = Query(None),
+    source: Optional[str] = Query("local"),
+    db: Session = Depends(get_db)
+):
+    """
+    Obtiene estadísticas basadas en los filtros actuales
+    """
+    
+    try:
+        # Verificar autenticación
+        admin_user = require_admin(request, db)
+        
+        # Procesar parámetros
+        is_active_bool = parse_bool_param(is_active)
+        search_clean = search.strip() if search else None
+        auth_provider_clean = auth_provider.strip() if auth_provider else None
+        
+        if source == "local":
+            # Estadísticas de usuarios locales con filtros
+            query = db.query(User)
+            
+            if search_clean:
+                search_term = f"%{search_clean}%"
+                query = query.filter(
+                    (User.username.ilike(search_term)) | 
+                    (User.email.ilike(search_term)) |
+                    (User.fullname.ilike(search_term))
+                )
+            
+            if is_active_bool is not None:
+                query = query.filter(User.is_active == is_active_bool)
+            
+            if auth_provider_clean:
+                if hasattr(User, 'auth_provider'):
+                    query = query.filter(User.auth_provider == auth_provider_clean)
+            
+            total_filtered = query.count()
+            active_filtered = query.filter(User.is_active == True).count()
+            admin_filtered = query.filter(User.is_admin == True).count()
+            
+            # Estadísticas generales (sin filtros)
+            total_general = db.query(User).count()
+            active_general = db.query(User).filter(User.is_active == True).count()
+            
+            return JSONResponse({
+                "success": True,
+                "filtered_stats": {
+                    "total": total_filtered,
+                    "active": active_filtered,
+                    "admins": admin_filtered,
+                    "inactive": total_filtered - active_filtered
+                },
+                "general_stats": {
+                    "total": total_general,
+                    "active": active_general,
+                    "inactive": total_general - active_general
+                },
+                "has_filters": bool(search_clean or is_active_bool is not None or auth_provider_clean)
+            })
+        
+        else:
+            # Para AD, estadísticas simples
+            return JSONResponse({
+                "success": True,
+                "filtered_stats": {
+                    "total": 0,
+                    "active": 0,
+                    "admins": 0,
+                    "inactive": 0
+                },
+                "general_stats": {
+                    "total": 0,
+                    "active": 0,
+                    "inactive": 0
+                },
+                "has_filters": False,
+                "note": "Estadísticas no disponibles para Active Directory"
+            })
+            
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo estadísticas dinámicas: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+        
+# AGREGAR ESTOS ENDPOINTS A TU users.py
+# Colocar después de tus endpoints existentes
+
+# =================== ENDPOINT PARA MOSTRAR FORMULARIO DE EDICIÓN ===================
+
+@router.get("/{user_id}/edit", response_class=HTMLResponse)
+async def edit_user_page(
+    request: Request, 
+    user_id: int, 
+    db: Session = Depends(get_db)
+):
+    """Página para editar usuario existente"""
+    try:
+        admin_user = require_admin(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/ui/login?error=Permisos de administrador requeridos", status_code=302)
+    
+    # Buscar el usuario
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return RedirectResponse(url="/ui/users?error=Usuario no encontrado", status_code=302)
+    
+    return templates.TemplateResponse(
+        "/users/user_detail.html",
+        {
+            "request": request, 
+            "title": f"Editar Usuario - {user.username}",
+            "user": user,
+            "current_user": admin_user
+        }
+    )
+
+# =================== ENDPOINT PARA PROCESAR EDICIÓN ===================
+
+@router.post("/{user_id}/edit")
+async def update_user(
+    request: Request,
+    user_id: int,
+    username: str = Form(...),
+    email: str = Form(...),
+    fullname: str = Form(""),
+    department: str = Form(""),
+    is_admin: bool = Form(False),
+    is_active: bool = Form(True),
+    password: Optional[str] = Form(None),
+    password_confirm: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """Actualizar usuario existente"""
+    try:
+        admin_user = require_admin(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/ui/login", status_code=302)
+    
+    # Buscar el usuario
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return RedirectResponse(url="/ui/users?error=Usuario no encontrado", status_code=302)
+    
+    try:
+        # Validar que no exista otro usuario con el mismo username/email
+        existing_user = db.query(User).filter(
+            User.id != user_id,
+            (User.username == username) | (User.email == email)
+        ).first()
+        
+        if existing_user:
+            error_msg = "Ya existe otro usuario con ese nombre de usuario o email"
+            return templates.TemplateResponse(
+                "/users/user_detail.html",
+                {
+                    "request": request,
+                    "title": f"Editar Usuario - {user.username}",
+                    "user": user,
+                    "error": error_msg,
+                    "current_user": admin_user,
+                    "form_data": {
+                        "username": username,
+                        "email": email,
+                        "fullname": fullname,
+                        "department": department,
+                        "is_admin": is_admin,
+                        "is_active": is_active
+                    }
+                }
+            )
+        
+        # Validar contraseñas si se proporcionaron
+        if password or password_confirm:
+            if password != password_confirm:
+                return templates.TemplateResponse(
+                    "/users/user_detail.html",
+                    {
+                        "request": request,
+                        "title": f"Editar Usuario - {user.username}",
+                        "user": user,
+                        "error": "Las contraseñas no coinciden",
+                        "current_user": admin_user,
+                        "form_data": {
+                            "username": username,
+                            "email": email,
+                            "fullname": fullname,
+                            "department": department,
+                            "is_admin": is_admin,
+                            "is_active": is_active
+                        }
+                    }
+                )
+            
+            if len(password) < 6:
+                return templates.TemplateResponse(
+                    "/users/user_detail.html",
+                    {
+                        "request": request,
+                        "title": f"Editar Usuario - {user.username}",
+                        "user": user,
+                        "error": "La contraseña debe tener al menos 6 caracteres",
+                        "current_user": admin_user,
+                        "form_data": {
+                            "username": username,
+                            "email": email,
+                            "fullname": fullname,
+                            "department": department,
+                            "is_admin": is_admin,
+                            "is_active": is_active
+                        }
+                    }
+                )
+        
+        # Actualizar campos del usuario
+        user.username = username
+        user.email = email
+        user.fullname = fullname or None
+        
+        # Solo actualizar department si el campo existe en el modelo
+        if hasattr(user, 'department'):
+            user.department = department or None
+        
+        user.is_admin = is_admin
+        user.is_active = is_active
+        
+        # Actualizar contraseña si se proporcionó
+        if password and len(password) >= 6:
+            # Aquí deberías usar tu función de hashing de contraseñas
+            # Por ejemplo, si usas bcrypt:
+            # from passlib.context import CryptContext
+            # pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            # user.password_hash = pwd_context.hash(password)
+            
+            # Implementación simple (reemplaza con tu método de hashing):
+            import hashlib
+            user.password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        db.commit()
+        
+        logger.info(f"Usuario {user.username} (ID: {user_id}) actualizado por {admin_user.get('username', 'unknown')}")
+        
+        return RedirectResponse(
+            url=f"/ui/users?success=Usuario {user.username} actualizado correctamente", 
+            status_code=302
+        )
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error actualizando usuario {user_id}: {str(e)}")
+        
+        return templates.TemplateResponse(
+            "/users/user_detail.html",
+            {
+                "request": request,
+                "title": f"Editar Usuario - {user.username}",
+                "user": user,
+                "error": f"Error al actualizar usuario: {str(e)}",
+                "current_user": admin_user,
+                "form_data": {
+                    "username": username,
+                    "email": email,
+                    "fullname": fullname,
+                    "department": department,
+                    "is_admin": is_admin,
+                    "is_active": is_active
+                }
+            }
+        )
+
+# =================== ENDPOINT PARA VER DETALLES DE USUARIO ===================
+
+@router.get("/{user_id}", response_class=HTMLResponse)
+async def view_user_details(
+    request: Request, 
+    user_id: int, 
+    db: Session = Depends(get_db)
+):
+    """Página para ver detalles de usuario"""
+    try:
+        admin_user = require_admin(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/ui/login?error=Permisos de administrador requeridos", status_code=302)
+    
+    # Buscar el usuario
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return RedirectResponse(url="/ui/users?error=Usuario no encontrado", status_code=302)
+    
+    return templates.TemplateResponse(
+        "/users/user_detail.html",
+        {
+            "request": request, 
+            "title": f"Usuario - {user.username}",
+            "user": user,
+            "current_user": admin_user
+        }
+    )
+
+# =================== ENDPOINT API PARA OBTENER USUARIO (PARA AJAX) ===================
+
+@router.get("/api/{user_id}")
+async def get_user_api(
+    request: Request,
+    user_id: int, 
+    db: Session = Depends(get_db)
+):
+    """API endpoint para obtener información de usuario (para AJAX)"""
+    try:
+        admin_user = require_admin(request, db)
+    except HTTPException:
+        return JSONResponse({
+            "success": False,
+            "error": "Acceso denegado"
+        }, status_code=401)
+    
+    # Buscar el usuario
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return JSONResponse({
+            "success": False,
+            "error": "Usuario no encontrado"
+        }, status_code=404)
+    
+    # Serializar usuario para JSON
+    user_data = {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email or "",
+        "fullname": user.fullname or "",
+        "department": getattr(user, 'department', '') or "",
+        "is_active": user.is_active,
+        "is_admin": user.is_admin,
+        "auth_provider": getattr(user, 'auth_provider', 'local') or 'local',
+        "created_at": user.created_at.isoformat() if hasattr(user, 'created_at') and user.created_at else None,
+        "last_login": user.last_login.isoformat() if hasattr(user, 'last_login') and user.last_login else None,
+        "last_ad_sync": getattr(user, 'last_ad_sync', None)
+    }
+    
+    return JSONResponse(user_data)
+
+# =================== ENDPOINT PARA ELIMINAR USUARIO ===================
+
+@router.delete("/api/{user_id}")
+async def delete_user_api(
+    request: Request,
+    user_id: int, 
+    db: Session = Depends(get_db)
+):
+    """API endpoint para eliminar usuario"""
+    try:
+        admin_user = require_admin(request, db)
+    except HTTPException:
+        return JSONResponse({
+            "success": False,
+            "error": "Acceso denegado"
+        }, status_code=401)
+    
+    # Buscar el usuario
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return JSONResponse({
+            "success": False,
+            "error": "Usuario no encontrado"
+        }, status_code=404)
+    
+    # Evitar que se elimine a sí mismo
+    if admin_user.get("id") == user_id:
+        return JSONResponse({
+            "success": False,
+            "error": "No puedes eliminarte a ti mismo"
+        }, status_code=400)
+    
+    # Evitar eliminar otros administradores (opcional)
+    if user.is_admin and admin_user.get("id") != user_id:
+        return JSONResponse({
+            "success": False,
+            "error": "No se pueden eliminar otros administradores"
+        }, status_code=400)
+    
+    try:
+        username = user.username
+        db.delete(user)
+        db.commit()
+        
+        logger.info(f"Usuario {username} (ID: {user_id}) eliminado por {admin_user.get('username', 'unknown')}")
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"Usuario {username} eliminado correctamente"
+        })
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error eliminando usuario {user_id}: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": f"Error al eliminar usuario: {str(e)}"
+        }, status_code=500)

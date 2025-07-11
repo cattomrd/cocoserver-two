@@ -32,21 +32,24 @@ class VideoResponse(VideoBase):
 
 # Esquemas para Playlist
 class PlaylistBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    start_date: Optional[datetime] = None  # Nueva fecha de inicio
-    expiration_date: Optional[datetime] = None
-    is_active: Optional[bool] = True
+    title: str = Field(..., max_length=255, description="Título de la playlist")
+    description: Optional[str] = Field(None, description="Descripción de la playlist")
+    start_date: Optional[datetime] = Field(None, description="Fecha de inicio de la playlist")
+    expiration_date: Optional[datetime] = Field(None, description="Fecha de expiración de la playlist")
+    is_active: bool = Field(True, description="Indica si la playlist está activa")
+    id_tienda: Optional[str] = Field(None, max_length=10, description="Código de la tienda asociada")
 
 class PlaylistCreate(PlaylistBase):
     pass
 
 class PlaylistUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    start_date: Optional[datetime] = None  # Nueva fecha de inicio
-    expiration_date: Optional[datetime] = None
-    is_active: Optional[bool] = None
+    title: Optional[str] = Field(None, max_length=255, description="Título de la playlist")
+    description: Optional[str] = Field(None, description="Descripción de la playlist")
+    start_date: Optional[datetime] = Field(None, description="Fecha de inicio de la playlist")
+    expiration_date: Optional[datetime] = Field(None, description="Fecha de expiración de la playlist")
+    is_active: Optional[bool] = Field(None, description="Indica si la playlist está activa")
+    id_tienda: Optional[str] = Field(None, max_length=10, description="Código de la tienda asociada")
+
 
 # Forward refs para resolver referencias circulares
 DeviceInfoRef = ForwardRef('DeviceInfo')
@@ -54,9 +57,11 @@ DeviceInfoRef = ForwardRef('DeviceInfo')
 class PlaylistResponse(PlaylistBase):
     id: int
     creation_date: datetime
-    videos: List[VideoResponse] = []
-    devices: List[DeviceInfoRef] = []
-    
+    updated_at: datetime
+    video_count: Optional[int] = 0
+    total_duration: Optional[int] = 0
+    tienda_nombre: Optional[str] = None
+
     class Config:
         orm_mode = True
 
