@@ -1,0 +1,805 @@
+
+{% extends "base.html" %}
+
+{% block title %}Dispositivos - Gestion Raspberry{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+            <h1 class="h2">
+                <i class="fas fa-film text-primary"></i>
+                Gestion Raspberry
+            </h1>
+        </div>
+        <!-- Bloque de filtros -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Filtros</h5>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="clearFilters">
+                        <i class="fas fa-times"></i> Limpiar todos
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <form action="/ui/devices" method="get" class="row g-3">
+                    <!-- Campo de búsqueda -->
+                    <div class="col-md-4 mb-2">
+                        <label for="search" class="form-label">Buscar dispositivos:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="search" name="search" 
+                                    placeholder="Nombre, ubicación, modelo..." value="{{ search_term if search_term else '' }}">
+                            <button type="button" class="btn btn-outline-secondary" id="clearSearch" title="Limpiar búsqueda">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Filtro por campo específico -->
+                    <div class="col-md-2 mb-2">
+                        <label for="search_field" class="form-label">Buscar en:</label>
+                        <select class="form-select" id="search_field" name="search_field">
+                            <option value="all" {% if search_field == 'all' %}selected{% endif %}>Todos los campos</option>
+                            <option value="name" {% if search_field == 'name' %}selected{% endif %}>Nombre</option>
+                            <option value="location" {% if search_field == 'location' %}selected{% endif %}>Ubicación</option>
+                            <option value="tienda" {% if search_field == 'tienda' %}selected{% endif %}>Tienda</option>
+                            <option value="model" {% if search_field == 'model' %}selected{% endif %}>Modelo</option>
+                            <option value="ip" {% if search_field == 'ip' %}selected{% endif %}>Dirección IP</option>
+                            <option value="lista" {% if search_field == 'lista' %}selected{% endif %}>Lista</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por Tiendas -->
+                    <div class="col-md-2 mb-2">
+                        <label for="tienda_filter" class="form-label">Tiendas:</label>
+                        <select class="form-select" id="tienda_filter" name="tienda_filter">
+                            <option value="">Todas las tiendas</option>
+                            <option value="SDQ">SDQ</option>
+                            <option value="STI">STI</option>
+                            <option value="PUJ">PUJ</option>
+                            <option value="LRM">LRM</option>
+                            <option value="BAY">BAY</option>
+                            <option value="PON">PON</option>
+                            <option value="CAR">CAR</option>
+                            <option value="ESC">ESC</option>
+                            <option value="PMI">PMI</option>
+                            <option value="IBZ">IBZ</option>
+                            <option value="MAH">MAH</option>                            
+                        </select>
+                    </div>
+                    <!-- Contador de resultados -->
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label">Resultados:</label>
+                        <div class="form-control-plaintext">
+                            <span id="resultsCounter" class="badge bg-info">{{ devices|length if devices else 0 }} dispositivos</span>
+                        </div>
+                    </div>
+
+                    <!-- Selector de elementos por página -->
+                    <div class="col-md-2 mb-3">
+                        <label for="pageSize" class="form-label">Por página:</label>
+                        <select class="form-select" id="pageSize">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="all">Todos</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="active_only" name="active_only" {% if active_only %}checked{% endif %}>
+                            <label class="form-check-label" for="active_only">
+                                Solo mostrar dispositivos activos
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary me-2">Aplicar Filtros</button>
+                        <a href="/ui/devices" class="btn btn-outline-secondary">Limpiar Filtros</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if devices %}
+        <!-- Controles de paginación superiores -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="d-flex align-items-center">
+                    <span class="me-3 text-muted">
+                        Mostrando <span id="showingFrom">1</span> a <span id="showingTo">25</span> 
+                        de <span id="totalRecords">{{ devices|length }}</span> dispositivos
+                    </span>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="d-flex justify-content-end" id="topPagination">
+                    <!-- Paginación se generará dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Vista de tabla para pantallas grandes -->
+        <div class="table-responsive d-none d-lg-block">
+            <table class="table table-striped table-hover table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="text-center" style="width: 60px;">
+                            <button type="button" class="btn p-0 text-white" onclick="sortTable('device_id')">
+                                ID <i class="fas fa-sort" id="sort-device_id"></i>
+                            </button>
+                        </th>
+                        <th style="width: 140px;">
+                            <button type="button" class="btn p-0 text-white" onclick="sortTable('name')">
+                                Nombre <i class="fas fa-sort" id="sort-name"></i>
+                            </button>
+                        </th>
+                        <th style="width: 120px;">
+                            <button type="button" class="btn p-0 text-white" onclick="sortTable('location')">
+                                Ubicación <i class="fas fa-sort" id="sort-location"></i>
+                            </button>
+                        </th>
+                        <th class="text-center" style="width: 60px;">
+                            <button type="button" class="btn p-0 text-white" onclick="sortTable('tienda')">
+                                Tienda <i class="fas fa-sort" id="sort-tienda"></i>
+                            </button>
+                        </th>
+                        <th style="width: 100px;">
+                            <button type="button" class="btn p-0 text-white" onclick="sortTable('model')">
+                                Modelo <i class="fas fa-sort" id="sort-model"></i>
+                            </button>
+                        </th>
+                        <th class="text-center" style="width: 100px;">IP LAN</th>
+                        <th class="text-center" style="width: 100px;">IP WLAN</th>
+                        <th class="text-center" style="width: 70px;">
+                            <button type="button" class="btn p-0 text-white" onclick="sortTable('is_active')">
+                                Estado <i class="fas fa-sort" id="sort-is_active"></i>
+                            </button>
+                        </th>
+                        <th class="text-center" style="width: 100px;">Lista</th>
+                        <th style="width: 120px;">
+                            <button type="button" class="btn p-0 text-white" onclick="sortTable('last_seen')">
+                                Última Act. <i class="fas fa-sort" id="sort-last_seen"></i>
+                            </button>
+                        </th>
+                        <th class="text-center" style="width: 80px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="devicesTableBody">
+                    {% for device in devices %}
+                    <tr data-device-id="{{ device.device_id }}">
+                        <td class="text-center small fw-bold" text-decoration-none p-0>{{ device.device_id }}</td>
+                        <td class="small">
+                            <div class="text-truncate fw-bold" style="max-width: 130px;" title="{{ device.name }}">
+                                {{ device.name }}
+                            </div>
+                        </td>
+                        <td class="small">
+                            <div class="text-truncate fw-bold" style="max-width: 110px;" title="{{ device.location }}">
+                                {{ device.location }}
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary small">{{ device.tienda }}</span>
+                        </td>
+                        <td class="small">
+                            <div class="text-truncate" style="max-width: 90px;" title="{{ device.model }}">
+                                {{ device.model }}
+                            </div>
+                        </td>
+                        <td class="text-center small font-monospace">{{ device.ip_address_lan }}</td>
+                        <td class="text-center small font-monospace">{{ device.ip_address_wifi }}</td>
+                        <td class="text-center">
+                            {% if device.is_active %}
+                            <span class="badge bg-success small">Activo</span>
+                            {% else %}
+                            <span class="badge bg-danger small">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if device.playlists %}
+                                {% for playlist in device.playlists %}
+                                    <span class="badge bg-info small d-block mb-1" style="font-size: 0.65rem;">{{ playlist.title }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="badge bg-secondary small">Sin lista</span>
+                            {% endif %}
+                        </td>
+                        <td class="small">
+                            <div class="text-nowrap">{{ device.last_seen.strftime('%m-%d %H:%M') }}</div>
+                        </td>
+                        <td class="text-center">
+                            <a href="/ui/devices/{{ device.device_id }}" class="btn btn-sm btn-primary px-2 py-1" title="Ver detalles">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Vista de tarjetas para pantallas medianas -->
+        <div class="d-none d-md-block d-lg-none" id="cardsViewMedium">
+            <div class="row" id="devicesCardsBodyMedium">
+                {% for device in devices %}
+                <div class="col-md-6 mb-3" data-device-id="{{ device.device_id }}">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 fw-bold">{{ device.name }}</h6>
+                            {% if device.is_active %}
+                            <span class="badge bg-success">Activo</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inactivo</span>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-sm">
+                                <div class="col-6">
+                                    <p class="mb-1"><strong>ID:</strong> <span class="fw-bold">{{ device.device_id }}</span></p>
+                                    <p class="mb-1"><strong>Ubicación:</strong> <span class="fw-bold">{{ device.location }}</span></p>
+                                    <p class="mb-1"><strong>Tienda:</strong> {{ device.tienda }}</p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="mb-1"><strong>Modelo:</strong> {{ device.model }}</p>
+                                    <p class="mb-1"><strong>IP LAN:</strong> {{ device.ip_address_lan }}</p>
+                                    <p class="mb-1"><strong>IP WLAN:</strong> {{ device.ip_address_wifi }}</p>
+                                </div>
+                            </div>
+                            <hr class="my-2">
+                            <div class="mb-2">
+                                <strong>Lista:</strong>
+                                {% if device.playlists %}
+                                    {% for playlist in device.playlists %}
+                                        <span class="badge bg-info me-1">{{ playlist.title }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="badge bg-secondary">Sin lista</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">Última actividad: {{ device.last_seen.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        <div class="card-footer">
+                            <a href="/ui/devices/{{ device.device_id }}" class="btn btn-sm btn-primary w-100">Ver Detalles</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Vista de lista para pantallas pequeñas -->
+        <div class="d-block d-md-none" id="listViewSmall">
+            <div id="devicesListBodySmall">
+                {% for device in devices %}
+                <div class="card mb-2" data-device-id="{{ device.device_id }}">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">{{ device.name }}</h6>
+                                <div class="d-flex align-items-center mb-1">
+                                    <span class="badge bg-secondary me-2">{{ device.tienda }}</span>
+                                    {% if device.is_active %}
+                                    <span class="badge bg-success">Activo</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Inactivo</span>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted d-block"><span class="fw-bold">ID: {{ device.device_id }}</span> • <span class="fw-bold">{{ device.location }}</span> • {{ device.ip_address_wifi }}</small>
+                                <small class="text-muted d-block">{{ device.ip_address_lan }}</small>
+                            </div>
+                            <div class="text-end">
+                                <a href="/ui/devices/{{ device.device_id }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Controles de paginación inferiores -->
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="d-flex align-items-center">
+                    <span class="me-3 text-muted">Ir a página:</span>
+                    <div class="input-group" style="width: 120px;">
+                        <input type="number" class="form-control" id="pageInput" min="1" value="1">
+                        <button class="btn btn-outline-secondary" type="button" onclick="goToPage()">Ir</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="d-flex justify-content-end" id="bottomPagination">
+                    <!-- Paginación se generará dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="alert alert-info" id="noResultsAlert">
+            No hay dispositivos que coincidan con los criterios de búsqueda.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table th button {
+        border: none !important;
+        background: none !important;
+        font-weight: bold !important;
+        color: inherit !important;
+    }
+
+    .table th button:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: inherit !important;
+    }
+
+    .table th button:focus {
+        box-shadow: none !important;
+        color: inherit !important;
+    }
+
+    .table th button i.fa-sort-up,
+    .table th button i.fa-sort-down {
+        color: #0d6efd !important;
+    }
+
+    .pagination-controls {
+        gap: 8px;
+    }
+
+    .pagination-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .page-input {
+        width: 60px;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Variables globales para paginación
+    let allDevices = [];
+    let filteredDevices = [];
+    let currentPage = 1;
+    let pageSize = 25;
+    let currentSort = { field: '', direction: 'asc' };
+    
+    // Elementos del DOM
+    const searchInput = document.getElementById('search');
+    const searchField = document.getElementById('search_field');
+    const tiendaFilter = document.getElementById('tienda_filter');
+    const activeOnly = document.getElementById('active_only');
+    const clearSearchBtn = document.getElementById('clearSearch');
+    const clearFiltersBtn = document.getElementById('clearFilters');
+    const resultsCounter = document.getElementById('resultsCounter');
+    const pageSizeSelect = document.getElementById('pageSize');
+    const pageInput = document.getElementById('pageInput');
+    const tableBody = document.getElementById('devicesTableBody');
+    const noResultsAlert = document.getElementById('noResultsAlert');
+    
+    // Inicializar datos desde la tabla
+    function initializeData() {
+        allDevices = [];
+        const tableRows = document.querySelectorAll('#devicesTableBody tr[data-device-id]');
+        
+        tableRows.forEach((row) => {
+            const cells = row.cells;
+            if (cells.length > 0) {
+                const device = {
+                    element: row,
+                    device_id: cells[0].textContent.trim(),
+                    name: cells[1].textContent.trim(),
+                    location: cells[2].textContent.trim(),
+                    tienda: cells[3].textContent.trim(),
+                    model: cells[4].textContent.trim(),
+                    ip_lan: cells[5].textContent.trim(),
+                    ip_wlan: cells[6].textContent.trim(),
+                    is_active: cells[7].textContent.includes('Activo'),
+                    playlist: cells[8].textContent.trim(),
+                    last_seen: cells[9].textContent.trim()
+                };
+                
+                // Referencias a elementos en otras vistas
+                const deviceId = device.device_id;
+                device.cardElement = document.querySelector(`#devicesCardsBodyMedium > div[data-device-id="${deviceId}"]`);
+                device.listElement = document.querySelector(`#devicesListBodySmall > div[data-device-id="${deviceId}"]`);
+                
+                allDevices.push(device);
+            }
+        });
+        
+        filteredDevices = [...allDevices];
+        console.log('Datos inicializados:', allDevices.length, 'dispositivos');
+    }
+    
+    // Función para filtrar dispositivos
+    function filterDevices() {
+        const searchTerm = searchInput?.value.toLowerCase() || '';
+        const field = searchField?.value || 'all';
+        const selectedTienda = tiendaFilter?.value.toLowerCase() || '';
+        const showActiveOnly = activeOnly?.checked || false;
+        
+        filteredDevices = allDevices.filter(device => {
+            // Filtro de actividad
+            if (showActiveOnly && !device.is_active) {
+                return false;
+            }
+            
+            // Filtro de tienda
+            if (selectedTienda && !device.tienda.toLowerCase().includes(selectedTienda)) {
+                return false;
+            }
+            
+            // Filtro de búsqueda
+            if (!searchTerm) {
+                return true;
+            }
+            
+            switch (field) {
+                case 'name':
+                    return device.name.toLowerCase().includes(searchTerm);
+                case 'location':
+                    return device.location.toLowerCase().includes(searchTerm);
+                case 'tienda':
+                    return device.tienda.toLowerCase().includes(searchTerm);
+                case 'model':
+                    return device.model.toLowerCase().includes(searchTerm);
+                case 'ip':
+                    return device.ip_lan.toLowerCase().includes(searchTerm) || 
+                           device.ip_wlan.toLowerCase().includes(searchTerm);
+                case 'lista':
+                    return device.playlist.toLowerCase().includes(searchTerm);
+                default: // 'all'
+                    return device.device_id.toLowerCase().includes(searchTerm) ||
+                           device.name.toLowerCase().includes(searchTerm) ||
+                           device.location.toLowerCase().includes(searchTerm) ||
+                           device.tienda.toLowerCase().includes(searchTerm) ||
+                           device.model.toLowerCase().includes(searchTerm) ||
+                           device.ip_lan.toLowerCase().includes(searchTerm) ||
+                           device.ip_wlan.toLowerCase().includes(searchTerm) ||
+                           device.playlist.toLowerCase().includes(searchTerm);
+            }
+        });
+        
+        currentPage = 1;
+        updateDisplay();
+    }
+    
+    // Función para ordenar dispositivos
+    function sortDevices(field) {
+        if (currentSort.field === field) {
+            currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSort.field = field;
+            currentSort.direction = 'asc';
+        }
+        
+        filteredDevices.sort((a, b) => {
+            let aVal = a[field];
+            let bVal = b[field];
+            
+            // Tratamiento especial para diferentes tipos de datos
+            if (field === 'last_seen') {
+                aVal = new Date(aVal);
+                bVal = new Date(bVal);
+            } else if (field === 'is_active') {
+                aVal = aVal ? 1 : 0;
+                bVal = bVal ? 1 : 0;
+            } else if (field === 'device_id') {
+                aVal = parseInt(aVal) || 0;
+                bVal = parseInt(bVal) || 0;
+            } else {
+                aVal = String(aVal).toLowerCase();
+                bVal = String(bVal).toLowerCase();
+            }
+            
+            let result = 0;
+            if (aVal < bVal) result = -1;
+            if (aVal > bVal) result = 1;
+            
+            return currentSort.direction === 'desc' ? -result : result;
+        });
+        
+        updateSortIcons();
+        updateDisplay();
+    }
+    
+    // Actualizar iconos de ordenamiento
+    function updateSortIcons() {
+        // Resetear todos los iconos
+        document.querySelectorAll('.table th i[id^="sort-"]').forEach(icon => {
+            icon.className = 'fas fa-sort';
+        });
+        
+        // Actualizar icono activo
+        if (currentSort.field) {
+            const icon = document.getElementById(`sort-${currentSort.field}`);
+            if (icon) {
+                icon.className = currentSort.direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+            }
+        }
+    }
+    
+    // Función para actualizar la visualización
+    function updateDisplay() {
+        updateResultsCounter();
+        updatePagination();
+        displayCurrentPage();
+        updateNoResultsMessage();
+    }
+    
+    // Actualizar contador de resultados
+    function updateResultsCounter() {
+        const count = filteredDevices.length;
+        if (resultsCounter) {
+            resultsCounter.textContent = `${count} dispositivo${count !== 1 ? 's' : ''}`;
+            resultsCounter.className = `badge ${count > 0 ? 'bg-info' : 'bg-warning'}`;
+        }
+        
+        // Actualizar total de registros
+        const totalRecordsSpan = document.getElementById('totalRecords');
+        if (totalRecordsSpan) {
+            totalRecordsSpan.textContent = count;
+        }
+    }
+    
+    // Actualizar paginación
+    function updatePagination() {
+        const totalPages = pageSize === 'all' ? 1 : Math.ceil(filteredDevices.length / parseInt(pageSize));
+        
+        // Actualizar input de página
+        if (pageInput) {
+            pageInput.max = totalPages;
+            pageInput.value = currentPage;
+        }
+        
+        // Generar paginación
+        generatePagination(totalPages);
+        
+        // Actualizar información de "mostrando"
+        updateShowingInfo();
+    }
+    
+    // Generar controles de paginación
+    function generatePagination(totalPages) {
+        const topPagination = document.getElementById('topPagination');
+        const bottomPagination = document.getElementById('bottomPagination');
+        
+        const paginationHTML = createPaginationHTML(totalPages);
+        
+        if (topPagination) topPagination.innerHTML = paginationHTML;
+        if (bottomPagination) bottomPagination.innerHTML = paginationHTML;
+    }
+    
+    // Crear HTML de paginación corregido
+    function createPaginationHTML(totalPages) {
+        if (totalPages <= 1) return '';
+        
+        return `
+            <div class="d-flex align-items-center pagination-controls">
+                <button class="btn btn-sm btn-outline-secondary" 
+                        onclick="changePage(1)" 
+                        title="Primera página"
+                        ${currentPage === 1 ? 'disabled' : ''}>
+                    <i class="fas fa-angle-double-left"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" 
+                        onclick="changePage(${currentPage - 1})" 
+                        title="Página anterior"
+                        ${currentPage === 1 ? 'disabled' : ''}>
+                    <i class="fas fa-angle-left"></i>
+                </button>
+                
+                <div class="pagination-info">
+                    <small class="text-muted">Página</small>
+                    <input type="number" class="form-control form-control-sm page-input" 
+                           min="1" max="${totalPages}" value="${currentPage}" 
+                           onchange="changePage(parseInt(this.value))"
+                           onkeypress="if(event.key==='Enter') changePage(parseInt(this.value))">
+                    <small class="text-muted">de ${totalPages}</small>
+                </div>
+                
+                <button class="btn btn-sm btn-outline-secondary" 
+                        onclick="changePage(${currentPage + 1})" 
+                        title="Página siguiente"
+                        ${currentPage === totalPages ? 'disabled' : ''}>
+                    <i class="fas fa-angle-right"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" 
+                        onclick="changePage(${totalPages})" 
+                        title="Última página"
+                        ${currentPage === totalPages ? 'disabled' : ''}>
+                    <i class="fas fa-angle-double-right"></i>
+                </button>
+            </div>
+        `;
+    }
+    
+    // Actualizar información de "mostrando"
+    function updateShowingInfo() {
+        const showingFrom = document.getElementById('showingFrom');
+        const showingTo = document.getElementById('showingTo');
+        
+        if (pageSize === 'all' || filteredDevices.length === 0) {
+            if (showingFrom) showingFrom.textContent = filteredDevices.length > 0 ? '1' : '0';
+            if (showingTo) showingTo.textContent = filteredDevices.length;
+        } else {
+            const from = filteredDevices.length === 0 ? 0 : (currentPage - 1) * parseInt(pageSize) + 1;
+            const to = Math.min(currentPage * parseInt(pageSize), filteredDevices.length);
+            
+            if (showingFrom) showingFrom.textContent = from;
+            if (showingTo) showingTo.textContent = to;
+        }
+    }
+    
+    // Mostrar página actual en todas las vistas
+    function displayCurrentPage() {
+        // Ocultar todos los elementos
+        allDevices.forEach(device => {
+            if (device.element) device.element.style.display = 'none';
+            if (device.cardElement) device.cardElement.style.display = 'none';
+            if (device.listElement) device.listElement.style.display = 'none';
+        });
+        
+        // Mostrar elementos de la página actual
+        let devicesToShow = [];
+        
+        if (pageSize === 'all') {
+            devicesToShow = filteredDevices;
+        } else {
+            const start = (currentPage - 1) * parseInt(pageSize);
+            const end = start + parseInt(pageSize);
+            devicesToShow = filteredDevices.slice(start, end);
+        }
+        
+        devicesToShow.forEach(device => {
+            if (device.element) device.element.style.display = '';
+            if (device.cardElement) device.cardElement.style.display = '';
+            if (device.listElement) device.listElement.style.display = '';
+        });
+        
+        console.log(`Mostrando página ${currentPage}, elementos: ${devicesToShow.length}`);
+    }
+    
+    // Actualizar mensaje de "no hay resultados"
+    function updateNoResultsMessage() {
+        const tableContainer = document.querySelector('.table-responsive');
+        const cardsContainer = document.getElementById('cardsViewMedium');
+        const listContainer = document.getElementById('listViewSmall');
+        
+        if (filteredDevices.length === 0) {
+            if (tableContainer) tableContainer.style.display = 'none';
+            if (cardsContainer) cardsContainer.style.display = 'none';
+            if (listContainer) listContainer.style.display = 'none';
+            if (noResultsAlert) noResultsAlert.style.display = 'block';
+        } else {
+            if (tableContainer) tableContainer.style.display = '';
+            if (cardsContainer) cardsContainer.style.display = '';
+            if (listContainer) listContainer.style.display = '';
+            if (noResultsAlert) noResultsAlert.style.display = 'none';
+        }
+    }
+    
+    // Funciones globales para uso desde HTML
+    window.changePage = function(page) {
+        const totalPages = pageSize === 'all' ? 1 : Math.ceil(filteredDevices.length / parseInt(pageSize));
+        
+        if (page < 1 || page > totalPages || isNaN(page)) {
+            console.log('Página inválida:', page);
+            return;
+        }
+        
+        currentPage = page;
+        console.log('Cambiando a página:', currentPage);
+        updateDisplay();
+        
+        // Scroll al top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    
+    // Ir a página específica
+    window.goToPage = function() {
+        const page = parseInt(pageInput.value);
+        if (!isNaN(page)) {
+            changePage(page);
+        }
+    };
+    
+    // Función de ordenamiento global
+    window.sortTable = function(field) {
+        console.log('Ordenando por:', field);
+        sortDevices(field);
+    };
+    
+    // Cambiar tamaño de página
+    function changePageSize(newSize) {
+        pageSize = newSize;
+        currentPage = 1;
+        console.log('Nuevo tamaño de página:', pageSize);
+        updateDisplay();
+    }
+    
+    // Limpiar todos los filtros
+    function clearAllFilters() {
+        if (searchInput) searchInput.value = '';
+        if (searchField) searchField.value = 'all';
+        if (tiendaFilter) tiendaFilter.value = '';
+        if (activeOnly) activeOnly.checked = false;
+        filterDevices();
+    }
+    
+    // Event listeners
+    if (searchInput) {
+        searchInput.addEventListener('input', filterDevices);
+    }
+    
+    if (searchField) {
+        searchField.addEventListener('change', filterDevices);
+    }
+    
+    if (tiendaFilter) {
+        tiendaFilter.addEventListener('change', filterDevices);
+    }
+    
+    if (activeOnly) {
+        activeOnly.addEventListener('change', filterDevices);
+    }
+    
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (searchInput) {
+                searchInput.value = '';
+                filterDevices();
+            }
+        });
+    }
+    
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            clearAllFilters();
+        });
+    }
+    
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', function() {
+            changePageSize(this.value);
+        });
+    }
+    
+    if (pageInput) {
+        pageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                goToPage();
+            }
+        });
+    }
+    
+    // Inicialización
+    console.log('Inicializando dispositivos...');
+    initializeData();
+    filterDevices(); // Aplicar filtros iniciales si los hay
+    console.log('Inicialización completada');
+});
+</script>
+{% endblock %}
