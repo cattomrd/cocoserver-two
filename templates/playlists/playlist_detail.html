@@ -433,15 +433,14 @@
                                 </div>
                                 
                                 <div class="mb-3 form-check">
-                                    <label class="form-check-label text-dark fw-bold" for="playlist_is_active">
-                                        <strong>Lista activa</strong>
-                                    </label>                                    
                                     <input type="checkbox" 
                                         class="form-check playlist-form-control" 
                                         id="playlist_is_active" 
                                         {% if playlist and playlist.is_active %}checked{% endif %} 
                                         disabled>
-
+                                    <label class="form-check-label text-dark fw-bold" for="playlist_is_active">
+                                        <strong>Lista activa</strong>
+                                    </label>
                                 </div>
                             </div>
                             
