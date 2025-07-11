@@ -90,16 +90,44 @@ def require_admin(request: Request, db: Session):
     )
 
 # =================== PÁGINAS WEB ===================
-
+def parse_bool_param(value: Optional[str]) -> Optional[bool]:
+    """
+    Convierte parámetro string a booleano de forma robusta
+    Retorna None para valores vacíos o inválidos
+    """
+    if value is None:
+        return None
+    
+    # Limpiar el valor
+    value = str(value).strip()
+    
+    if value == "":
+        return None
+    
+    value_lower = value.lower()
+    
+    if value_lower in ("true", "1", "yes", "on"):
+        return True
+    elif value_lower in ("false", "0", "no", "off"):
+        return False
+    else:
+        # Para valores inválidos, retornar None en lugar de error
+        logger.warning(f"Valor booleano inválido recibido: '{value}', usando None")
+        return None
+    
 @router.get("/", response_class=HTMLResponse)
 async def list_users(
     request: Request, 
     search: Optional[str] = Query(None),
     source: Optional[str] = Query("local"),
-    is_active: Optional[bool] = Query(None),
+    is_active: Optional[str] = Query(None),  # CAMBIAR A str para manejar cadenas vacías
+    auth_provider: Optional[str] = Query(None),  # Agregar este parámetro si no existe
     db: Session = Depends(get_db)
 ):
     """Lista usuarios desde base local o Active Directory con manejo robusto de errores"""
+    
+    # Log para debugging (integrado en la función)
+    logger.info(f"🔍 Request a /ui/users/ - Parámetros raw: search='{search}', is_active='{is_active}', auth_provider='{auth_provider}'")
     
     # Verificar admin
     try:
@@ -107,10 +135,25 @@ async def list_users(
     except HTTPException:
         return RedirectResponse(url="/ui/login?error=Permisos de administrador requeridos", status_code=302)
     
+    # CONVERSIÓN ROBUSTA DE PARÁMETROS
+    is_active_bool = parse_bool_param(is_active)
+    
+    # Limpiar search y auth_provider también
+    search_clean = search.strip() if search else None
+    auth_provider_clean = auth_provider.strip() if auth_provider else None
+    
+    # Log después de la conversión
+    logger.info(f"✅ Parámetros procesados: search='{search_clean}', is_active={is_active_bool}, auth_provider='{auth_provider_clean}'")
+    
+    # Detectar parámetros problemáticos para logging
+    if is_active == "":
+        logger.warning("⚠️ PARÁMETRO PROBLEMÁTICO: is_active='' detectado y corregido a None")
+    
     if source == "ad":
-        return await handle_ad_user_listing(request, search, admin_user, db)
+        return await handle_ad_user_listing(request, search_clean, admin_user, db)
     else:
-        return await handle_local_user_listing(request, search, is_active, admin_user, db)
+        return await handle_local_user_listing(request, search_clean, is_active_bool, auth_provider_clean, admin_user, db)
+
 
 async def handle_ad_user_listing(request: Request, search: Optional[str], admin_user: dict, db: Session):
     """Maneja la listado de usuarios de Active Directory con verificaciones robustas"""
@@ -213,45 +256,111 @@ async def handle_ad_user_listing(request: Request, search: Optional[str], admin_
             }
         )
 
+
+    
 async def handle_local_user_listing(
     request: Request, 
     search: Optional[str], 
-    is_active: Optional[bool],
+    is_active: Optional[bool],  # YA es bool o None
+    auth_provider: Optional[str],
     admin_user: dict,
     db: Session
 ):
-    """Maneja el listado de usuarios locales con filtros"""
+    """Maneja el listado de usuarios locales con filtros robustos"""
     
-    # Construir query con filtros
-    query = db.query(User)
-    
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            (User.username.ilike(search_term)) | 
-            (User.email.ilike(search_term)) |
-            (User.fullname.ilike(search_term))
+    try:
+        # Log detallado para debugging SQL
+        logger.info(f"🗄️ Construyendo query SQL con filtros:")
+        logger.info(f"   - search: '{search}' (aplicar: {search is not None and len(search) > 0})")
+        logger.info(f"   - is_active: {is_active} (aplicar: {is_active is not None})")
+        logger.info(f"   - auth_provider: '{auth_provider}' (aplicar: {auth_provider is not None and len(auth_provider) > 0})")
+        
+        # Construir query base
+        query = db.query(User)
+        filters_applied = []
+        
+        # APLICAR FILTROS SOLO SI TIENEN VALORES VÁLIDOS
+        if search and len(search) > 0:
+            search_term = f"%{search}%"
+            query = query.filter(
+                (User.username.ilike(search_term)) | 
+                (User.email.ilike(search_term)) |
+                (User.fullname.ilike(search_term))
+            )
+            filters_applied.append(f"search LIKE '%{search}%'")
+        
+        # CRÍTICO: Solo filtrar por is_active si es explícitamente True o False
+        if is_active is not None:
+            query = query.filter(User.is_active == is_active)
+            filters_applied.append(f"is_active = {is_active}")
+        else:
+            logger.info("   ✅ is_active filter SKIPPED (None value)")
+        
+        # Filtro de auth_provider si existe el campo
+        if auth_provider and len(auth_provider) > 0:
+            if hasattr(User, 'auth_provider'):
+                query = query.filter(User.auth_provider == auth_provider)
+                filters_applied.append(f"auth_provider = '{auth_provider}'")
+            else:
+                logger.warning("⚠️ Campo auth_provider no existe en el modelo User")
+        
+        # Log de la query que se va a ejecutar
+        if filters_applied:
+            logger.info(f"🔍 Filtros SQL aplicados: {', '.join(filters_applied)}")
+        else:
+            logger.info("🔍 Sin filtros SQL aplicados - query base")
+        
+        # Ejecutar query
+        users = query.order_by(User.username).all()
+        
+        logger.info(f"✅ Query ejecutada exitosamente. Usuarios encontrados: {len(users)}")
+        
+        # Verificar si tenemos la variable AD_AVAILABLE
+        try:
+            ad_available = AD_AVAILABLE
+        except NameError:
+            ad_available = False
+            logger.warning("Variable AD_AVAILABLE no definida, usando False")
+        
+        return templates.TemplateResponse(
+            "/users/users.html",
+            {
+                "request": request, 
+                "title": "Gestión de Usuarios",
+                "users": users,
+                "search": search,  # Valor original para el template
+                "source": "local",
+                "is_active": is_active,  # Valor procesado para el template
+                "auth_provider": auth_provider,  # Valor original para el template
+                "current_user": admin_user,
+                "ad_available": ad_available
+            }
         )
-    
-    if is_active is not None:
-        query = query.filter(User.is_active == is_active)
-    
-    users = query.order_by(User.username).all()
-    
-    return templates.TemplateResponse(
-        "/users/users.html",
-        {
-            "request": request, 
-            "title": "Gestión de Usuarios",
-            "users": users,
-            "search": search,
-            "source": "local",
-            "is_active": is_active,
-            "current_user": admin_user,
-            "ad_available": AD_AVAILABLE
-        }
-    )
-
+        
+    except Exception as e:
+        logger.error(f"❌ Error en handle_local_user_listing: {str(e)}")
+        logger.error(f"💥 Parámetros que causaron el error:")
+        logger.error(f"   - search: '{search}' (type: {type(search)})")
+        logger.error(f"   - is_active: {is_active} (type: {type(is_active)})")
+        logger.error(f"   - auth_provider: '{auth_provider}' (type: {type(auth_provider)})")
+        
+        # Retornar template con error pero sin romper la aplicación
+        return templates.TemplateResponse(
+            "/users/users.html",
+            {
+                "request": request, 
+                "title": "Gestión de Usuarios - Error",
+                "users": [],
+                "search": search,
+                "source": "local",
+                "is_active": is_active,
+                "auth_provider": auth_provider,
+                "current_user": admin_user,
+                "error": f"Error al cargar usuarios: {str(e)}",
+                "ad_available": False
+            }
+        )
+        
 @router.get("/ad-debug", response_class=HTMLResponse)
 async def ad_debug_page(request: Request, db: Session = Depends(get_db)):
     """Página de diagnóstico de Active Directory"""
@@ -982,3 +1091,90 @@ async def view_user(request: Request, user_id: int, db: Session = Depends(get_db
             "current_user": admin_user
         }
     )
+
+@router.get("/api/debug-query")
+async def debug_query_params(
+    request: Request,
+    search: Optional[str] = Query(None),
+    is_active: Optional[str] = Query(None),
+    auth_provider: Optional[str] = Query(None)
+):
+    """Endpoint para debugging de parámetros y query SQL"""
+    
+    # Procesar parámetros igual que en list_users
+    is_active_bool = parse_bool_param(is_active)
+    search_clean = search.strip() if search else None
+    auth_provider_clean = auth_provider.strip() if auth_provider else None
+    
+    return {
+        "success": True,
+        "endpoint": "/ui/users/api/debug-query",
+        "timestamp": datetime.now().isoformat(),
+        "raw_params": {
+            "search": search,
+            "is_active": is_active,
+            "auth_provider": auth_provider
+        },
+        "processed_params": {
+            "search_clean": search_clean,
+            "is_active_bool": is_active_bool,
+            "auth_provider_clean": auth_provider_clean
+        },
+        "query_string": str(request.url.query),
+        "sql_safe": {
+            "search": search_clean is not None and len(search_clean) > 0,
+            "is_active": is_active_bool is not None,
+            "auth_provider": auth_provider_clean is not None and len(auth_provider_clean) > 0
+        },
+        "potential_sql": {
+            "base": "SELECT * FROM users",
+            "where_clauses": [
+                f"username ILIKE '%{search_clean}%'" if search_clean else None,
+                f"is_active = {is_active_bool}" if is_active_bool is not None else None,
+                f"auth_provider = '{auth_provider_clean}'" if auth_provider_clean else None
+            ]
+        }
+    }
+
+# =================== MIDDLEWARE PARA LOG DE PARÁMETROS ===================
+
+@router.get("/api/test-boolean-conversion")
+async def test_boolean_conversion():
+    """Endpoint para probar la conversión de booleanos"""
+    
+    test_cases = [
+        "",           # Cadena vacía (problemática)
+        "true",       # Válido
+        "false",      # Válido  
+        "1",          # Válido
+        "0",          # Válido
+        "invalid",    # Inválido
+        None,         # None
+        "  ",         # Solo espacios
+        "TRUE",       # Mayúsculas
+        "False"       # Mixto
+    ]
+    
+    results = {}
+    for test_value in test_cases:
+        try:
+            converted = parse_bool_param(test_value)
+            results[f"'{test_value}'"] = {
+                "converted_to": converted,
+                "type": str(type(converted).__name__),
+                "sql_safe": converted is not None
+            }
+        except Exception as e:
+            results[f"'{test_value}'"] = {
+                "error": str(e),
+                "sql_safe": False
+            }
+    
+    return {
+        "success": True,
+        "test_results": results,
+        "summary": {
+            "safe_conversions": len([r for r in results.values() if r.get("sql_safe", False)]),
+            "total_tests": len(test_cases)
+        }
+    }
