@@ -14,6 +14,10 @@
     padding: 1.5rem;
     margin-bottom: 2rem;
     border: 1px solid #dee2e6;
+    position: sticky;
+    top: 20px;
+    z-index: 100;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
 .user-card {
@@ -32,25 +36,84 @@
     border-radius: 15px;
     padding: 1.5rem;
     margin-bottom: 2rem;
+    transition: all 0.3s ease;
 }
 
 .filter-button {
     min-width: 100px;
 }
 
-.debug-panel {
-    background: #f1f3f4;
-    border-left: 4px solid #34495e;
-    padding: 1rem;
-    margin: 1rem 0;
+.search-loading {
+    position: relative;
+}
+
+.search-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 30px;
+    width: 20px;
+    height: 20px;
+    margin-top: -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.table-loading {
+    position: relative;
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.table-loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 10;
+}
+
+.table-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    margin-top: -20px;
+    margin-left: -20px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    z-index: 11;
+}
+
+.results-info {
+    background: #e9ecef;
+    padding: 0.5rem 1rem;
     border-radius: 5px;
-    font-family: monospace;
     font-size: 0.9rem;
+    color: #495057;
 }
 
 @media (max-width: 768px) {
     .search-filters .row > div {
         margin-bottom: 1rem;
+    }
+    
+    .search-filters {
+        position: static;
     }
 }
 </style>
@@ -68,14 +131,11 @@
                         <i class="fas fa-users me-2"></i>{{ title }}
                     </h1>
                     <p class="text-muted mb-0">
-                        Gestiona usuarios del sistema 
+                        Gestiona usuarios del sistema con búsqueda en tiempo real
                         {% if source == "ad" %}(Active Directory){% else %}(Locales){% endif %}
                     </p>
                 </div>
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-secondary" onclick="debugParams()" title="Debug parámetros">
-                        <i class="fas fa-bug"></i>
-                    </button>
                     <a href="/ui/users/create" class="btn btn-success">
                         <i class="fas fa-plus me-1"></i>Nuevo Usuario
                     </a>
@@ -84,37 +144,36 @@
         </div>
     </div>
 
-    <!-- Estadísticas rápidas -->
-    {% if users %}
-    <div class="stats-card">
+    <!-- Estadísticas dinámicas -->
+    <div class="stats-card" id="userStats">
         <div class="row text-center">
             <div class="col-6 col-md-3">
-                <div class="h4 mb-1">{{ users|length }}</div>
+                <div class="h4 mb-1">{{ users|length if users else 0 }}</div>
                 <small>Usuarios mostrados</small>
             </div>
             <div class="col-6 col-md-3">
-                <div class="h4 mb-1">{{ users|selectattr("is_active")|list|length }}</div>
+                <div class="h4 mb-1">{{ users|selectattr("is_active")|list|length if users else 0 }}</div>
                 <small>Activos</small>
             </div>
             <div class="col-6 col-md-3">
-                <div class="h4 mb-1">{{ users|selectattr("is_admin")|list|length }}</div>
+                <div class="h4 mb-1">{{ users|selectattr("is_admin")|list|length if users else 0 }}</div>
                 <small>Administradores</small>
             </div>
             <div class="col-6 col-md-3">
-                <div class="h4 mb-1">{{ (users|length) - (users|selectattr("is_active")|list|length) }}</div>
+                <div class="h4 mb-1">{{ (users|length) - (users|selectattr("is_active")|list|length) if users else 0 }}</div>
                 <small>Inactivos</small>
             </div>
         </div>
     </div>
-    {% endif %}
 
-    <!-- Filtros de búsqueda -->
+    <!-- Filtros de búsqueda con indicadores dinámicos -->
     <div class="search-filters">
         <form id="searchForm" method="get">
             <div class="row g-3 align-items-end">
                 <div class="col-md-4">
                     <label for="search" class="form-label">
                         <i class="fas fa-search me-1"></i>Buscar Usuario
+                        <small class="text-muted">(búsqueda en tiempo real)</small>
                     </label>
                     <input type="text" class="form-control" id="search" name="search" 
                            value="{{ search or '' }}" 
@@ -159,35 +218,36 @@
                         <button type="submit" class="btn btn-primary filter-button" id="filterButton">
                             <i class="fas fa-search"></i> Filtrar
                         </button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="clearFilters()" title="Limpiar filtros">
-                            <i class="fas fa-times"></i>
-                        </button>
+                        <!-- El botón de limpiar se agrega dinámicamente -->
                     </div>
                 </div>
             </div>
             
-            <!-- Información de filtros activos -->
-            {% set active_filters = [] %}
-            {% if search %}{% set _ = active_filters.append("Búsqueda: " + search) %}{% endif %}
-            {% if is_active == True %}{% set _ = active_filters.append("Estado: Activos") %}{% endif %}
-            {% if is_active == False %}{% set _ = active_filters.append("Estado: Inactivos") %}{% endif %}
-            {% if auth_provider %}{% set _ = active_filters.append("Tipo: " + auth_provider) %}{% endif %}
-            
-            {% if active_filters %}
-            <div class="mt-2">
-                <small class="text-muted">
-                    <i class="fas fa-filter me-1"></i>Filtros activos: {{ active_filters|join(", ") }}
-                </small>
+            <!-- Información de búsqueda activa -->
+            <div class="mt-3">
+                <div class="results-info d-flex justify-content-between align-items-center">
+                    <span id="resultsCounter">
+                        {% if users %}
+                            {{ users|length }} usuario{{ 's' if users|length != 1 else '' }}
+                        {% else %}
+                            Sin usuarios
+                        {% endif %}
+                    </span>
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        <span id="lastSearchTime">Inicial</span>
+                    </small>
+                </div>
             </div>
-            {% endif %}
         </form>
     </div>
 
     <!-- Mensajes de error -->
     {% if error %}
-    <div class="alert alert-danger">
+    <div class="alert alert-danger alert-dismissible fade show">
         <i class="fas fa-exclamation-triangle me-2"></i>
         <strong>Error:</strong> {{ error }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     {% endif %}
 
@@ -212,153 +272,137 @@
         </div>
     </div>
 
-    <!-- Lista de usuarios -->
-    {% if users %}
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-                <i class="fas fa-list me-2"></i>Lista de Usuarios ({{ users|length }})
-            </h5>
-            <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-secondary" onclick="selectAllUsers()">
-                    <i class="fas fa-check-double me-1"></i>Seleccionar Todos
-                </button>
-                <button class="btn btn-outline-primary" onclick="exportUsers('csv')">
-                    <i class="fas fa-file-csv me-1"></i>CSV
-                </button>
-                <button class="btn btn-outline-success" onclick="exportUsers('json')">
-                    <i class="fas fa-file-code me-1"></i>JSON
-                </button>
+    <!-- Contenedor principal de usuarios -->
+    <div id="usersContainer">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Lista de Usuarios
+                    <span class="badge bg-primary ms-2" id="userCount">
+                        {{ users|length if users else 0 }}
+                    </span>
+                </h5>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" onclick="selectAllUsers()">
+                        <i class="fas fa-check-double me-1"></i>Seleccionar Todos
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="exportUsers('csv')">
+                        <i class="fas fa-file-csv me-1"></i>CSV
+                    </button>
+                    <button class="btn btn-outline-success" onclick="exportUsers('json')">
+                        <i class="fas fa-file-code me-1"></i>JSON
+                    </button>
+                </div>
             </div>
-        </div>
-        
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width: 40px;">
-                            <input type="checkbox" class="form-check-input" onchange="toggleAllUsers(this)">
-                        </th>
-                        <th>Usuario</th>
-                        <th>Email</th>
-                        <th>Nombre Completo</th>
-                        <th>Estado</th>
-                        <th>Tipo</th>
-                        <th>Último Login</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for user in users %}
-                    <tr>
-                        <td>
-                            <input type="checkbox" class="form-check-input user-checkbox" value="{{ user.id }}">
-                        </td>
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <div class="avatar bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 14px;">
-                                    {{ user.username[0].upper() }}
-                                </div>
-                                <div>
-                                    <strong>{{ user.username }}</strong>
-                                    {% if user.is_admin %}
-                                        <span class="badge bg-warning text-dark ms-1" title="Administrador">
-                                            <i class="fas fa-crown"></i>
+            
+            <div class="table-responsive" id="tableContainer">
+                <table class="table table-hover align-middle mb-0" id="usersTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" class="form-check-input" onchange="toggleAllUsers(this)">
+                            </th>
+                            <th>Usuario</th>
+                            <th>Email</th>
+                            <th>Nombre Completo</th>
+                            <th>Estado</th>
+                            <th>Tipo</th>
+                            <th>Último Login</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Los usuarios se cargan dinámicamente aquí -->
+                        {% if users %}
+                            {% for user in users %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="form-check-input user-checkbox" value="{{ user.id }}">
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 14px;">
+                                            {{ user.username[0].upper() }}
+                                        </div>
+                                        <div>
+                                            <strong>{{ user.username }}</strong>
+                                            {% if user.is_admin %}
+                                                <span class="badge bg-warning text-dark ms-1" title="Administrador">
+                                                    <i class="fas fa-crown"></i>
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ user.email or '-' }}</td>
+                                <td>{{ user.fullname or '-' }}</td>
+                                <td>
+                                    {% if user.is_active %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check me-1"></i>Activo
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-times me-1"></i>Inactivo
                                         </span>
                                     {% endif %}
-                                </div>
-                            </div>
-                        </td>
-                        <td>{{ user.email or '-' }}</td>
-                        <td>{{ user.fullname or '-' }}</td>
-                        <td>
-                            {% if user.is_active %}
-                                <span class="badge bg-success">
-                                    <i class="fas fa-check me-1"></i>Activo
-                                </span>
-                            {% else %}
-                                <span class="badge bg-secondary">
-                                    <i class="fas fa-times me-1"></i>Inactivo
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if user.auth_provider == 'ad' %}
-                                <span class="badge bg-info">
-                                    <i class="fas fa-building me-1"></i>AD
-                                </span>
-                            {% else %}
-                                <span class="badge bg-primary">
-                                    <i class="fas fa-user me-1"></i>Local
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <small class="text-muted">
-                                {{ user.last_login.strftime('%d/%m/%Y %H:%M') if user.last_login else 'Nunca' }}
-                            </small>
-                        </td>
-                        <td>
-                            <div class="btn-group btn-group-sm">
-                                <a href="/ui/users/{{ user.id }}/edit" class="btn btn-outline-primary" title="Editar">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                <button class="btn btn-outline-info" onclick="viewUserDetails({{ user.id }})" title="Ver detalles">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                                {% if not user.is_admin or current_user.id != user.id %}
-                                <button class="btn btn-outline-danger" onclick="confirmDeleteUser({{ user.id }}, '{{ user.username }}')" title="Eliminar">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                                {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% else %}
-    <!-- Sin usuarios -->
-    <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="fas fa-users fa-3x text-muted mb-3"></i>
-            <h4 class="text-muted">No se encontraron usuarios</h4>
-            <p class="text-muted">
-                {% if search or is_active is not none or auth_provider %}
-                    No hay usuarios que coincidan con los filtros aplicados.
-                    <br><small>Prueba ajustar los criterios de búsqueda.</small>
-                {% else %}
-                    No hay usuarios registrados en el sistema.
-                {% endif %}
-            </p>
-            <div class="mt-3">
-                {% if search or is_active is not none or auth_provider %}
-                <button class="btn btn-outline-primary" onclick="clearFilters()">
-                    <i class="fas fa-times me-1"></i>Limpiar Filtros
-                </button>
-                {% endif %}
-                <a href="/ui/users/create" class="btn btn-success ms-2">
-                    <i class="fas fa-plus me-1"></i>Crear Primer Usuario
-                </a>
+                                </td>
+                                <td>
+                                    {% if user.auth_provider == 'ad' %}
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-building me-1"></i>AD
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-primary">
+                                            <i class="fas fa-user me-1"></i>Local
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ user.last_login.strftime('%d/%m/%Y') if user.last_login else 'Nunca' }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="/ui/users/{{ user.id }}/edit" class="btn btn-outline-primary" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button class="btn btn-outline-info" onclick="viewUserDetails({{ user.id }})" title="Ver detalles">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if not user.is_admin or current_user.id != user.id %}
+                                        <button class="btn btn-outline-danger" onclick="confirmDeleteUser({{ user.id }}, '{{ user.username }}')" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-    {% endif %}
 
-    <!-- Panel de debug (solo visible en desarrollo) -->
-    {% if request.app.debug %}
-    <div class="debug-panel mt-4">
-        <strong>🐛 Debug Info:</strong>
-        <br>Search: "{{ search or 'None' }}"
-        <br>Is Active: {{ is_active if is_active is not none else 'None' }}
-        <br>Auth Provider: "{{ auth_provider or 'None' }}"
-        <br>Source: "{{ source or 'local' }}"
-        <br>Users Found: {{ users|length if users else 0 }}
-        <br>Query String: "{{ request.url.query }}"
+    <!-- Contenedor para "sin resultados" (se muestra dinámicamente) -->
+    <div id="noResultsContainer" style="display: none;">
+        <!-- El contenido se genera dinámicamente -->
     </div>
-    {% endif %}
+
+    <!-- Indicador de carga flotante -->
+    <div id="loadingIndicator" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;">
+        <div class="card shadow-lg">
+            <div class="card-body text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <div class="mt-2">Buscando usuarios...</div>
+            </div>
+        </div>
+    </div>
 
 </div>
 
@@ -385,25 +429,86 @@
 <!-- Toast container para notificaciones -->
 <div id="toast-container"></div>
 
+<!-- Debug panel (solo en desarrollo) -->
+{% if request.app.debug %}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning">
+        <h6 class="mb-0">🐛 Panel de Debug</h6>
+    </div>
+    <div class="card-body">
+        <small>
+            <strong>Parámetros actuales:</strong><br>
+            Search: "{{ search or 'None' }}"<br>
+            Is Active: {{ is_active if is_active is not none else 'None' }}<br>
+            Auth Provider: "{{ auth_provider or 'None' }}"<br>
+            Source: "{{ source or 'local' }}"<br>
+            Users Found: {{ users|length if users else 0 }}<br>
+            Query String: "{{ request.url.query }}"
+        </small>
+        <div class="mt-2">
+            <button class="btn btn-sm btn-outline-info" onclick="performDynamicSearch()">
+                🔄 Refrescar Búsqueda
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="console.log('Current state:', getCurrentSearchParams())">
+                📊 Ver Estado Actual
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block extra_scripts %}
-<!-- Aquí va el JavaScript corregido que proporcioné anteriormente -->
+<!-- Funciones base requeridas -->
 <script>
-// Colocar aquí todo el JavaScript del artifact anterior "users_html_fix"
-// Por brevedad no lo repito, pero debe incluirse completo
-</script>
-
-<!-- Funciones adicionales específicas del template -->
-<script>
-// Función para toggle de todos los checkboxes
+// Funciones de compatibilidad con el sistema existente
 function toggleAllUsers(masterCheckbox) {
     const userCheckboxes = document.querySelectorAll('.user-checkbox');
     userCheckboxes.forEach(cb => cb.checked = masterCheckbox.checked);
     updateBulkActions();
 }
 
-// Función para ver detalles de usuario
+function updateBulkActions() {
+    const selectedUsers = document.querySelectorAll('.user-checkbox:checked');
+    const bulkActionsDiv = document.getElementById('bulkActions');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    if (bulkActionsDiv) {
+        if (selectedUsers.length > 0) {
+            bulkActionsDiv.style.display = 'block';
+            if (selectedCount) {
+                selectedCount.textContent = selectedUsers.length;
+            }
+        } else {
+            bulkActionsDiv.style.display = 'none';
+        }
+    }
+}
+
+// Escuchar cambios en checkboxes
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('user-checkbox')) {
+        updateBulkActions();
+    }
+});
+
+// Funciones de exportación existentes
+function exportUsers(format) {
+    const params = new URLSearchParams();
+    params.append('format', format.toLowerCase());
+    
+    const searchParams = getCurrentSearchParams();
+    Object.keys(searchParams).forEach(key => {
+        if (searchParams[key] && searchParams[key] !== '' && key !== 'limit') {
+            params.append(key, searchParams[key]);
+        }
+    });
+    
+    window.location.href = `/ui/users/api/export?${params.toString()}`;
+}
+
+// Funciones de usuarios (ver detalles, eliminar, etc.)
 async function viewUserDetails(userId) {
     const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
     const content = document.getElementById('userDetailsContent');
@@ -446,18 +551,14 @@ async function viewUserDetails(userId) {
     }
 }
 
-// Función para confirmar eliminación
 function confirmDeleteUser(userId, username) {
     if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${username}"?\n\nEsta acción no se puede deshacer.`)) {
         deleteUser(userId);
     }
 }
 
-// Función para eliminar usuario
 async function deleteUser(userId) {
     try {
-        setButtonLoading('filterButton', true);
-        
         const response = await fetch(`/ui/users/api/${userId}`, {
             method: 'DELETE',
             headers: {
@@ -467,17 +568,349 @@ async function deleteUser(userId) {
         
         if (response.ok) {
             showToast('Usuario eliminado correctamente', 'success');
-            // Recargar la página después de un breve delay
-            setTimeout(() => window.location.reload(), 1000);
+            // Refrescar búsqueda en lugar de recargar página
+            setTimeout(() => performDynamicSearch(), 1000);
         } else {
             const error = await response.json();
             showToast(`Error eliminando usuario: ${error.detail}`, 'danger');
         }
     } catch (error) {
         showToast(`Error: ${error.message}`, 'danger');
-    } finally {
-        setButtonLoading('filterButton', false);
     }
 }
+
+// Función de debug existente
+function debugParams() {
+    console.group('🐛 Debug de parámetros');
+    console.log('Parámetros actuales:', getCurrentSearchParams());
+    console.log('URL actual:', window.location.href);
+    console.log('Last search params:', lastSearchParams);
+    console.groupEnd();
+    
+    alert('Ver consola (F12) para información de debug');
+}
+
+// Marcar tiempo de última búsqueda
+function updateLastSearchTime() {
+    const timeElement = document.getElementById('lastSearchTime');
+    if (timeElement) {
+        timeElement.textContent = new Date().toLocaleTimeString();
+    }
+}
+
+// Actualizar tiempo después de cada búsqueda
+if (typeof performDynamicSearch === 'function') {
+    const originalPerformSearch = performDynamicSearch;
+    performDynamicSearch = async function() {
+        await originalPerformSearch();
+        updateLastSearchTime();
+    };
+}
 </script>
+
+<script>
+    // SOLUCIÓN RÁPIDA - Reemplazar todo el JavaScript en users.html con esto
+// Para volver a la funcionalidad tradicional mientras implementas los endpoints API
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 Modo tradicional activado - sin búsqueda dinámica');
+    
+    // Funciones básicas necesarias para el template
+    
+    // =================== FUNCIONES DE COMPATIBILIDAD ===================
+    
+    function toggleAllUsers(masterCheckbox) {
+        const userCheckboxes = document.querySelectorAll('.user-checkbox');
+        userCheckboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+        updateBulkActions();
+    }
+    
+    function updateBulkActions() {
+        const selectedUsers = document.querySelectorAll('.user-checkbox:checked');
+        const bulkActionsDiv = document.getElementById('bulkActions');
+        const selectedCount = document.getElementById('selectedCount');
+        
+        if (bulkActionsDiv) {
+            if (selectedUsers.length > 0) {
+                bulkActionsDiv.style.display = 'block';
+                if (selectedCount) {
+                    selectedCount.textContent = selectedUsers.length;
+                }
+            } else {
+                bulkActionsDiv.style.display = 'none';
+            }
+        }
+    }
+    
+    // =================== BÚSQUEDA TRADICIONAL (SIN AJAX) ===================
+    
+    const searchForm = document.getElementById('searchForm');
+    if (searchForm) {
+        searchForm.addEventListener('submit', function(e) {
+            // No prevenir - dejar que funcione normalmente
+            console.log('📝 Enviando formulario de forma tradicional');
+            
+            // Opcional: Limpiar parámetros vacíos antes de enviar
+            const formData = new FormData(searchForm);
+            const params = new URLSearchParams();
+            
+            for (const [key, value] of formData.entries()) {
+                if (value && value.trim() !== '') {
+                    params.append(key, value);
+                }
+            }
+            
+            // Si hay parámetros, construir URL limpia
+            if (params.toString()) {
+                e.preventDefault();
+                window.location.href = `/ui/users/?${params.toString()}`;
+            }
+            // Si no hay parámetros, ir a la página base
+            else if (window.location.search) {
+                e.preventDefault();
+                window.location.href = '/ui/users/';
+            }
+        });
+    }
+    
+    // =================== BÚSQUEDA CON DEBOUNCE TRADICIONAL ===================
+    
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+        let searchTimeout;
+        
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            
+            // Búsqueda automática después de 1 segundo de inactividad
+            searchTimeout = setTimeout(() => {
+                if (searchForm) {
+                    searchForm.submit();
+                }
+            }, 1000);
+        });
+    }
+    
+    // =================== FILTROS AUTOMÁTICOS ===================
+    
+    const isActiveSelect = document.getElementById('is_active');
+    if (isActiveSelect) {
+        isActiveSelect.addEventListener('change', function() {
+            console.log('📊 Filtro is_active cambiado, enviando formulario');
+            if (searchForm) {
+                searchForm.submit();
+            }
+        });
+    }
+    
+    const authProviderSelect = document.getElementById('auth_provider');
+    if (authProviderSelect) {
+        authProviderSelect.addEventListener('change', function() {
+            console.log('🔑 Filtro auth_provider cambiado, enviando formulario');
+            if (searchForm) {
+                searchForm.submit();
+            }
+        });
+    }
+    
+    // =================== BOTÓN LIMPIAR FILTROS ===================
+    
+    function addClearButton() {
+        const filterButton = document.getElementById('filterButton');
+        if (filterButton && !document.getElementById('clearFiltersBtn')) {
+            const clearButton = document.createElement('button');
+            clearButton.id = 'clearFiltersBtn';
+            clearButton.type = 'button';
+            clearButton.className = 'btn btn-outline-secondary ms-1';
+            clearButton.innerHTML = '<i class="fas fa-times"></i>';
+            clearButton.title = 'Limpiar filtros';
+            
+            clearButton.addEventListener('click', function() {
+                window.location.href = '/ui/users/';
+            });
+            
+            filterButton.parentElement.appendChild(clearButton);
+        }
+    }
+    
+    addClearButton();
+    
+    // =================== FUNCIONES DE USUARIO ===================
+    
+    window.viewUserDetails = async function(userId) {
+        const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+        const content = document.getElementById('userDetailsContent');
+        
+        modal.show();
+        
+        try {
+            const response = await fetch(`/ui/users/api/${userId}`);
+            const user = await response.json();
+            
+            content.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Información Básica</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>ID:</strong></td><td>${user.id}</td></tr>
+                            <tr><td><strong>Usuario:</strong></td><td>${user.username}</td></tr>
+                            <tr><td><strong>Email:</strong></td><td>${user.email || '-'}</td></tr>
+                            <tr><td><strong>Nombre:</strong></td><td>${user.fullname || '-'}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Estado y Permisos</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Activo:</strong></td><td>${user.is_active ? 'Sí' : 'No'}</td></tr>
+                            <tr><td><strong>Admin:</strong></td><td>${user.is_admin ? 'Sí' : 'No'}</td></tr>
+                            <tr><td><strong>Tipo:</strong></td><td>${user.auth_provider || 'Local'}</td></tr>
+                            <tr><td><strong>Creado:</strong></td><td>${user.created_at ? new Date(user.created_at).toLocaleString() : '-'}</td></tr>
+                        </table>
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error cargando información del usuario: ${error.message}
+                </div>
+            `;
+        }
+    };
+    
+    window.confirmDeleteUser = function(userId, username) {
+        if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${username}"?\n\nEsta acción no se puede deshacer.`)) {
+            deleteUser(userId);
+        }
+    };
+    
+    window.deleteUser = async function(userId) {
+        try {
+            const response = await fetch(`/ui/users/api/${userId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (response.ok) {
+                showToast('Usuario eliminado correctamente', 'success');
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                const error = await response.json();
+                showToast(`Error eliminando usuario: ${error.detail}`, 'danger');
+            }
+        } catch (error) {
+            showToast(`Error: ${error.message}`, 'danger');
+        }
+    };
+    
+    // =================== FUNCIONES DE EXPORTACIÓN ===================
+    
+    window.exportUsers = function(format) {
+        const params = new URLSearchParams(window.location.search);
+        params.set('format', format.toLowerCase());
+        window.location.href = `/ui/users/api/export?${params.toString()}`;
+    };
+    
+    window.selectAllUsers = function() {
+        const checkboxes = document.querySelectorAll('.user-checkbox');
+        checkboxes.forEach(cb => cb.checked = true);
+        updateBulkActions();
+    };
+    
+    window.deselectAllUsers = function() {
+        const checkboxes = document.querySelectorAll('.user-checkbox');
+        checkboxes.forEach(cb => cb.checked = false);
+        updateBulkActions();
+    };
+    
+    window.toggleAllUsers = toggleAllUsers;
+    
+    // =================== FUNCIÓN DE TOAST ===================
+    
+    window.showToast = function(message, type = 'info', duration = 3000) {
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                max-width: 350px;
+            `;
+            document.body.appendChild(toastContainer);
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} alert-dismissible fade show shadow-sm`;
+        toast.style.marginBottom = '10px';
+        toast.innerHTML = `
+            <i class="fas fa-${type === 'danger' ? 'exclamation-triangle' : type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, duration);
+    };
+    
+    // =================== FUNCIONES DE DEBUG ===================
+    
+    window.debugParams = function() {
+        console.group('🐛 Debug de parámetros');
+        console.log('URL actual:', window.location.href);
+        console.log('Query string:', window.location.search);
+        console.log('Formulario:', searchForm);
+        console.groupEnd();
+        
+        alert('Modo tradicional activo. Ver consola (F12) para información de debug');
+    };
+    
+    // =================== ESCUCHADORES DE EVENTOS ===================
+    
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('user-checkbox')) {
+            updateBulkActions();
+        }
+    });
+    
+    // =================== MOSTRAR NOTIFICACIÓN ===================
+    
+    setTimeout(() => {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #17a2b8;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 300px;
+            z-index: 9999;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }, 1000);
+    
+    console.log('✅ Modo tradicional cargado completamente');
+});
+</script>
+    
+
 {% endblock %}
