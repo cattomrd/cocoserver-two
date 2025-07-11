@@ -128,7 +128,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="createPlaylistForm" action="/api/playlists" method="post">
+                    <form id="createPlaylistForm">
                         <div class="row">
                             <div class="col-md-8">
                                 <div class="mb-3">
@@ -142,14 +142,7 @@
                                     <label for="playlistTienda" class="form-label">Tienda</label>
                                     <select class="form-select" id="playlistTienda" name="id_tienda">
                                         <option value="">Todas las tiendas</option>
-                                        <option value="SDQ">SDQ - Santo Domingo</option>
-                                        <option value="STI">STI - Santiago</option>
-                                        <option value="PUJ">PUJ - Punta Cana</option>
-                                        <option value="LRM">LRM - La Romana</option>
-                                        <option value="BAY">BAY - Bayahíbe</option>
-                                        <option value="SDE">SDE - Santo Domingo Este</option>
-                                        <option value="SDN">SDN - Santo Domingo Norte</option>
-                                        <option value="SDO">SDO - Santo Domingo Oeste</option>
+                                        <!-- Las opciones de tiendas se cargarán dinámicamente -->
                                     </select>
                                 </div>
                             </div>
@@ -177,7 +170,7 @@
                             <input type="checkbox" class="form-check-input" id="playlistActive" name="is_active" checked>
                             <label class="form-check-label" for="playlistActive">Lista Activa</label>
                         </div>
-                        <button type="submit" class="btn btn-primary btn-lg">Crear Lista de Reproducción</button>
+                        <button type="button" class="btn btn-primary btn-lg" id="submitPlaylistBtn">Crear Lista de Reproducción</button>
                     </form>
                 </div>
             </div>
@@ -197,14 +190,7 @@
         <div class="col-lg-2 col-md-3">
             <select class="form-select" id="playlistFilterTienda">
                 <option value="">Todas las tiendas</option>
-                <option value="SDQ">SDQ - Santo Domingo</option>
-                <option value="STI">STI - Santiago</option>
-                <option value="PUJ">PUJ - Punta Cana</option>
-                <option value="LRM">LRM - La Romana</option>
-                <option value="BAY">BAY - Bayahíbe</option>
-                <option value="SDE">SDE - S.D. Este</option>
-                <option value="SDN">SDN - S.D. Norte</option>
-                <option value="SDO">SDO - S.D. Oeste</option>
+                <!-- Las opciones de tiendas se cargarán dinámicamente -->
             </select>
         </div>
         <div class="col-lg-2 col-md-3">
@@ -344,17 +330,83 @@ document.addEventListener('DOMContentLoaded', function() {
     let allPlaylists = [];
     let filteredPlaylists = [];
     let currentView = 'table';
+    let allTiendas = []; // Nueva variable para almacenar las tiendas
     
     // Elementos DOM
     const searchInput = document.getElementById('playlistSearchInput');
     const clearSearchBtn = document.getElementById('clearPlaylistSearch');
     const filterTienda = document.getElementById('playlistFilterTienda');
+    const modalTienda = document.getElementById('playlistTienda');
     const filterStatus = document.getElementById('playlistFilterStatus');
     const pageSizeSelect = document.getElementById('playlistPageSizeSelect');
     const tableView = document.getElementById('tableView');
     const gridView = document.getElementById('gridView');
     const tableViewBtn = document.getElementById('tableViewBtn');
     const gridViewBtn = document.getElementById('gridViewBtn');
+    
+    // Cargar tiendas desde el schema Tiendas
+    function loadTiendas() {
+        showLoading(true);
+        
+        fetch('/api/tiendas/')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Respuesta de API tiendas:', data);
+                // Verificar si los datos vienen dentro de alguna propiedad como 'results' o 'data'
+                if (data.results) {
+                    allTiendas = data.results;
+                } else if (data.data) {
+                    allTiendas = data.data;
+                } else if (Array.isArray(data)) {
+                    allTiendas = data;
+                } else {
+                    // Si es un objeto con propiedades, convertirlo a un array
+                    allTiendas = Object.values(data);
+                }
+                
+                populateTiendasSelects();
+                showLoading(false);
+            })
+            .catch(error => {
+                console.error('Error cargando tiendas:', error);
+                showError('Error al cargar las tiendas');
+                showLoading(false);
+            });
+    }
+    
+    // Llenar los selects de tiendas
+    function populateTiendasSelects() {
+        // Mantener las opciones actuales
+        filterTienda.innerHTML = '<option value="">Todas las tiendas</option>';
+        modalTienda.innerHTML = '<option value="">Todas las tiendas</option>';
+        
+        // Imprimir las tiendas en la consola para depuración
+        console.log('Tiendas cargadas:', allTiendas);
+        
+        // Agregar las tiendas desde el schema
+        allTiendas.forEach(tienda => {
+            // Usar los campos correctos según el esquema TiendaBase
+            const tiendaCodigo = tienda.tienda || ''; // El campo tienda contiene el código/nombre
+            const tiendaUbicacion = tienda.location || ''; // El campo location contiene la ubicación
+            
+            // Solo agregar si tenemos un código de tienda
+            if (tiendaCodigo) {
+                const displayText = tiendaUbicacion 
+                    ? `${tiendaCodigo} - ${tiendaUbicacion}` 
+                    : tiendaCodigo;
+                
+                const filterOption = document.createElement('option');
+                filterOption.value = tiendaCodigo;
+                filterOption.textContent = displayText;
+                filterTienda.appendChild(filterOption);
+                
+                const modalOption = document.createElement('option');
+                modalOption.value = tiendaCodigo;
+                modalOption.textContent = displayText;
+                modalTienda.appendChild(modalOption);
+            }
+        });
+    }
     
     // Funciones principales
     function loadPlaylists() {
@@ -474,14 +526,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                 onclick="editPlaylist(${playlist.id})" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button type="button" class="btn btn-outline-info" 
-                                onclick="viewPlaylist(${playlist.id})" title="Ver detalles">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        <button type="button" class="btn btn-outline-success" 
-                                onclick="assignToDevices(${playlist.id})" title="Asignar a dispositivos">
-                            <i class="fas fa-desktop"></i>
-                        </button>
                         <button type="button" class="btn btn-outline-danger" 
                                 onclick="deletePlaylist(${playlist.id})" title="Eliminar">
                             <i class="fas fa-trash"></i>
@@ -528,14 +572,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <button type="button" class="btn btn-outline-primary" 
                                     onclick="editPlaylist(${playlist.id})" title="Editar">
                                 <i class="fas fa-edit"></i>
-                            </button>
-                            <button type="button" class="btn btn-outline-info" 
-                                    onclick="viewPlaylist(${playlist.id})" title="Ver">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button type="button" class="btn btn-outline-success" 
-                                    onclick="assignToDevices(${playlist.id})" title="Asignar">
-                                <i class="fas fa-desktop"></i>
                             </button>
                             <button type="button" class="btn btn-outline-danger" 
                                     onclick="deletePlaylist(${playlist.id})" title="Eliminar">
@@ -667,6 +703,84 @@ document.addEventListener('DOMContentLoaded', function() {
         applyFilters();
     });
     
+    // Manejador del formulario de creación de playlist
+    document.getElementById('submitPlaylistBtn').addEventListener('click', function() {
+        const form = document.getElementById('createPlaylistForm');
+        const formData = new FormData(form);
+        const playlistData = {};
+        
+        // Convertir FormData a objeto para enviarlo como JSON
+        for (let [key, value] of formData.entries()) {
+            // Manejar el checkbox is_active correctamente
+            if (key === 'is_active') {
+                playlistData[key] = true;
+            } else if (value === '') {
+                // No incluir campos vacíos
+                continue;
+            } else {
+                playlistData[key] = value;
+            }
+        }
+        
+        // Asegurarse de que is_active esté presente incluso si no está marcado
+        if (!formData.has('is_active')) {
+            playlistData['is_active'] = false;
+        }
+        
+        // Verificar el título
+        if (!playlistData.title || playlistData.title.trim() === '') {
+            showError('El título es obligatorio');
+            return;
+        }
+        
+        // Convertir fechas al formato ISO
+        if (playlistData.start_date) {
+            playlistData.start_date = new Date(playlistData.start_date).toISOString();
+        }
+        
+        if (playlistData.expiration_date) {
+            playlistData.expiration_date = new Date(playlistData.expiration_date).toISOString();
+        }
+        
+        console.log('Enviando datos de playlist:', playlistData);
+        
+        // Enviar la petición
+        fetch('/api/playlists/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(playlistData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => {
+                    throw new Error(JSON.stringify(errorData));
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Playlist creada:', data);
+            // Cerrar el modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('createPlaylistModal'));
+            modal.hide();
+            // Recargar las playlists
+            loadPlaylists();
+            // Mostrar mensaje de éxito
+            alert('Lista de reproducción creada exitosamente');
+        })
+        .catch(error => {
+            console.error('Error al crear playlist:', error);
+            try {
+                const errorData = JSON.parse(error.message);
+                showError(`Error al crear la lista: ${JSON.stringify(errorData)}`);
+            } catch (e) {
+                showError('Error al crear la lista de reproducción');
+            }
+        });
+    });
+    
     // Controles de vista
     tableViewBtn.addEventListener('click', function() {
         currentView = 'table';
@@ -728,6 +842,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Inicializar la página
+    loadTiendas(); // Cargar tiendas primero
     loadPlaylists();
 });
 </script>
