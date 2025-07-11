@@ -142,7 +142,7 @@ async def get_videos_page(request: Request):
     # En esta ruta, simplemente renderizamos la plantilla videos.html con los datos básicos
     # Los datos de videos y playlists se cargarán dinámicamente con JavaScript
     return templates.TemplateResponse(
-        "/playlists/playlist.html", 
+        "/playlists/playlists.html", 
         {
             "request": request, 
             "title": "Gestión de Videos y Listas"

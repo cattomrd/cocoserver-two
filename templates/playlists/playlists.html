@@ -42,7 +42,7 @@
     font-weight: 500;
 }
 
-.location-badge {
+.tienda-badge {
     background: linear-gradient(45deg, #28a745, #20c997);
     color: white;
     border-radius: 15px;
@@ -103,7 +103,7 @@
                     <h1 class="h3 mb-2 text-primary">
                         <i class="fas fa-list-alt me-2"></i>Listas de Reproducción
                     </h1>
-                    <p class="text-muted mb-0">Gestiona y organiza tus listas de reproducción por ubicación/tienda</p>
+                    <p class="text-muted mb-0">Gestiona y organiza tus listas de reproducción por tienda</p>
                 </div>
                 <div class="d-flex gap-2 mt-3 mt-md-0">
                     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createPlaylistModal">
@@ -118,56 +118,71 @@
     </div>
 
     <!-- Modal para crear nueva playlist -->
-<div class="modal fade" id="createPlaylistModal" tabindex="-1" aria-labelledby="createPlaylistModalLabel" aria-hidden="true">
+    <div class="modal fade" id="createPlaylistModal" tabindex="-1" aria-labelledby="createPlaylistModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="createPlaylistModalLabel">Crear Nueva Lista de Reproducción</h5>
+                    <h5 class="modal-title" id="createPlaylistModalLabel">
+                        <i class="fas fa-plus-circle me-2"></i>Nueva Lista de Reproducción
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="card">
-                        <div class="card-body">
-                            <form id="playlistCreateForm">
+                    <form id="createPlaylistForm" action="/api/playlists" method="post">
+                        <div class="row">
+                            <div class="col-md-8">
                                 <div class="mb-3">
-                                    <label for="playlistTitle" class="form-label">Título</label>
-                                    <input type="text" class="form-control" id="playlistTitle" name="title" required>
-                                </div>
-								                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="playlistTienda" class="form-label">Ubicación/Tienda</label>
-                                    <select class="form-select" id="playlistTienda" name="id_tienda">
-                                        <option value="">Todas las ubicaciones</option>
-                                        <!-- Las opciones se cargarán dinámicamente desde /api/tiendas -->
-                                    </select>
-                                    <div class="form-text">Deja vacío para crear una lista general (todas las ubicaciones)</div>
+                                    <label for="playlistTitle" class="form-label">Título *</label>
+                                    <input type="text" class="form-control" id="playlistTitle" name="title" required 
+                                           placeholder="Ej: Promociones Enero 2025">
                                 </div>
                             </div>
+                            <div class="col-md-4">
                                 <div class="mb-3">
-                                    <label for="playlistDescription" class="form-label">Descripción (opcional)</label>
-                                    <textarea class="form-control" id="playlistDescription" name="description" rows="3"></textarea>
+                                    <label for="playlistTienda" class="form-label">Tienda</label>
+                                    <select class="form-select" id="playlistTienda" name="id_tienda">
+                                        <option value="">Todas las tiendas</option>
+                                        <option value="SDQ">SDQ - Santo Domingo</option>
+                                        <option value="STI">STI - Santiago</option>
+                                        <option value="PUJ">PUJ - Punta Cana</option>
+                                        <option value="LRM">LRM - La Romana</option>
+                                        <option value="BAY">BAY - Bayahíbe</option>
+                                        <option value="SDE">SDE - Santo Domingo Este</option>
+                                        <option value="SDN">SDN - Santo Domingo Norte</option>
+                                        <option value="SDO">SDO - Santo Domingo Oeste</option>
+                                    </select>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="playlistDescription" class="form-label">Descripción</label>
+                            <textarea class="form-control" id="playlistDescription" name="description" rows="3" 
+                                      placeholder="Descripción opcional de la lista de reproducción"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="playlistStartDate" class="form-label">Fecha de Inicio (opcional)</label>
                                     <input type="datetime-local" class="form-control" id="playlistStartDate" name="start_date">
                                 </div>
+                            </div>
+                            <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="playlistExpiration" class="form-label">Fecha de Expiración (opcional)</label>
                                     <input type="datetime-local" class="form-control" id="playlistExpiration" name="expiration_date">
                                 </div>
-                                <div class="mb-3 form-check">
-                                    <input type="checkbox" class="form-check-input" id="playlistActive" name="is_active" checked>
-                                    <label class="form-check-label" for="playlistActive">Lista Activa</label>
-                                </div>
-                                <button type="submit" class="btn btn-primary btn-lg">Crear Lista de Reproducción</button>
-                            </form>
+                            </div>
                         </div>
-                    </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="playlistActive" name="is_active" checked>
+                            <label class="form-check-label" for="playlistActive">Lista Activa</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg">Crear Lista de Reproducción</button>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
-
 
     <!-- Controles de búsqueda y filtros -->
     <div class="row mb-3 g-3">
@@ -181,8 +196,15 @@
         </div>
         <div class="col-lg-2 col-md-3">
             <select class="form-select" id="playlistFilterTienda">
-                <option value="">Todas las ubicaciones</option>
-                <!-- Las opciones se cargarán dinámicamente desde /api/tiendas -->
+                <option value="">Todas las tiendas</option>
+                <option value="SDQ">SDQ - Santo Domingo</option>
+                <option value="STI">STI - Santiago</option>
+                <option value="PUJ">PUJ - Punta Cana</option>
+                <option value="LRM">LRM - La Romana</option>
+                <option value="BAY">BAY - Bayahíbe</option>
+                <option value="SDE">SDE - S.D. Este</option>
+                <option value="SDN">SDN - S.D. Norte</option>
+                <option value="SDO">SDO - S.D. Oeste</option>
             </select>
         </div>
         <div class="col-lg-2 col-md-3">
@@ -259,7 +281,7 @@
                             <i class="fas fa-info-circle me-1"></i>Descripción
                         </th>
                         <th scope="col" style="width: 10%">
-                            <i class="fas fa-map-marker-alt me-1"></i>Ubicación
+                            <i class="fas fa-store me-1"></i>Tienda
                         </th>
                         <th scope="col" style="width: 12%">
                             <i class="fas fa-calendar me-1"></i>Creada
@@ -322,7 +344,6 @@ document.addEventListener('DOMContentLoaded', function() {
     let allPlaylists = [];
     let filteredPlaylists = [];
     let currentView = 'table';
-    let availableTiendas = []; // Cache de tiendas disponibles
     
     // Elementos DOM
     const searchInput = document.getElementById('playlistSearchInput');
@@ -334,72 +355,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const gridView = document.getElementById('gridView');
     const tableViewBtn = document.getElementById('tableViewBtn');
     const gridViewBtn = document.getElementById('gridViewBtn');
-    const playlistTiendaSelect = document.getElementById('playlistTienda');
     
     // Funciones principales
-    async function loadTiendas() {
-        try {
-            const response = await fetch('/api/tiendas/');
-            if (!response.ok) {
-                throw new Error('Error al cargar tiendas');
-            }
-            
-            availableTiendas = await response.json();
-            console.log('📍 Tiendas cargadas:', availableTiendas.length);
-            
-            // Poblar selectores de tienda
-            populateTiendaSelectors();
-            
-        } catch (error) {
-            console.error('Error cargando tiendas:', error);
-            showError('Error al cargar las tiendas disponibles');
-        }
-    }
-    
-    function populateTiendaSelectors() {
-        // Poblar selector de filtro
-        if (filterTienda) {
-            // Limpiar opciones existentes (excepto la primera)
-            while (filterTienda.children.length > 1) {
-                filterTienda.removeChild(filterTienda.lastChild);
-            }
-            
-            // Agregar opciones de tiendas
-            availableTiendas.forEach(tienda => {
-                const option = document.createElement('option');
-                option.value = tienda.tienda; // Usar el código de tienda
-                option.textContent = `${tienda.tienda} - ${tienda.location}`;
-                filterTienda.appendChild(option);
-            });
-        }
-        
-        // Poblar selector del modal de creación
-        if (playlistTiendaSelect) {
-            // Limpiar opciones existentes (excepto la primera)
-            while (playlistTiendaSelect.children.length > 1) {
-                playlistTiendaSelect.removeChild(playlistTiendaSelect.lastChild);
-            }
-            
-            // Agregar opciones de tiendas
-            availableTiendas.forEach(tienda => {
-                const option = document.createElement('option');
-                option.value = tienda.tienda; // Usar el código de tienda
-                option.textContent = `${tienda.tienda} - ${tienda.location}`;
-                playlistTiendaSelect.appendChild(option);
-            });
-        }
-    }
-    
-    function getTiendaDisplayName(tiendaCode) {
-        if (!tiendaCode) return 'General';
-        
-        const tienda = availableTiendas.find(t => t.tienda === tiendaCode);
-        if (tienda) {
-            return tienda.location || tienda.tienda;
-        }
-        return tiendaCode; // Fallback al código si no se encuentra
-    }
-    
     function loadPlaylists() {
         showLoading(true);
         
@@ -496,7 +453,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </td>
                 <td class="text-center">
                     ${playlist.id_tienda ? 
-                        `<span class="location-badge">${playlist.id_tienda}</span>` : 
+                        `<span class="tienda-badge">${playlist.id_tienda}</span>` : 
                         '<span class="badge bg-secondary">General</span>'
                     }
                 </td>
@@ -554,7 +511,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </p>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             ${playlist.id_tienda ? 
-                                `<span class="location-badge" title="${getTiendaDisplayName(playlist.id_tienda)}">${playlist.id_tienda}</span>` : 
+                                `<span class="tienda-badge">${playlist.id_tienda}</span>` : 
                                 '<span class="badge bg-secondary">General</span>'
                             }
                             <span class="video-count-badge">${playlist.video_count || 0} videos</span>
@@ -675,7 +632,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     window.deletePlaylist = function(id) {
         if (confirm('¿Estás seguro de que quieres eliminar esta lista de reproducción?')) {
-            fetch(`/api/playlists/${id}`, { method: 'DELETE' })
+            fetch(`/api/playlists/${id}/`, { method: 'DELETE' })
                 .then(response => {
                     if (response.ok) {
                         loadPlaylists(); // Recargar la lista
@@ -771,12 +728,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Inicializar la página
-    async function initializePage() {
-        await loadTiendas(); // Cargar tiendas primero
-        loadPlaylists();     // Luego cargar playlists
-    }
-    
-    initializePage();
+    loadPlaylists();
 });
 </script>
 {% endblock %}
