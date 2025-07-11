@@ -51,15 +51,23 @@
                     </div>
                     
                     <!-- Filtro por Tiendas -->
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="playlistTienda" class="form-label">Tienda</label>
-                                    <select class="form-select" id="playlistTienda" name="id_tienda">
-                                        <option value="">Todas las tiendas</option>
-                                        <!-- Las opciones de tiendas se cargarán dinámicamente -->
-                                    </select>
-                                </div>
-                            </div>
+                    <div class="col-md-2 mb-2">
+                        <label for="tienda_filter" class="form-label">Tiendas:</label>
+                        <select class="form-select" id="tienda_filter" name="tienda_filter">
+                            <option value="">Todas las tiendas</option>
+                            <option value="SDQ">SDQ</option>
+                            <option value="STI">STI</option>
+                            <option value="PUJ">PUJ</option>
+                            <option value="LRM">LRM</option>
+                            <option value="BAY">BAY</option>
+                            <option value="PON">PON</option>
+                            <option value="CAR">CAR</option>
+                            <option value="ESC">ESC</option>
+                            <option value="PMI">PMI</option>
+                            <option value="IBZ">IBZ</option>
+                            <option value="MAH">MAH</option>                            
+                        </select>
+                    </div>
                     <!-- Contador de resultados -->
                     <div class="col-md-2 mb-3">
                         <label class="form-label">Resultados:</label>
