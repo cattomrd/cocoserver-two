@@ -1,10 +1,10 @@
 /**
- * DEVICE ASSIGNMENT MODAL - VERSIÓN CORREGIDA Y SIMPLIFICADA
+ * DEVICE ASSIGNMENT MODAL - VERSIÓN DEBUG PARA IPs
  * 
- * Esta versión es más robusta y tiene mejor manejo de errores
+ * Esta versión incluye logs detallados para diagnosticar por qué las IPs no se muestran
  */
 
-console.log('🚀 Inicializando device-assignment-modal.js (versión corregida)...');
+console.log('🚀 Inicializando device-assignment-modal.js (versión DEBUG)...');
 
 // ==========================================
 // VARIABLES GLOBALES
@@ -16,6 +16,7 @@ let pendingChanges = new Set();
 let filteredDevices = [];
 let searchTerm = '';
 let statusFilter = 'all';
+let storeFilter = 'all';  // 🆕 Nuevo filtro de tienda
 let isLoading = false;
 let initialized = false;
 
@@ -89,6 +90,12 @@ async function handleModalOpen() {
         // Cargar datos
         await loadModalData(playlistId);
         
+        // DEBUG: Mostrar estadísticas de carga
+        console.log('📊 ESTADÍSTICAS DE CARGA:');
+        console.log(`  - Total dispositivos cargados: ${allDevices.length}`);
+        console.log(`  - Dispositivos asignados: ${assignedDeviceIds.length}`);
+        console.log(`  - Dispositivos sin asignar: ${allDevices.length - assignedDeviceIds.length}`);
+        
         // Mostrar contenido
         showLoading(false);
         applyFiltersAndRender();
@@ -103,19 +110,25 @@ async function handleModalOpen() {
 }
 
 /**
- * Cargar datos del modal
+ * Cargar datos del modal con DEBUG
  */
 async function loadModalData(playlistId) {
     console.log('📥 Cargando datos para playlist:', playlistId);
     
     try {
         // Cargar dispositivos (con fallback si falla la API)
-        await loadAllDevicesWithFallback();
+        await loadAllDevicesWithDebug();
         
         // Cargar asignaciones (con fallback si falla)
         await loadAssignedDevicesWithFallback(playlistId);
         
         console.log(`✅ Datos cargados: ${allDevices.length} dispositivos, ${assignedDeviceIds.length} asignados`);
+        
+        // 🔍 DEBUG: Analizar los primeros dispositivos
+        debugDeviceStructure();
+        
+        // 🆕 Cargar filtro de tiendas después de cargar dispositivos
+        loadStoreFilter();
         
     } catch (error) {
         console.error('❌ Error cargando datos:', error);
@@ -124,14 +137,65 @@ async function loadModalData(playlistId) {
 }
 
 /**
- * Cargar dispositivos con fallback
+ * 🔍 DEBUG: Analizar estructura de dispositivos
  */
-async function loadAllDevicesWithFallback() {
-    console.log('📥 Cargando dispositivos...');
+function debugDeviceStructure() {
+    console.log('🔍 === DEBUG: ANÁLISIS DE ESTRUCTURA DE DISPOSITIVOS ===');
+    
+    if (allDevices.length === 0) {
+        console.log('⚠️ No hay dispositivos para analizar');
+        return;
+    }
+    
+    // Analizar los primeros 3 dispositivos
+    const sampleDevices = allDevices.slice(0, 3);
+    
+    sampleDevices.forEach((device, index) => {
+        console.log(`\n🔍 DISPOSITIVO ${index + 1}:`);
+        console.log('Device completo:', device);
+        
+        // Verificar campos específicos
+        console.log('📊 Campos de IP:');
+        console.log('  - ip_address_lan:', device.ip_address_lan, '(tipo:', typeof device.ip_address_lan, ')');
+        console.log('  - ip_address_wifi:', device.ip_address_wifi, '(tipo:', typeof device.ip_address_wifi, ')');
+        
+        // Verificar otros campos similares
+        console.log('📊 Otros campos de IP (por si hay variaciones):');
+        console.log('  - ip_lan:', device.ip_lan);
+        console.log('  - ip_wlan:', device.ip_wlan);
+        console.log('  - ip_address:', device.ip_address);
+        console.log('  - wifi_ip:', device.wifi_ip);
+        
+        // Verificar todos los campos que empiezan con 'ip'
+        const ipFields = Object.keys(device).filter(key => key.toLowerCase().includes('ip'));
+        console.log('📊 Todos los campos que contienen "ip":', ipFields);
+        ipFields.forEach(field => {
+            console.log(`  - ${field}:`, device[field]);
+        });
+        
+        console.log('📊 Otros campos importantes:');
+        console.log('  - device_id:', device.device_id);
+        console.log('  - name:', device.name);
+        console.log('  - is_active:', device.is_active);
+        console.log('  - tienda:', device.tienda);
+        console.log('  - location:', device.location);
+    });
+    
+    console.log('\n🔍 === FIN DEBUG ===');
+}
+
+/**
+ * Cargar dispositivos con DEBUG detallado - SIN LÍMITE
+ */
+async function loadAllDevicesWithDebug() {
+    console.log('📥 Cargando TODOS los dispositivos desde API...');
     
     try {
-        // Intentar cargar desde API
-        const response = await fetch('/api/devices/', {
+        // Intentar cargar desde API con límite muy alto para obtener todos
+        const apiUrl = '/api/devices/?limit=999999';
+        console.log('🌐 Haciendo petición a:', apiUrl);
+        
+        const response = await fetch(apiUrl, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -139,21 +203,115 @@ async function loadAllDevicesWithFallback() {
             }
         });
         
+        console.log('📡 Respuesta de API:', {
+            status: response.status,
+            statusText: response.statusText,
+            headers: {
+                'content-type': response.headers.get('content-type')
+            }
+        });
+        
         if (response.ok) {
             const data = await response.json();
-            allDevices = Array.isArray(data) ? data : [];
-            console.log(`✅ ${allDevices.length} dispositivos cargados desde API`);
+            console.log('📦 Datos recibidos de API:', data);
+            console.log('📦 Tipo de datos:', typeof data, 'Es array:', Array.isArray(data));
+            
+            if (Array.isArray(data)) {
+                allDevices = data;
+                console.log(`✅ ${allDevices.length} dispositivos cargados desde API`);
+                
+                // Debug del primer dispositivo
+                if (allDevices.length > 0) {
+                    console.log('🔍 Primer dispositivo recibido:', allDevices[0]);
+                }
+            } else {
+                console.warn('⚠️ Los datos no son un array:', data);
+                // Si data tiene una propiedad que contiene los dispositivos
+                if (data.devices && Array.isArray(data.devices)) {
+                    allDevices = data.devices;
+                    console.log(`✅ ${allDevices.length} dispositivos cargados desde data.devices`);
+                } else if (data.results && Array.isArray(data.results)) {
+                    allDevices = data.results;
+                    console.log(`✅ ${allDevices.length} dispositivos cargados desde data.results`);
+                } else {
+                    throw new Error('Estructura de datos desconocida');
+                }
+            }
         } else {
             throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
         
     } catch (error) {
-        console.warn('⚠️ API no disponible, usando datos de fallback:', error);
+        console.warn('⚠️ API no disponible o error, probando método alternativo...', error);
         
-        // Fallback: usar datos de ejemplo para desarrollo
-        allDevices = createFallbackDevices();
+        // Método alternativo: Intentar sin límite explícito
+        try {
+            console.log('🔄 Probando petición sin parámetros de límite...');
+            const response2 = await fetch('/api/devices/', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response2.ok) {
+                const data = await response2.json();
+                if (Array.isArray(data)) {
+                    allDevices = data;
+                    console.log(`✅ ${allDevices.length} dispositivos cargados con método alternativo`);
+                    return;
+                }
+            }
+        } catch (error2) {
+            console.warn('⚠️ Método alternativo también falló:', error2);
+        }
+        
+        // Fallback final: usar datos de ejemplo para desarrollo
+        allDevices = createDebugFallbackDevices();
         console.log(`🔄 ${allDevices.length} dispositivos de fallback creados`);
     }
+}
+
+/**
+ * Crear dispositivos de fallback con DEBUG (más de 100 para probar contadores)
+ */
+function createDebugFallbackDevices() {
+    console.log('🔄 Creando dispositivos de fallback para debug (>100 dispositivos)...');
+    
+    const fallbackDevices = [];
+    
+    // Crear 150 dispositivos para probar que funciona con más de 100
+    for (let i = 1; i <= 150; i++) {
+        // 🆕 Crear variedad de tiendas para probar el filtro
+        const tiendas = [
+            'Tienda Centro', 'Tienda Norte', 'Tienda Sur', 'Tienda Este', 'Tienda Oeste',
+            'Sucursal Principal', 'Sucursal Mall', 'Sucursal Plaza', 'Tienda Express',
+            'Outlet Centro', 'Megatienda', 'Tienda Compacta', 'Supermercado Central',
+            'Farmacia Norte', 'Librería Sur'
+        ];
+        
+        const device = {
+            device_id: `DEV_${i.toString().padStart(3, '0')}`,
+            id: `DEV_${i.toString().padStart(3, '0')}`,
+            name: `Dispositivo Debug ${i}`,
+            device_name: `Dispositivo Debug ${i}`,
+            is_active: Math.random() > 0.3,
+            tienda: tiendas[i % tiendas.length],  // 🆕 Usar variedad de tiendas
+            location: `Ubicación ${i}`,
+            ip_address_lan: `192.168.${Math.floor(i/254) + 1}.${(i % 254) + 1}`,
+            ip_address_wifi: `10.0.${Math.floor(i/254) + 1}.${(i % 254) + 1}`,
+            mac_address: `00:1B:44:11:3A:${(i % 256).toString(16).padStart(2, '0').toUpperCase()}`,
+            last_seen: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
+            status: Math.random() > 0.5 ? 'online' : 'offline'
+        };
+        
+        fallbackDevices.push(device);
+    }
+    
+    console.log('🔍 Dispositivo de fallback de ejemplo:', fallbackDevices[0]);
+    console.log(`🔄 ${fallbackDevices.length} dispositivos de fallback creados para desarrollo`);
+    return fallbackDevices;
 }
 
 /**
@@ -190,35 +348,274 @@ async function loadAssignedDevicesWithFallback(playlistId) {
 }
 
 /**
- * Crear dispositivos de fallback para desarrollo
+ * 🆕 Cargar filtro de tiendas desde la API híbrida
  */
-function createFallbackDevices() {
-    const fallbackDevices = [];
+async function loadStoreFilter() {
+    console.log('🏪 Cargando filtro de tiendas desde API...');
     
-    for (let i = 1; i <= 20; i++) {
-        fallbackDevices.push({
-            device_id: `DEV_${i.toString().padStart(3, '0')}`,
-            id: `DEV_${i.toString().padStart(3, '0')}`,
-            name: `Dispositivo ${i}`,
-            device_name: `Dispositivo ${i}`,
-            is_active: Math.random() > 0.3,
-            tienda: `Tienda ${Math.ceil(i / 4)}`,
-            location: `Ubicación ${i}`,
-            ip_address_lan: `192.168.1.${100 + i}`,
-            ip_address_wifi: `10.0.0.${100 + i}`,
-            mac_address: `00:1B:44:11:3A:${i.toString(16).padStart(2, '0').toUpperCase()}`,
-            last_seen: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
-            status: Math.random() > 0.5 ? 'online' : 'offline'
-        });
+    const storeFilterSelect = document.getElementById('deviceStoreFilter');
+    if (!storeFilterSelect) {
+        console.error('❌ No se encontró el select de tiendas #deviceStoreFilter');
+        return;
     }
     
-    console.log('🔄 Dispositivos de fallback creados para desarrollo');
-    return fallbackDevices;
+    try {
+        // 🎯 USAR ENDPOINT HÍBRIDO que maneja tabla vacía automáticamente
+        console.log('🌐 Solicitando tiendas desde /api/tiendas/hybrid');
+        const response = await fetch('/api/tiendas/hybrid', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const tiendas = await response.json();
+            console.log('📦 Tiendas recibidas de API híbrida:', tiendas);
+            
+            if (Array.isArray(tiendas) && tiendas.length > 0) {
+                // Limpiar opciones existentes (excepto "Todas las tiendas")
+                storeFilterSelect.innerHTML = '<option value="all" selected>Todas las tiendas</option>';
+                
+                // Ordenar tiendas alfabéticamente por nombre
+                const sortedTiendas = tiendas.sort((a, b) => {
+                    const nameA = (a.tienda || '').toLowerCase();
+                    const nameB = (b.tienda || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+                
+                // Agregar opciones de tiendas
+                sortedTiendas.forEach(tienda => {
+                    if (tienda.tienda && tienda.tienda.trim() !== '') {
+                        const option = document.createElement('option');
+                        option.value = tienda.tienda.trim();
+                        
+                        // Mostrar nombre y ubicación si está disponible
+                        const displayText = tienda.location && tienda.location.trim() !== '' 
+                            ? `${tienda.tienda} (${tienda.location})`
+                            : tienda.tienda;
+                        
+                        option.textContent = displayText;
+                        option.setAttribute('data-tienda-id', tienda.id);
+                        storeFilterSelect.appendChild(option);
+                    }
+                });
+                
+                console.log(`✅ Filtro de tiendas cargado desde API híbrida con ${sortedTiendas.length} opciones`);
+                
+                // 🔍 Verificar si las tiendas tienen ID temporal (extraídas de dispositivos)
+                const hasTemporaryIds = sortedTiendas.some(t => typeof t.id === 'number' && t.id <= sortedTiendas.length);
+                if (hasTemporaryIds && !tiendas[0]?.location) {
+                    console.warn('⚠️ Tiendas extraídas de dispositivos (tabla tiendas vacía). Considera ejecutar sincronización.');
+                    showTiendasSyncWarning();
+                }
+                
+            } else {
+                console.warn('⚠️ No se recibieron tiendas del endpoint híbrido, usando método de fallback');
+                loadStoreFilterFromDevices();
+            }
+            
+        } else {
+            console.warn(`⚠️ Error en API híbrida (${response.status}), probando endpoint estándar`);
+            await loadStoreFilterFromStandardAPI();
+        }
+        
+    } catch (error) {
+        console.warn('⚠️ Error cargando tiendas desde API híbrida, probando endpoint estándar:', error);
+        await loadStoreFilterFromStandardAPI();
+    }
 }
 
 /**
- * Obtener ID de playlist
+ * 🔄 Método alternativo: usar endpoint estándar /api/tiendas/
  */
+async function loadStoreFilterFromStandardAPI() {
+    console.log('🔄 Intentando endpoint estándar /api/tiendas/...');
+    
+    try {
+        const response = await fetch('/api/tiendas/', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const tiendas = await response.json();
+            console.log('📦 Tiendas recibidas de API estándar:', tiendas);
+            
+            if (Array.isArray(tiendas) && tiendas.length > 0) {
+                populateStoreDropdown(tiendas);
+                console.log(`✅ Filtro de tiendas cargado desde API estándar con ${tiendas.length} opciones`);
+            } else {
+                console.warn('⚠️ Tabla tiendas está vacía, usando método de fallback');
+                showTiendasSyncWarning();
+                loadStoreFilterFromDevices();
+            }
+        } else {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+    } catch (error) {
+        console.warn('⚠️ Error con API estándar, usando método de fallback:', error);
+        loadStoreFilterFromDevices();
+    }
+}
+
+/**
+ * 🎨 Poblar dropdown con tiendas (función auxiliar)
+ */
+function populateStoreDropdown(tiendas) {
+    const storeFilterSelect = document.getElementById('deviceStoreFilter');
+    if (!storeFilterSelect) return;
+    
+    // Limpiar opciones existentes (excepto "Todas las tiendas")
+    storeFilterSelect.innerHTML = '<option value="all" selected>Todas las tiendas</option>';
+    
+    // Ordenar tiendas alfabéticamente por nombre
+    const sortedTiendas = tiendas.sort((a, b) => {
+        const nameA = (a.tienda || '').toLowerCase();
+        const nameB = (b.tienda || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+    
+    // Agregar opciones de tiendas
+    sortedTiendas.forEach(tienda => {
+        if (tienda.tienda && tienda.tienda.trim() !== '') {
+            const option = document.createElement('option');
+            option.value = tienda.tienda.trim();
+            
+            // Mostrar nombre y ubicación si está disponible
+            const displayText = tienda.location && tienda.location.trim() !== '' 
+                ? `${tienda.tienda} (${tienda.location})`
+                : tienda.tienda;
+            
+            option.textContent = displayText;
+            option.setAttribute('data-tienda-id', tienda.id);
+            storeFilterSelect.appendChild(option);
+        }
+    });
+}
+
+/**
+ * ⚠️ Mostrar advertencia sobre sincronización de tiendas
+ */
+function showTiendasSyncWarning() {
+    console.warn('⚠️ La tabla tiendas parece estar vacía o desactualizada');
+    
+    const alertsContainer = document.getElementById('deviceModalAlerts');
+    if (alertsContainer) {
+        alertsContainer.innerHTML = `
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Tabla de tiendas no sincronizada:</strong> 
+                Las tiendas se están extrayendo de dispositivos. 
+                <a href="#" onclick="syncTiendasFromDevices()" class="alert-link">Sincronizar ahora</a>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    }
+}
+
+/**
+ * 🔄 Sincronizar tiendas desde dispositivos (llamada al endpoint)
+ */
+async function syncTiendasFromDevices() {
+    console.log('🔄 Sincronizando tiendas desde dispositivos...');
+    
+    try {
+        const response = await fetch('/api/tiendas/sync-from-devices', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Sincronización completada:', result);
+            
+            // Mostrar mensaje de éxito
+            const alertsContainer = document.getElementById('deviceModalAlerts');
+            if (alertsContainer) {
+                alertsContainer.innerHTML = `
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Sincronización completada:</strong> 
+                        ${result.created} tiendas creadas, ${result.existing} ya existían.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+            }
+            
+            // Recargar el filtro de tiendas
+            await loadStoreFilter();
+            
+        } else {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error sincronizando tiendas:', error);
+        
+        const alertsContainer = document.getElementById('deviceModalAlerts');
+        if (alertsContainer) {
+            alertsContainer.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong>Error en sincronización:</strong> ${error.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+        }
+    }
+}
+
+/**
+ * 🔄 Método de fallback: cargar tiendas desde dispositivos (método anterior)
+ */
+function loadStoreFilterFromDevices() {
+    console.log('🔄 Cargando filtro de tiendas desde dispositivos (fallback)...');
+    
+    const storeFilterSelect = document.getElementById('deviceStoreFilter');
+    if (!storeFilterSelect) return;
+    
+    try {
+        // Obtener tiendas únicas de todos los dispositivos (método original)
+        const stores = new Set();
+        
+        allDevices.forEach(device => {
+            const tienda = device.tienda || device.store || '';
+            if (tienda && tienda.trim() !== '' && tienda.trim().toLowerCase() !== 'sin tienda') {
+                stores.add(tienda.trim());
+            }
+        });
+        
+        // Convertir a array y ordenar
+        const sortedStores = Array.from(stores).sort();
+        
+        console.log(`🔄 ${sortedStores.length} tiendas extraídas de dispositivos:`, sortedStores);
+        
+        // Limpiar opciones existentes (excepto "Todas las tiendas")
+        storeFilterSelect.innerHTML = '<option value="all" selected>Todas las tiendas</option>';
+        
+        // Agregar opciones de tiendas
+        sortedStores.forEach(store => {
+            const option = document.createElement('option');
+            option.value = store;
+            option.textContent = store;
+            storeFilterSelect.appendChild(option);
+        });
+        
+        console.log(`✅ Filtro de tiendas cargado con método fallback: ${sortedStores.length} opciones`);
+        
+    } catch (error) {
+        console.error('❌ Error en método fallback para cargar tiendas:', error);
+    }
+}
 function getPlaylistId() {
     // Método 1: Input hidden
     const hiddenInput = document.getElementById('playlist-id');
@@ -254,7 +651,7 @@ function getPlaylistId() {
 }
 
 /**
- * Aplicar filtros y renderizar
+ * Aplicar filtros y renderizar con DEBUG
  */
 function applyFiltersAndRender() {
     console.log('🔍 Aplicando filtros...');
@@ -269,8 +666,8 @@ function applyFiltersAndRender() {
                 const deviceId = (device.device_id || device.id || '').toString().toLowerCase();
                 const tienda = (device.tienda || '').toLowerCase();
                 const location = (device.location || '').toLowerCase();
-                const ipLan = (device.ip_lan || '').toLowerCase();
-                const ipWlan = (device.ip_wlan || '').toLowerCase();
+                const ipLan = (device.ip_address_lan || device.ip_lan || '').toLowerCase();
+                const ipWlan = (device.ip_address_wifi || device.ip_wlan || '').toLowerCase();
                 
                 if (!deviceName.includes(searchLower) && 
                     !deviceId.includes(searchLower) &&
@@ -278,6 +675,14 @@ function applyFiltersAndRender() {
                     !location.includes(searchLower) &&
                     !ipLan.includes(searchLower) &&
                     !ipWlan.includes(searchLower)) {
+                    return false;
+                }
+            }
+            
+            // 🆕 Filtro de tienda
+            if (storeFilter !== 'all') {
+                const deviceStore = device.tienda || device.store || '';
+                if (deviceStore.trim() !== storeFilter) {
                     return false;
                 }
             }
@@ -300,8 +705,8 @@ function applyFiltersAndRender() {
         
         console.log(`🔍 ${filteredDevices.length} dispositivos después de filtrar`);
         
-        // Renderizar
-        renderDeviceList();
+        // Renderizar con debug
+        renderDeviceListWithDebug();
         updateCounters();
         updateActionButtons();
         
@@ -312,9 +717,11 @@ function applyFiltersAndRender() {
 }
 
 /**
- * Renderizar lista de dispositivos
+ * Renderizar lista de dispositivos con DEBUG extensivo
  */
-function renderDeviceList() {
+function renderDeviceListWithDebug() {
+    console.log('🎨 Renderizando lista de dispositivos...');
+    
     const devicesList = document.getElementById('availableDevicesList');
     if (!devicesList) {
         console.error('❌ No se encontró #availableDevicesList');
@@ -339,11 +746,64 @@ function renderDeviceList() {
             return;
         }
         
-        const rowsHtml = filteredDevices.map(device => {
+        const rowsHtml = filteredDevices.map((device, index) => {
+            // DEBUG: Log de cada dispositivo al renderizar
+            if (index < 3) { // Solo los primeros 3 para no saturar
+                console.log(`🔍 Renderizando dispositivo ${index + 1}:`, {
+                    device_id: device.device_id,
+                    ip_address_lan: device.ip_address_lan,
+                    ip_address_wifi: device.ip_address_wifi,
+                    name: device.name,
+                    is_active: device.is_active
+                });
+            }
+            
             const deviceId = (device.device_id || device.id || '').toString();
             const isAssigned = assignedDeviceIds.includes(deviceId);
             const isPending = pendingChanges.has(deviceId);
             const willBeAssigned = (isAssigned && !isPending) || (!isAssigned && isPending);
+            
+            // Datos del dispositivo según el orden solicitado - CON DEBUG
+            const deviceIdDisplay = device.device_id || device.id || 'Sin ID';
+            const deviceName = device.name || device.device_name || 'Sin nombre';
+            const isActive = device.is_active || device.active || false;
+            const tienda = device.tienda || device.store || 'Sin tienda';
+            const location = device.location || device.ubicacion || 'Sin ubicación';
+            
+            // 🔍 DIAGNÓSTICO DE IPs - CON MÚLTIPLES FALLBACKS
+            let ipLan = 'N/A';
+            let ipWlan = 'N/A';
+            
+            // Intentar múltiples campos para IP LAN
+            if (device.ip_address_lan) {
+                ipLan = device.ip_address_lan;
+            } else if (device.ip_lan) {
+                ipLan = device.ip_lan;
+            } else if (device.ip_address) {
+                ipLan = device.ip_address;
+            } else if (device.ipAddressLan) {
+                ipLan = device.ipAddressLan;
+            }
+            
+            // Intentar múltiples campos para IP WiFi
+            if (device.ip_address_wifi) {
+                ipWlan = device.ip_address_wifi;
+            } else if (device.ip_wlan) {
+                ipWlan = device.ip_wlan;
+            } else if (device.wifi_ip) {
+                ipWlan = device.wifi_ip;
+            } else if (device.ipAddressWifi) {
+                ipWlan = device.ipAddressWifi;
+            }
+            
+            // DEBUG: Log de las IPs encontradas
+            if (index < 3) {
+                console.log(`🔍 IPs para dispositivo ${deviceId}:`, {
+                    ipLan: ipLan,
+                    ipWlan: ipWlan,
+                    campos_disponibles: Object.keys(device).filter(k => k.toLowerCase().includes('ip'))
+                });
+            }
             
             // Estado
             const isOnline = device.is_active || (device.status && device.status.toLowerCase() === 'online');
@@ -374,28 +834,28 @@ function renderDeviceList() {
                         </div>
                     </td>
                     <td class="align-middle">
-                        <small class="text-muted">${device.device_id || device.id || 'N/A'}</small>
+                        <small class="text-muted">${deviceIdDisplay}</small>
                     </td>
                     <td class="align-middle">
-                        <strong>${device.name || device.device_name || 'Sin nombre'}</strong>
+                        <strong>${deviceName}</strong>
                     </td>
                     <td class="align-middle">
                         <span class="badge ${statusClass}">${statusText}</span>
                     </td>
-                    <td class="align-middle">${device.tienda || 'N/A'}</td>
-                    <td class="align-middle">${device.location || 'N/A'}</td>
+                    <td class="align-middle">${tienda}</td>
+                    <td class="align-middle">${location}</td>
                     <td class="align-middle">
-                        <small class="text-muted">${device.ip_lan || 'N/A'}</small>
+                        <small class="text-muted ${ipLan === 'N/A' ? 'text-danger' : ''}">${ipLan}</small>
                     </td>
                     <td class="align-middle">
-                        <small class="text-muted">${device.ip_wlan || 'N/A'}</small>
+                        <small class="text-muted ${ipWlan === 'N/A' ? 'text-danger' : ''}">${ipWlan}</small>
                     </td>
                     <td class="align-middle">
                         <small class="text-muted">${formattedLastSeen}</small>
                     </td>
                     <td class="align-middle text-center">
                         <button class="btn btn-sm btn-outline-info" 
-                                onclick="viewDeviceDetails('${deviceId}')"
+                                onclick="viewDeviceDetailsDebug('${deviceId}')"
                                 title="Ver detalles">
                             <i class="fas fa-info-circle"></i>
                         </button>
@@ -406,6 +866,21 @@ function renderDeviceList() {
         
         devicesList.innerHTML = rowsHtml;
         console.log(`✅ ${filteredDevices.length} dispositivos renderizados`);
+        
+        // Debug final de IPs
+        const ipLanElements = devicesList.querySelectorAll('td:nth-child(7)');
+        const ipWlanElements = devicesList.querySelectorAll('td:nth-child(8)');
+        
+        console.log('🔍 IPs renderizadas en la tabla:');
+        console.log('  - Columnas IP LAN encontradas:', ipLanElements.length);
+        console.log('  - Columnas IP WLAN encontradas:', ipWlanElements.length);
+        
+        if (ipLanElements.length > 0) {
+            console.log('  - Primera IP LAN renderizada:', ipLanElements[0].textContent.trim());
+        }
+        if (ipWlanElements.length > 0) {
+            console.log('  - Primera IP WLAN renderizada:', ipWlanElements[0].textContent.trim());
+        }
         
     } catch (error) {
         console.error('❌ Error renderizando dispositivos:', error);
@@ -428,6 +903,7 @@ function setupFilterListeners() {
     if (searchInput) {
         searchInput.addEventListener('input', function(e) {
             searchTerm = e.target.value.trim();
+            console.log('🔍 Búsqueda actualizada:', searchTerm);
             applyFiltersAndRender();
         });
     }
@@ -443,10 +919,21 @@ function setupFilterListeners() {
     }
     
     // Filtro de estado
-    const statusFilter = document.getElementById('deviceStatusFilter');
-    if (statusFilter) {
-        statusFilter.addEventListener('change', function(e) {
-            window.statusFilter = e.target.value;
+    const statusFilterSelect = document.getElementById('deviceStatusFilter');
+    if (statusFilterSelect) {
+        statusFilterSelect.addEventListener('change', function(e) {
+            statusFilter = e.target.value;
+            console.log('🔍 Filtro de estado actualizado:', statusFilter);
+            applyFiltersAndRender();
+        });
+    }
+    
+    // 🆕 Filtro de tienda
+    const storeFilterSelect = document.getElementById('deviceStoreFilter');
+    if (storeFilterSelect) {
+        storeFilterSelect.addEventListener('change', function(e) {
+            storeFilter = e.target.value;
+            console.log('🏪 Filtro de tienda actualizado:', storeFilter);
             applyFiltersAndRender();
         });
     }
@@ -484,26 +971,61 @@ function setupActionButtons() {
 }
 
 /**
- * Manejar cambio en checkbox
+ * Ver detalles de dispositivo con DEBUG
  */
-function handleDeviceCheckboxChange(deviceId) {
-    console.log('🔄 Cambio en dispositivo:', deviceId);
+function viewDeviceDetailsDebug(deviceId) {
+    const device = allDevices.find(d => (d.device_id || d.id || '').toString() === deviceId);
     
+    if (!device) {
+        alert('No se encontró el dispositivo');
+        return;
+    }
+    
+    console.log('🔍 Detalles completos del dispositivo:', device);
+    
+    // Mostrar TODOS los campos que contienen 'ip'
+    const ipFields = Object.keys(device).filter(key => key.toLowerCase().includes('ip'));
+    
+    let ipFieldsInfo = ipFields.map(field => `  • ${field}: ${device[field]}`).join('\n');
+    if (ipFieldsInfo === '') {
+        ipFieldsInfo = '  • No se encontraron campos de IP';
+    }
+    
+    const info = `
+DIAGNÓSTICO COMPLETO DEL DISPOSITIVO
+
+Información Básica:
+• ID: ${device.device_id || device.id || 'N/A'}
+• Nombre: ${device.name || device.device_name || 'N/A'}
+• Estado: ${device.is_active ? 'Activo' : 'Inactivo'}
+• Tienda: ${device.tienda || 'N/A'}
+• Ubicación: ${device.location || 'N/A'}
+
+Campos de IP encontrados:
+${ipFieldsInfo}
+
+Otros campos relevantes:
+• MAC: ${device.mac_address || 'N/A'}
+• Última conexión: ${device.last_seen || 'N/A'}
+• Status: ${device.status || 'N/A'}
+
+TOTAL DE CAMPOS: ${Object.keys(device).length}
+    `;
+    
+    alert(info);
+}
+
+// Resto de funciones (simplificadas para enfocarse en el debug)
+function handleDeviceCheckboxChange(deviceId) {
     if (pendingChanges.has(deviceId)) {
         pendingChanges.delete(deviceId);
     } else {
         pendingChanges.add(deviceId);
     }
-    
     applyFiltersAndRender();
 }
 
-/**
- * Seleccionar todos los dispositivos
- */
 function selectAllDevices() {
-    console.log('🔄 Seleccionando todos...');
-    
     filteredDevices.forEach(device => {
         const deviceId = (device.device_id || device.id || '').toString();
         const isCurrentlyAssigned = assignedDeviceIds.includes(deviceId);
@@ -514,16 +1036,10 @@ function selectAllDevices() {
             pendingChanges.delete(deviceId);
         }
     });
-    
     applyFiltersAndRender();
 }
 
-/**
- * Deseleccionar todos los dispositivos
- */
 function deselectAllDevices() {
-    console.log('🔄 Deseleccionando todos...');
-    
     filteredDevices.forEach(device => {
         const deviceId = (device.device_id || device.id || '').toString();
         const isCurrentlyAssigned = assignedDeviceIds.includes(deviceId);
@@ -534,15 +1050,11 @@ function deselectAllDevices() {
             pendingChanges.delete(deviceId);
         }
     });
-    
     applyFiltersAndRender();
 }
 
-/**
- * Limpiar todos los filtros
- */
 function clearAllFilters() {
-    console.log('🔄 Limpiando filtros...');
+    console.log('🔄 Limpiando todos los filtros...');
     
     const searchInput = document.getElementById('deviceSearchInput');
     if (searchInput) searchInput.value = '';
@@ -550,15 +1062,17 @@ function clearAllFilters() {
     const statusFilterSelect = document.getElementById('deviceStatusFilter');
     if (statusFilterSelect) statusFilterSelect.value = 'all';
     
+    // 🆕 Limpiar filtro de tienda
+    const storeFilterSelect = document.getElementById('deviceStoreFilter');
+    if (storeFilterSelect) storeFilterSelect.value = 'all';
+    
     searchTerm = '';
     statusFilter = 'all';
+    storeFilter = 'all';  // 🆕 Resetear filtro de tienda
     
     applyFiltersAndRender();
 }
 
-/**
- * Guardar cambios
- */
 async function saveDeviceAssignments() {
     if (pendingChanges.size === 0) {
         console.log('ℹ️ No hay cambios para guardar');
@@ -594,39 +1108,10 @@ async function saveDeviceAssignments() {
     }
 }
 
-/**
- * Ver detalles de dispositivo
- */
-function viewDeviceDetails(deviceId) {
-    const device = allDevices.find(d => (d.device_id || d.id || '').toString() === deviceId);
-    
-    if (!device) {
-        alert('No se encontró el dispositivo');
-        return;
-    }
-    
-    const info = `
-Detalles del dispositivo:
-• ID: ${device.device_id || device.id || 'N/A'}
-• Nombre: ${device.name || device.device_name || 'N/A'}
-• Estado: ${device.is_active ? 'Activo' : 'Inactivo'}
-• Tienda: ${device.tienda || 'N/A'}
-• Ubicación: ${device.location || 'N/A'}
-• IP LAN: ${device.ip_address_lan || device.ip_lan || 'N/A'}
-• IP WLAN: ${device.ip_address_wifi || device.ip_wlan || 'N/A'}
-• MAC: ${device.mac_address || 'N/A'}
-    `;
-    
-    alert(info);
-}
-
 // ==========================================
 // FUNCIONES DE UTILIDAD
 // ==========================================
 
-/**
- * Mostrar/ocultar loading
- */
 function showLoading(show) {
     const loading = document.getElementById('deviceModalLoading');
     const content = document.getElementById('deviceModalContent');
@@ -635,45 +1120,43 @@ function showLoading(show) {
     if (content) content.style.display = show ? 'none' : 'block';
 }
 
-/**
- * Resetear estado del modal
- */
 function resetModalState() {
     pendingChanges.clear();
     searchTerm = '';
     statusFilter = 'all';
+    storeFilter = 'all';  // 🆕 Resetear filtro de tienda
     
     const alertsContainer = document.getElementById('deviceModalAlerts');
     if (alertsContainer) alertsContainer.innerHTML = '';
 }
 
-/**
- * Manejar cierre del modal
- */
 function handleModalClose() {
     resetModalState();
 }
 
-/**
- * Actualizar contadores
- */
 function updateCounters() {
     const counter = document.getElementById('deviceCounter');
     const pagination = document.getElementById('devicesPaginationInfo');
     
+    const selectedCount = getSelectedCount();
+    const filteredCount = filteredDevices.length;
+    const totalCount = allDevices.length;
+    
+    console.log('📊 Actualizando contadores:', {
+        seleccionados: selectedCount,
+        filtrados: filteredCount,
+        total: totalCount
+    });
+    
     if (counter) {
-        const selected = getSelectedCount();
-        counter.textContent = `${selected} seleccionados de ${filteredDevices.length} dispositivos`;
+        counter.textContent = `${selectedCount} seleccionados de ${filteredCount} dispositivos`;
     }
     
     if (pagination) {
-        pagination.textContent = `Mostrando ${filteredDevices.length} de ${allDevices.length} dispositivos totales`;
+        pagination.textContent = `Mostrando ${filteredCount} de ${totalCount} dispositivos totales`;
     }
 }
 
-/**
- * Obtener número de seleccionados
- */
 function getSelectedCount() {
     return filteredDevices.reduce((count, device) => {
         const deviceId = (device.device_id || device.id || '').toString();
@@ -685,9 +1168,6 @@ function getSelectedCount() {
     }, 0);
 }
 
-/**
- * Actualizar botones
- */
 function updateActionButtons() {
     const saveButton = document.getElementById('saveDeviceAssignments');
     if (saveButton) {
@@ -699,9 +1179,6 @@ function updateActionButtons() {
     }
 }
 
-/**
- * Mostrar error en modal
- */
 function showModalError(title, message) {
     console.error(`❌ ${title}: ${message}`);
     
@@ -716,9 +1193,6 @@ function showModalError(title, message) {
     }
 }
 
-/**
- * Mostrar mensaje de éxito
- */
 function showSuccessMessage(message) {
     const alertsContainer = document.getElementById('deviceModalAlerts');
     if (alertsContainer) {
@@ -731,9 +1205,6 @@ function showSuccessMessage(message) {
     }
 }
 
-/**
- * Mostrar error en lista
- */
 function showDevicesError(message) {
     const devicesList = document.getElementById('availableDevicesList');
     if (devicesList) {
@@ -757,12 +1228,11 @@ function showDevicesError(message) {
 // EXPOSICIÓN GLOBAL
 // ==========================================
 
-// Exponer funciones necesarias
 window.handleDeviceCheckboxChange = handleDeviceCheckboxChange;
 window.selectAllDevices = selectAllDevices;
 window.deselectAllDevices = deselectAllDevices;
 window.clearAllFilters = clearAllFilters;
 window.saveDeviceAssignments = saveDeviceAssignments;
-window.viewDeviceDetails = viewDeviceDetails;
+window.viewDeviceDetailsDebug = viewDeviceDetailsDebug;
 
-console.log('✅ Device assignment modal (versión corregida) cargado');
+console.log('✅ Device assignment modal (versión DEBUG) cargado');

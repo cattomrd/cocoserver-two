@@ -210,7 +210,7 @@ async def auth_middleware(request: Request, call_next):
         "/api/devices",
         "/api/raspberry/",
         "/api/videos"
-        "api/tiendas/"
+        "/api/tiendas/"
     ]
     
     try:
